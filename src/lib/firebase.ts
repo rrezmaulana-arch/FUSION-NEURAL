@@ -3,13 +3,13 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
-  authDomain: "fusion-neural.firebaseapp.com",
-  projectId: "fusion-neural",
-  storageBucket: "fusion-neural.firebasestorage.app",
-  messagingSenderId: "916787468816",
-  appId: "1:916787468816:web:7532546cc12427d1c20895",
-  measurementId: "G-H1X8KLH426"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
