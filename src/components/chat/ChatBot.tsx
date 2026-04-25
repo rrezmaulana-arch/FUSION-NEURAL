@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import Groq from "groq-sdk";
-import { Brain, Send, X, MessageSquare, Bot, Sparkles, Activity } from "lucide-react";
+import { Brain, Send, X, Sparkles, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Message {
