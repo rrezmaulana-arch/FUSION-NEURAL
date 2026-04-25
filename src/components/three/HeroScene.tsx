@@ -1,6 +1,6 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Float, Sparkles, MeshDistortMaterial } from '@react-three/drei';
-import { useRef, Suspense, useMemo } from 'react';
+import { useRef, Suspense, useState } from 'react';
 import * as THREE from 'three';
 
 /* ─── Core Pulsing Engine Sphere ─────────────────────── */
@@ -143,7 +143,7 @@ function NeuralCore() {
 function AmbientParticles() {
   const count = 150;
 
-  const { positions, colors } = useMemo(() => {
+  const [{ positions, colors }] = useState(() => {
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const emerald = new THREE.Color('#10B981');
@@ -158,7 +158,7 @@ function AmbientParticles() {
       colors[i * 3 + 2] = c.b;
     }
     return { positions, colors };
-  }, []);
+  });
 
   const ref = useRef<THREE.Points>(null);
   useFrame(({ clock }) => {

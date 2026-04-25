@@ -10,10 +10,12 @@ import TechStackSection from '../sections/TechStackSection';
 import DevicesSection from '../sections/DevicesSection';
 import DevelopersSection from '../sections/DevelopersSection';
 import CTASection from '../sections/CTASection';
+import ChatBot from '../components/chat/ChatBot';
 
 export default function LandingPage() {
   return (
     <div className="relative">
+      <ChatBot />
       <GlobalScrollOrb />
       <MicrochipCursor />
       <NavBar />

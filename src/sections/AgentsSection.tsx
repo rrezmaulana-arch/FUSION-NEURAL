@@ -45,7 +45,7 @@ function AgentCard({ agent, index, inView, onClick }: AgentCardProps) {
       transition={{ duration: 0.7, delay: index * 0.15, ease: [0.22, 1, 0.36, 1] }}
       onClick={onClick}
       data-cursor
-      className="group relative rounded-3xl p-7 cursor-pointer overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl bg-white"
+      className="group relative rounded-3xl p-7 cursor-pointer overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl bg-white w-full flex flex-col"
       style={{
         border: `1px solid ${agent.color}30`,
         boxShadow: `0 4px 32px ${agent.glowColor}10`,
@@ -62,7 +62,7 @@ function AgentCard({ agent, index, inView, onClick }: AgentCardProps) {
         <div className="flex items-center gap-3">
           {/* Lucide Icon */}
           <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md shrink-0"
             style={{ background: `${agent.color}15`, color: agent.color }}
           >
             {agentIcons[agent.id] || <BrainCircuit size={24} />}
@@ -74,30 +74,30 @@ function AgentCard({ agent, index, inView, onClick }: AgentCardProps) {
           </div>
         </div>
         <div
-          className="px-3 py-1 rounded-full text-xs font-inter font-medium"
+          className="px-3 py-1 rounded-full text-xs font-inter font-medium shrink-0 ml-2"
           style={{ background: `${agent.color}10`, color: agent.color }}
         >
           {agent.role}
         </div>
       </div>
 
-      {/* Description */}
+      {/* Description - Hapus truncate & line-clamp agar tampil utuh */}
       <p className="text-sm text-fn-navy/60 font-inter leading-relaxed mb-6 relative z-10">
         {agent.description}
       </p>
 
-      {/* Capabilities */}
-      <div className="flex flex-col gap-2 mb-6 relative z-10">
+      {/* Capabilities - Tampil utuh walau panjang */}
+      <div className="flex flex-col gap-2 mb-6 relative z-10 flex-1">
         {agent.capabilities.map((cap, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: agent.color }} />
-            <span className="text-xs text-fn-navy/70 font-inter">{cap}</span>
+          <div key={i} className="flex items-start gap-2">
+            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: agent.color }} />
+            <span className="text-xs text-fn-navy/70 font-inter leading-relaxed">{cap}</span>
           </div>
         ))}
       </div>
 
       {/* Stat bars */}
-      <div className="flex flex-col gap-2.5 relative z-10">
+      <div className="flex flex-col gap-2.5 relative z-10 mt-auto">
         <StatBar label="Autonomy" value={agent.stats.autonomy} color={agent.color} />
         <StatBar label="Coverage" value={agent.stats.coverage} color={agent.color} />
         <StatBar label="Efficiency" value={agent.stats.efficiency} color={agent.color} />
@@ -149,15 +149,19 @@ export default function AgentsSection() {
         </div>
 
         {/* Cards Grid */}
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="flex sm:grid overflow-x-auto sm:overflow-visible sm:grid-cols-2 xl:grid-cols-4 gap-5 pb-8 pt-4 -my-4 -mx-6 px-6 sm:mx-0 sm:px-0 sm:pb-0 sm:pt-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] items-stretch">
           {AGENTS.map((agent, i) => (
-            <AgentCard
-              key={agent.id}
-              agent={agent}
-              index={i}
-              inView={inView}
-              onClick={() => setActiveIdx(activeIdx === i ? null : i)}
-            />
+            <div 
+              key={agent.id} 
+              className="w-[85vw] sm:w-auto flex-shrink-0 snap-center flex"
+            >
+              <AgentCard
+                agent={agent}
+                index={i}
+                inView={inView}
+                onClick={() => setActiveIdx(activeIdx === i ? null : i)}
+              />
+            </div>
           ))}
         </div>
 

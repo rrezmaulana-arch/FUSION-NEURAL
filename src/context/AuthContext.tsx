@@ -14,6 +14,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 // Custom hook untuk memudahkan pemanggilan context di komponen lain
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,7 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // 2. Arahkan langsung ke Landing Page (ganti '/' jika path landing page Anda berbeda)
       // Menggunakan window.location.href sangat aman di sini karena akan me-reset seluruh state aplikasi
-      window.location.href = '/'; 
+      // 2. Arahkan langsung ke Landing Page dan replace history agar tidak bisa back
+      window.location.replace('/'); 
     } catch (error) {
       console.error("Gagal melakukan logout:", error);
     }

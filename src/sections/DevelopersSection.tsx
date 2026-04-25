@@ -2,7 +2,21 @@ import { useRef, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 
-function GachaCard({ m, offset, isActive, onClick, isDark }: any) {
+interface GachaCardProps {
+  m: {
+    name: string;
+    color: string;
+    image: string;
+    jobdesk: string[];
+    instagram: string;
+  };
+  offset: number;
+  isActive: boolean;
+  onClick: () => void;
+  isDark: boolean;
+}
+
+function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
   const isRevealed = isActive;
 
   return (
@@ -126,12 +140,12 @@ function TeamCarousel({ isDark }: { isDark: boolean }) {
   const touchX = useRef(0);
   const touchY = useRef(0);
 
-  const onTouchStart = (e: any) => { 
+  const onTouchStart = (e: React.TouchEvent) => { 
       touchX.current = e.touches[0].clientX; 
       touchY.current = e.touches[0].clientY; 
   };
   
-  const onTouchEnd = (e: any) => {
+  const onTouchEnd = (e: React.TouchEvent) => {
     const dx = touchX.current - e.changedTouches[0].clientX;
     const dy = touchY.current - e.changedTouches[0].clientY;
     
@@ -209,7 +223,7 @@ export default function DevelopersSection() {
             transition={{ duration: 0.5 }}
             className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-slate-500 mb-4 px-4 py-1.5"
           >
-            The Minds Behind NexusFlow
+            The Minds Behind FusionNeural
           </motion.span>
           <motion.h2
             initial={{ opacity: 0, y: 30 }}

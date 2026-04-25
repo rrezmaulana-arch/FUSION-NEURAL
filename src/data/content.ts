@@ -125,7 +125,7 @@ export const TRADITIONAL_VS_OPC = {
     ],
   },
   opc: {
-    label: 'OPC NexusFlow',
+    label: 'OPC FusionNeural',
     items: [
       { text: 'Precision Capital Efficiency' },
       { text: 'Real-Time AI Analysis' },

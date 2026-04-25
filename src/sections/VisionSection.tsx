@@ -19,7 +19,7 @@ export default function VisionSection() {
       <div ref={ref} className="relative max-w-6xl mx-auto px-6">
 
         {/* Section Header */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8 md:mb-16">
           <motion.span
             initial={{ opacity: 0, scale: 0.8 }}
             animate={inView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
@@ -46,21 +46,37 @@ export default function VisionSection() {
             transition={{ duration: 0.7, delay: 0.25 }}
             className="mt-6 text-fn-navy/60 font-inter text-lg max-w-2xl mx-auto leading-relaxed"
           >
-            FUSION NEURAL replaces the traditional one-person business hustle with a
+            FusionNeural replaces the traditional one-person business hustle with a
             fully autonomous AI ecosystem — where you set strategy, and your agents
             execute everything else.
           </motion.p>
         </div>
 
-        {/* Comparison Grid */}
-        <div className="grid md:grid-cols-2 gap-8 items-start">
+        {/* PETUNJUK SWIPE KHUSUS MOBILE */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={inView ? { opacity: 1 } : {}}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="md:hidden flex items-center justify-center gap-2 mb-4 text-xs font-inter text-fn-navy/40 uppercase tracking-widest"
+        >
+          <span>Geser untuk melihat</span>
+          <motion.span
+            animate={{ x: [0, 5, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+          >
+            →
+          </motion.span>
+        </motion.div>
+
+        {/* Comparison Grid - Horizontal Scroll di HP, Grid berdampingan di Desktop */}
+        <div className="flex md:grid overflow-x-auto md:overflow-visible md:grid-cols-2 gap-6 pb-8 pt-4 -my-4 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:pt-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] items-stretch">
 
           {/* Traditional Model Card */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
             transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative rounded-3xl p-8 overflow-hidden"
+            className="w-[85vw] md:w-auto flex-shrink-0 snap-center relative rounded-3xl p-8 overflow-hidden flex flex-col"
             style={{
               background: 'rgba(254,242,242,0.8)',
               border: '1px solid rgba(252,165,165,0.4)',
@@ -70,7 +86,7 @@ export default function VisionSection() {
 
             {/* Header */}
             <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
                 <div className="w-4 h-4 rounded-full bg-red-400" />
               </div>
               <div>
@@ -82,7 +98,7 @@ export default function VisionSection() {
             </div>
 
             {/* Items */}
-            <div className="flex flex-col gap-3 relative z-10">
+            <div className="flex flex-col gap-3 relative z-10 flex-1">
               {TRADITIONAL_VS_OPC.traditional.items.map((item, i) => (
                 <motion.div
                   key={i}
@@ -100,12 +116,12 @@ export default function VisionSection() {
             </div>
           </motion.div>
 
-          {/* OPC NexusFlow Card */}
+          {/* OPC FusionNeural Card */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
             transition={{ duration: 0.8, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative rounded-3xl p-8 overflow-hidden"
+            className="w-[85vw] md:w-auto flex-shrink-0 snap-center relative rounded-3xl p-8 overflow-hidden flex flex-col"
             style={{
               background: 'rgba(240,253,248,0.9)',
               border: '1px solid rgba(16,185,129,0.25)',
@@ -119,7 +135,7 @@ export default function VisionSection() {
             {/* Header */}
             <div className="flex items-center gap-3 mb-6 relative z-10">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: 'rgba(16,185,129,0.15)' }}
               >
                 <div className="w-4 h-4 rounded-full bg-fn-emerald" />
@@ -133,7 +149,7 @@ export default function VisionSection() {
             </div>
 
             {/* Items */}
-            <div className="flex flex-col gap-3 relative z-10">
+            <div className="flex flex-col gap-3 relative z-10 flex-1">
               {TRADITIONAL_VS_OPC.opc.items.map((item, i) => (
                 <motion.div
                   key={i}
@@ -150,6 +166,7 @@ export default function VisionSection() {
               ))}
             </div>
           </motion.div>
+
         </div>
 
         {/* Bottom Summary Bar */}
@@ -157,11 +174,11 @@ export default function VisionSection() {
           initial={{ opacity: 0, y: 24 }}
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
           transition={{ duration: 0.7, delay: 0.9 }}
-          className="mt-10 flex flex-wrap items-center justify-center gap-6 px-8 py-5 rounded-2xl glass"
+          className="mt-8 md:mt-10 flex flex-wrap items-center justify-center gap-4 md:gap-6 px-6 md:px-8 py-5 rounded-2xl glass"
         >
-          <span className="text-sm font-inter text-fn-navy/50">The shift is simple:</span>
+          <span className="text-sm font-inter text-fn-navy/50 w-full md:w-auto text-center md:text-left">The shift is simple:</span>
           <div className="flex items-center gap-3 flex-wrap justify-center">
-            <span className="px-4 py-1.5 rounded-full text-sm font-inter font-medium text-red-500 bg-red-50 border border-red-100">
+            <span className="px-4 py-1.5 rounded-full text-xs md:text-sm font-inter font-medium text-red-500 bg-red-50 border border-red-100">
               Manual Operations
             </span>
             <motion.span
@@ -171,7 +188,7 @@ export default function VisionSection() {
             >
               →
             </motion.span>
-            <span className="px-4 py-1.5 rounded-full text-sm font-inter font-medium text-fn-emerald bg-fn-emerald/10 border border-fn-emerald/20">
+            <span className="px-4 py-1.5 rounded-full text-xs md:text-sm font-inter font-medium text-fn-emerald bg-fn-emerald/10 border border-fn-emerald/20">
               Autonomous AI
             </span>
           </div>

@@ -16,7 +16,7 @@ export default function Footer() {
 
         {/* Tagline */}
         <p className="text-white/30 text-sm font-inter text-center">
-          NexusFlow AI — An Autonomous Business Ecosystem Concept
+          FusionNeural AI — An Autonomous Business Ecosystem Concept
         </p>
 
         {/* Status */}

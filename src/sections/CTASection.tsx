@@ -1,8 +1,11 @@
 import { useRef, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import gsap from 'gsap';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function CTASection() {
+  const { currentUser } = useAuth();
   const ref = useRef(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
@@ -68,14 +71,15 @@ export default function CTASection() {
           transition={{ duration: 0.7, delay: 0.4 }}
           className="flex flex-wrap gap-5 justify-center"
         >
-          <button
+          <Link
+            to={currentUser ? "/dashboard" : "/login"}
             data-cursor
-            className="group relative px-10 py-4 rounded-full font-space font-semibold text-white text-base overflow-hidden shadow-2xl btn-shimmer"
+            className="group relative px-10 py-4 rounded-full font-space font-semibold text-white text-base overflow-hidden shadow-2xl btn-shimmer inline-block"
             style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
           >
-            <span className="relative z-10">Begin Your Evolution</span>
+            <span className="relative z-10">{currentUser ? "Enter Neural Dashboard" : "Begin Your Evolution"}</span>
             <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors" />
-          </button>
+          </Link>
 
           <button
             data-cursor

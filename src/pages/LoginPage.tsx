@@ -20,8 +20,8 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/dashboard');
-    } catch (err: any) {
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
       console.error(err);
       setError('Invalid email or password. Please try again.');
     } finally {
