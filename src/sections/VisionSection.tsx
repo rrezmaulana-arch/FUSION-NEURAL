@@ -2,10 +2,12 @@ import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { TRADITIONAL_VS_OPC } from '../data/content';
 import { Check, X } from 'lucide-react';
+import { useLang } from '../context/LanguageContext';
 
 export default function VisionSection() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
+  const { isEnglish } = useLang();
 
   return (
     <section id="vision" className="relative py-20 bg-white overflow-hidden select-none">
@@ -26,7 +28,7 @@ export default function VisionSection() {
             transition={{ duration: 0.5 }}
             className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full glass-emerald"
           >
-            The Vision
+            {isEnglish ? 'The Vision' : 'Visi Kami'}
           </motion.span>
 
           <motion.h2
@@ -35,9 +37,9 @@ export default function VisionSection() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="font-space font-bold text-4xl md:text-6xl text-fn-navy mt-4 leading-tight"
           >
-            From <span className="gradient-text">Operator</span>
+            {isEnglish ? 'From' : 'Dari'} <span className="gradient-text">{isEnglish ? 'Operator' : 'Operator'}</span>
             <br />
-            to <span className="gradient-text-emerald">Director</span>
+            {isEnglish ? 'to' : 'menjadi'} <span className="gradient-text-emerald">{isEnglish ? 'Director' : 'Sutradara'}</span>
           </motion.h2>
 
           <motion.p
@@ -46,9 +48,9 @@ export default function VisionSection() {
             transition={{ duration: 0.7, delay: 0.25 }}
             className="mt-6 text-fn-navy/60 font-inter text-lg max-w-2xl mx-auto leading-relaxed"
           >
-            FusionNeural replaces the traditional one-person business hustle with a
-            fully autonomous AI ecosystem — where you set strategy, and your agents
-            execute everything else.
+            {isEnglish
+              ? 'FusionNeural replaces the traditional one-person business hustle with a fully autonomous AI ecosystem — where you set strategy, and your agents execute everything else.'
+              : 'FusionNeural menggantikan model bisnis konvensional dengan ekosistem AI otonom penuh — Kak yang menentukan strategi, agen AI yang mengeksekusi semuanya.'}
           </motion.p>
         </div>
 
@@ -90,7 +92,7 @@ export default function VisionSection() {
                 <div className="w-4 h-4 rounded-full bg-red-400" />
               </div>
               <div>
-                <p className="text-xs text-red-400 uppercase tracking-widest font-inter font-medium">Old Paradigm</p>
+                <p className="text-xs text-red-400 uppercase tracking-widest font-inter font-medium">{isEnglish ? 'Old Paradigm' : 'Model Lama'}</p>
                 <h3 className="font-space font-semibold text-fn-navy text-lg">
                   {TRADITIONAL_VS_OPC.traditional.label}
                 </h3>
@@ -141,7 +143,7 @@ export default function VisionSection() {
                 <div className="w-4 h-4 rounded-full bg-fn-emerald" />
               </div>
               <div>
-                <p className="text-xs text-fn-emerald uppercase tracking-widest font-inter font-medium">New Paradigm</p>
+                <p className="text-xs text-fn-emerald uppercase tracking-widest font-inter font-medium">{isEnglish ? 'New Paradigm' : 'Paradigma Baru'}</p>
                 <h3 className="font-space font-semibold text-fn-navy text-lg">
                   {TRADITIONAL_VS_OPC.opc.label}
                 </h3>
@@ -176,10 +178,10 @@ export default function VisionSection() {
           transition={{ duration: 0.7, delay: 0.9 }}
           className="mt-8 md:mt-10 flex flex-wrap items-center justify-center gap-4 md:gap-6 px-6 md:px-8 py-5 rounded-2xl glass"
         >
-          <span className="text-sm font-inter text-fn-navy/50 w-full md:w-auto text-center md:text-left">The shift is simple:</span>
+          <span className="text-sm font-inter text-fn-navy/50 w-full md:w-auto text-center md:text-left">{isEnglish ? 'The shift is simple:' : 'Pergeserannya sederhana:'}</span>
           <div className="flex items-center gap-3 flex-wrap justify-center">
             <span className="px-4 py-1.5 rounded-full text-xs md:text-sm font-inter font-medium text-red-500 bg-red-50 border border-red-100">
-              Manual Operations
+              {isEnglish ? 'Manual Operations' : 'Operasional Manual'}
             </span>
             <motion.span
               animate={{ x: [0, 6, 0] }}
@@ -189,7 +191,7 @@ export default function VisionSection() {
               →
             </motion.span>
             <span className="px-4 py-1.5 rounded-full text-xs md:text-sm font-inter font-medium text-fn-emerald bg-fn-emerald/10 border border-fn-emerald/20">
-              Autonomous AI
+              {isEnglish ? 'Autonomous AI' : 'AI Otonom'}
             </span>
           </div>
         </motion.div>

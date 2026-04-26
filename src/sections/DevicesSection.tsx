@@ -1,11 +1,13 @@
 import { useRef } from 'react';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import deviceImg from '../assets/device.png';
+import { useLang } from '../context/LanguageContext';
 
 export default function DevicesSection() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-100px' });
   const containerRef = useRef<HTMLElement>(null);
+  const { isEnglish } = useLang();
 
   // Parallax 3D effect on scroll
   const { scrollYProgress } = useScroll({
@@ -30,7 +32,7 @@ export default function DevicesSection() {
               transition={{ duration: 0.5 }}
               className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full bg-fn-emerald/10 border border-fn-emerald/20"
             >
-              Omnichannel Access
+              {isEnglish ? 'Omnichannel Access' : 'Akses Omnisaluran'}
             </motion.span>
             
             <motion.h2
@@ -39,8 +41,8 @@ export default function DevicesSection() {
               transition={{ duration: 0.8, delay: 0.1 }}
               className="font-space font-bold text-4xl md:text-5xl text-white mb-6"
             >
-              Full Control.<br />
-              <span className="text-white/40">Anywhere. Any Device.</span>
+              {isEnglish ? 'Full Control.' : 'Kendali Penuh.'}<br />
+              <span className="text-white/40">{isEnglish ? 'Anywhere. Any Device.' : 'Di Mana Saja. Perangkat Apa Saja.'}</span>
             </motion.h2>
 
             <motion.p
@@ -49,7 +51,9 @@ export default function DevicesSection() {
               transition={{ duration: 0.7, delay: 0.2 }}
               className="text-white/60 font-inter text-lg max-w-lg mx-auto lg:mx-0 leading-relaxed mb-8"
             >
-              Monitor your AI agents, review cash flow, and execute executive commands seamlessly from your MacBook, iPad, or iPhone. The entire ecosystem syncs in real-time.
+              {isEnglish
+                ? 'Monitor your AI agents, review cash flow, and execute executive commands seamlessly from your MacBook, iPad, or iPhone. The entire ecosystem syncs in real-time.'
+                : 'Monitor agen AI Kak, tinjau arus kas, dan jalankan perintah eksekutif dengan mulus dari MacBook, iPad, atau iPhone. Seluruh ekosistem tersinkronisasi secara real-time.'}
             </motion.p>
 
             <motion.div

@@ -3,11 +3,13 @@ import { motion } from 'framer-motion';
 import { ArrowDown } from 'lucide-react';
 import HeroScene from '../components/three/HeroScene';
 import gsap from 'gsap';
+import { useLang } from '../context/LanguageContext';
 
 const HEADLINE_WORDS = ['FUSION', 'NEURAL'];
 
 export default function HeroSection() {
   const badgeRef = useRef<HTMLDivElement>(null);
+  const { isEnglish } = useLang();
 
   useEffect(() => {
     if (badgeRef.current) {
@@ -60,7 +62,7 @@ export default function HeroSection() {
           >
             <span className="w-2 h-2 rounded-full bg-fn-emerald animate-pulse" />
             <span className="text-[10px] md:text-xs font-inter font-medium text-fn-emerald tracking-widest uppercase">
-              FusionNeural AI · Industry 5.0
+              {isEnglish ? 'FusionNeural AI · Industry 5.0' : 'FusionNeural AI · Industri 5.0'}
             </span>
           </div>
 
@@ -88,10 +90,13 @@ export default function HeroSection() {
             transition={{ duration: 0.8, delay: 1.0 }}
             className="mt-4 md:mt-6 text-base md:text-lg lg:text-xl text-fn-navy/60 font-inter font-light max-w-xl mx-auto lg:mx-0 leading-relaxed"
           >
-            Evolution from{' '}
-            <span className="text-fn-navy font-semibold">Operator</span> to{' '}
-            <span className="gradient-text-emerald font-semibold">Director</span>.{' '}
-            An Autonomous Business Ecosystem powered by 4 AI Agents, all orchestrated through a single Neural Engine.
+            {isEnglish ? (
+              <>From <span className="text-fn-navy font-semibold">Operator</span> to{' '}
+              <span className="gradient-text-emerald font-semibold">Director</span>. An autonomous business ecosystem powered by 4 AI Agents — active 24/7 without manual intervention.</>
+            ) : (
+              <>Dari <span className="text-fn-navy font-semibold">Operator</span> menjadi{' '}
+              <span className="gradient-text-emerald font-semibold">Sutradara</span>. Ekosistem bisnis otonom bertenaga 4 Agen AI — Manager, Admin, Marketing & Finance — aktif 24/7.</>
+            )}
           </motion.p>
 
           {/* CTAs */}
@@ -106,7 +111,7 @@ export default function HeroSection() {
               data-cursor
               className="group flex items-center justify-center gap-2.5 px-7 py-4 md:py-3.5 rounded-full bg-fn-navy text-white font-space font-semibold text-sm hover:bg-fn-navy-light transition-all shadow-xl btn-shimmer w-full sm:w-auto"
             >
-              Explore Ecosystem
+              {isEnglish ? 'Explore Ecosystem' : 'Jelajahi Ekosistem'}
               <ArrowDown size={15} className="group-hover:translate-y-1 transition-transform" />
             </a>
             <a
@@ -115,7 +120,7 @@ export default function HeroSection() {
               className="flex items-center justify-center gap-2.5 px-7 py-4 md:py-3.5 rounded-full glass border border-fn-emerald/30 text-fn-navy font-space font-semibold text-sm hover:border-fn-emerald/60 hover:bg-fn-emerald/5 transition-all w-full sm:w-auto"
             >
               <span className="text-fn-emerald">⚡</span>
-              Meet the Agents
+              {isEnglish ? 'Meet the Agents' : 'Kenali Para Agen'}
             </a>
           </motion.div>
 
@@ -126,12 +131,17 @@ export default function HeroSection() {
             transition={{ delay: 1.5, duration: 0.8 }}
             className="grid grid-cols-2 gap-y-6 sm:flex sm:flex-wrap justify-center lg:justify-start sm:gap-8 mt-12 md:mt-16 w-full"
           >
-            {[
-              { val: '4', label: 'AI Agents' },
+            {(isEnglish ? [
+              { val: '4', label: 'Active AI Agents' },
               { val: '24/7', label: 'Autonomous Ops' },
-              { val: '0%', label: 'Human Error' },
+              { val: 'Rp 0', label: 'Extra HR Cost' },
               { val: '∞', label: 'Scalability' },
-            ].map(stat => (
+            ] : [
+              { val: '4', label: 'Agen AI Aktif' },
+              { val: '24/7', label: 'Operasi Otonom' },
+              { val: 'Rp 0', label: 'Biaya SDM Tambahan' },
+              { val: '∞', label: 'Kapasitas Skalabilitas' },
+            ]).map(stat => (
               <div key={stat.label} className="text-center lg:text-left">
                 <p className="font-space font-bold text-3xl md:text-2xl text-fn-navy">{stat.val}</p>
                 <p className="text-xs text-fn-navy/50 font-inter mt-1">{stat.label}</p>
@@ -158,7 +168,9 @@ export default function HeroSection() {
         transition={{ delay: 2, duration: 0.8 }}
         className="flex flex-col items-center pb-8 lg:pb-10 gap-2 mt-auto relative z-20"
       >
-        <span className="text-[10px] md:text-xs text-fn-navy/40 font-inter tracking-widest uppercase">Scroll to explore</span>
+        <span className="text-[10px] md:text-xs text-fn-navy/40 font-inter tracking-widest uppercase">
+          {isEnglish ? 'Scroll to explore' : 'Scroll untuk menjelajahi'}
+        </span>
         <motion.div
           animate={{ y: [0, 8, 0] }}
           transition={{ repeat: Infinity, duration: 1.5 }}

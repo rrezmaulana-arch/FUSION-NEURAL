@@ -3,9 +3,11 @@ import { motion, useInView } from 'framer-motion';
 import gsap from 'gsap';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 
 export default function CTASection() {
   const { currentUser } = useAuth();
+  const { isEnglish } = useLang();
   const ref = useRef(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
@@ -39,7 +41,7 @@ export default function CTASection() {
           transition={{ duration: 0.5 }}
           className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-8 px-4 py-1.5 rounded-full glass-emerald"
         >
-          The Autonomous Revolution
+          {isEnglish ? 'The Autonomous Revolution' : 'Revolusi Bisnis Otonom'}
         </motion.span>
 
         <motion.h2
@@ -48,11 +50,11 @@ export default function CTASection() {
           transition={{ duration: 0.9, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           className="font-space font-bold text-5xl md:text-7xl text-fn-navy leading-none mb-6"
         >
-          Join the
+          {isEnglish ? 'Join the' : 'Mulai'}
           <br />
-          <span className="gradient-text">Autonomous</span>
+          <span className="gradient-text">{isEnglish ? 'Autonomous' : 'Perjalanan'}</span>
           <br />
-          Revolution
+          {isEnglish ? 'Revolution' : 'Otonomi Bisnis'}
         </motion.h2>
 
         <motion.p
@@ -61,7 +63,9 @@ export default function CTASection() {
           transition={{ duration: 0.7, delay: 0.25 }}
           className="text-fn-navy/55 font-inter text-xl max-w-2xl mx-auto leading-relaxed mb-12"
         >
-          FUSION NEURAL is not just a tool — it's a paradigm shift. Stop managing operations. Start directing outcomes. The future of business is autonomous, and it starts now.
+          {isEnglish
+            ? 'FUSION NEURAL is not just a tool — it\'s a paradigm shift. Stop managing operations. Start directing outcomes. 4 AI Agents running 24/7 in compliance with Indonesian law.'
+            : 'FUSION NEURAL bukan sekadar alat — ini adalah paradigma baru berbisnis. Hentikan peran sebagai Operator. Jadilah Sutradara yang mengarahkan hasil. 4 Agen AI aktif 24/7 sesuai hukum Indonesia.'}
         </motion.p>
 
         {/* CTA Buttons */}
@@ -77,7 +81,11 @@ export default function CTASection() {
             className="group relative px-10 py-4 rounded-full font-space font-semibold text-white text-base overflow-hidden shadow-2xl btn-shimmer inline-block"
             style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
           >
-            <span className="relative z-10">{currentUser ? "Enter Neural Dashboard" : "Begin Your Evolution"}</span>
+            <span className="relative z-10">
+              {currentUser
+                ? (isEnglish ? 'Enter Neural Dashboard' : 'Masuk ke Dashboard')
+                : (isEnglish ? 'Begin Your Evolution' : 'Mulai Evolusi Bisnis Kak')}
+            </span>
             <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors" />
           </Link>
 
@@ -85,7 +93,7 @@ export default function CTASection() {
             data-cursor
             className="px-10 py-4 rounded-full font-space font-semibold text-fn-navy text-base glass border border-fn-navy/15 hover:border-fn-emerald/40 hover:text-fn-emerald transition-all"
           >
-            View Full Documentation
+            {isEnglish ? 'View Full Documentation' : 'Lihat Dokumentasi Lengkap'}
           </button>
         </motion.div>
 
@@ -96,7 +104,9 @@ export default function CTASection() {
           transition={{ duration: 0.6, delay: 0.8 }}
           className="mt-10 text-xs text-fn-navy/30 font-inter"
         >
-          FUSION NEURAL is a conceptual project demonstration. All workflows shown are for educational purposes.
+          {isEnglish
+            ? 'FUSION NEURAL is a conceptual AI business ecosystem project. All workflows shown use real-time Firestore data.'
+            : 'FUSION NEURAL adalah proyek demonstrasi ekosistem AI bisnis berbasis hukum Indonesia. Seluruh alur kerja menggunakan data real-time dari Firestore.'}
         </motion.p>
       </div>
     </section>

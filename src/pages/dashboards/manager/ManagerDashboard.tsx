@@ -1,15 +1,187 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSystemEngine } from '../../../context/SystemEngineContext';
-import { BrainCircuit, Activity, ChevronRight, Play, Star, MapPin, CalendarDays, DollarSign } from 'lucide-react';
+import { BrainCircuit, Activity, ChevronRight, Play, Star, MapPin, CalendarDays, DollarSign, Brain, AlertTriangle, CheckCircle2, RefreshCw, BarChart3, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { collection, query, orderBy, limit, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
+import { NeuralCore } from '../../../services/NeuralCore';
+import { FirebaseLogger } from '../../../services/FirebaseLogger';
 
 
 
 export default function ManagerDashboard() {
-  const { systemRequests: requests, performers, pingPerformer, financeChartData: chartData } = useSystemEngine();
+  const { systemRequests: requests, performers, pingPerformer, financeChartData: chartDataRaw } = useSystemEngine();
+  const chartData = Array.isArray(chartDataRaw) && chartDataRaw.length >= 6 ? chartDataRaw : [40, 55, 60, 75, 65, 80];
+  
+  // ─── AI Evaluation Drawer ───────────────────────────────────────────────
+  const [logs, setLogs] = useState<any[]>([]);
+  const [evalOpen, setEvalOpen] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evalResult, setEvalResult] = useState<any>(null);
+  const [customInstruction, setCustomInstruction] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
+
+  useEffect(() => {
+    const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(30));
+    const unsub = onSnapshot(q, snap => {
+      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, []);
+
+  const handleEvaluate = async () => {
+    setIsEvaluating(true);
+    setEvalResult(null);
+    setEvalOpen(true);
+    try {
+      const recentLogs = logs.slice(0, 20).map((l: any) => `[${l.agent}] ${l.action}: ${l.details}`);
+      const result = await NeuralCore.evaluateAndRealignAgents(recentLogs);
+      setEvalResult(result);
+      await FirebaseLogger.logAgentAction('Manager', 'EVALUATE_AGENTS', `Evaluasi selesai. Target: ${result?.target_agent || 'none'}`);
+    } catch (e) {
+      setEvalResult({ target_agent: 'error', new_prompt: 'Gagal menghubungi AI Manager.' });
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!evalResult || evalResult.target_agent === 'none' || evalResult.target_agent === 'error') return;
+    setIsApplying(true);
+    try {
+      const prompt = customInstruction || evalResult.new_prompt;
+      await setDoc(doc(db, 'neural_configs', evalResult.target_agent), { prompt });
+      await FirebaseLogger.logAgentAction('Manager', 'APPLY_REALIGN', `${evalResult.target_agent} berhasil diperbarui.`);
+      setEvalOpen(false);
+      setEvalResult(null);
+      setCustomInstruction('');
+    } catch (e) { console.error(e); } finally { setIsApplying(false); }
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6 pb-10">
+      
+      {/* ─── Floating Evaluasi AI Button ─── */}
+      <div className="fixed bottom-28 right-6 z-40">
+        <button
+          onClick={handleEvaluate}
+          className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white text-sm font-bold rounded-2xl shadow-2xl hover:bg-teal-700 transition-all"
+        >
+          <Brain size={16} className={isEvaluating ? 'animate-pulse' : ''} />
+          Evaluasi AI
+        </button>
+      </div>
+
+      {/* ─── AI Evaluation Drawer ─── */}
+      <AnimatePresence>
+        {evalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-end"
+            onClick={() => !isEvaluating && setEvalOpen(false)}
+          >
+            <motion.div
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-white h-full overflow-y-auto shadow-2xl flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center">
+                    <Brain size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">Manager AI Evaluation</h3>
+                    <p className="text-xs text-slate-500">Analisis & re-alignment agen</p>
+                  </div>
+                </div>
+                <button onClick={() => setEvalOpen(false)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
+                  <X size={16} className="text-slate-600" />
+                </button>
+              </div>
+
+              <div className="flex-1 p-6 space-y-6">
+                {isEvaluating && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                      <Brain size={28} className="text-slate-600 animate-pulse" />
+                    </div>
+                    <p className="text-slate-600 font-medium text-sm">Manager AI sedang menganalisis log...</p>
+                    <div className="flex gap-1">
+                      {[0,1,2].map(i => (
+                        <motion.div key={i} animate={{ y: [0, -6, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }}
+                          className="w-2 h-2 rounded-full bg-slate-400" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!isEvaluating && evalResult && (
+                  <div className="space-y-5">
+                    <div className={`rounded-2xl p-4 border ${
+                      evalResult.target_agent === 'none' || evalResult.target_agent === 'error'
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : 'bg-amber-50 border-amber-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        {evalResult.target_agent === 'none' ? (
+                          <><CheckCircle2 size={16} className="text-emerald-600" /><span className="font-bold text-emerald-700 text-sm">Semua Agen Normal</span></>
+                        ) : evalResult.target_agent === 'error' ? (
+                          <><AlertTriangle size={16} className="text-rose-600" /><span className="font-bold text-rose-700 text-sm">Evaluasi Gagal</span></>
+                        ) : (
+                          <><AlertTriangle size={16} className="text-amber-600" /><span className="font-bold text-amber-700 text-sm">Perlu Re-Alignment</span></>
+                        )}
+                      </div>
+                      {evalResult.target_agent !== 'none' && evalResult.target_agent !== 'error' && (
+                        <p className="text-xs text-amber-700">Target: <strong className="font-mono">{evalResult.target_agent}</strong></p>
+                      )}
+                    </div>
+
+                    {evalResult.target_agent !== 'none' && evalResult.target_agent !== 'error' && (
+                      <>
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rekomendasi AI</p>
+                          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-700 leading-relaxed font-mono">
+                            {evalResult.new_prompt}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                            <BarChart3 size={11} /> Modifikasi Kustom (Opsional)
+                          </p>
+                          <textarea
+                            value={customInstruction}
+                            onChange={e => setCustomInstruction(e.target.value)}
+                            placeholder="Biarkan kosong untuk pakai rekomendasi AI, atau ketik instruksi Kak..."
+                            rows={4}
+                            className="w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 ring-indigo-200 resize-none"
+                          />
+                        </div>
+                        <button
+                          onClick={handleApply}
+                          disabled={isApplying}
+                          className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 text-white font-bold rounded-2xl hover:bg-slate-700 transition-colors disabled:opacity-50 text-sm"
+                        >
+                          {isApplying ? <><RefreshCw size={14} className="animate-spin" /> Applying...</> : <><ChevronRight size={14} /> Terapkan ke Firestore</>}
+                        </button>
+                      </>
+                    )}
+
+                    <button onClick={handleEvaluate}
+                      className="w-full py-2.5 border border-slate-200 rounded-2xl text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw size={13} /> Evaluasi Ulang
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Header Info */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">

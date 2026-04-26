@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { MULTI_SECTOR_STEPS } from '../data/content';
 import { Database, BrainCircuit, Zap, CheckCircle } from 'lucide-react';
+import { useLang } from '../context/LanguageContext';
 
 const stepIcons = [
   <Database size={32} />,
@@ -13,6 +14,7 @@ const stepIcons = [
 export default function CrossIndustrySection() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
+  const { isEnglish } = useLang();
 
   return (
     <section
@@ -30,7 +32,7 @@ export default function CrossIndustrySection() {
             transition={{ duration: 0.5 }}
             className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full glass-emerald"
           >
-            Universal Adaptation · Any Sector
+            {isEnglish ? 'Universal Adaptation · Any Sector' : 'Adaptasi Universal · Semua Sektor'}
           </motion.span>
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
@@ -38,9 +40,9 @@ export default function CrossIndustrySection() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="font-space font-bold text-4xl md:text-6xl text-fn-navy"
           >
-            Adaptable Intelligence.
+            {isEnglish ? 'Adaptable Intelligence.' : 'Kecerdasan yang Adaptif.'}
             <br />
-            <span className="gradient-text-emerald">Infinite Applications.</span>
+            <span className="gradient-text-emerald">{isEnglish ? 'Infinite Applications.' : 'Aplikasi Tanpa Batas.'}</span>
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -48,7 +50,9 @@ export default function CrossIndustrySection() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-4 text-fn-navy/55 font-inter text-lg max-w-2xl mx-auto"
           >
-            Whether you're in e-commerce, agriculture, logistics, or services, FUSION NEURAL's autonomous workflow adapts to your industry — eliminating inefficiencies and unlocking scalable growth.
+            {isEnglish
+              ? "Whether you're in e-commerce, agriculture, logistics, or services, FUSION NEURAL's autonomous workflow adapts to your industry — eliminating inefficiencies and unlocking scalable growth."
+              : 'Apakah bisnis Kak bergerak di e-commerce, pertanian, logistik, atau jasa — alur kerja otonom FusionNeural beradaptasi dengan industri Kak dan membuka pertumbuhan yang tak terbatas.'}
           </motion.p>
         </div>
 
@@ -118,12 +122,17 @@ export default function CrossIndustrySection() {
           }}
         >
           <div className="grid grid-cols-2 md:flex md:flex-row flex-wrap justify-center items-center gap-8 md:gap-12 relative z-10">
-            {[
+            {(isEnglish ? [
               { val: 'Any', label: 'Industry Application', color: '#10B981' },
               { val: '100%', label: 'System Integration', color: '#3B82F6' },
               { val: '24/7', label: 'Continuous Optimization', color: '#F59E0B' },
               { val: 'Zero', label: 'Human Intervention', color: '#EC4899' },
-            ].map(stat => (
+            ] : [
+              { val: 'Semua', label: 'Jenis Industri', color: '#10B981' },
+              { val: '100%', label: 'Integrasi Sistem', color: '#3B82F6' },
+              { val: '24/7', label: 'Optimasi Berkelanjutan', color: '#F59E0B' },
+              { val: 'Nol', label: 'Intervensi Manual', color: '#EC4899' },
+            ]).map(stat => (
               <div key={stat.label} className="flex flex-col items-center gap-1 text-center">
                 <p className="font-space font-bold text-3xl md:text-4xl" style={{ color: stat.color }}>{stat.val}</p>
                 <p className="text-xs text-fn-navy/50 font-inter max-w-[120px]">{stat.label}</p>

@@ -1,3 +1,4 @@
+import { ReactLenis } from 'lenis/react';
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
 import NavBar from '../components/ui/NavBar';
 import Footer from '../components/ui/Footer';
@@ -11,25 +12,31 @@ import DevicesSection from '../sections/DevicesSection';
 import DevelopersSection from '../sections/DevelopersSection';
 import CTASection from '../sections/CTASection';
 import ChatBot from '../components/chat/ChatBot';
+import { LanguageProvider } from '../context/LanguageContext';
 
 export default function LandingPage() {
   return (
-    <div className="relative">
-      <ChatBot />
-      <GlobalScrollOrb />
-      <MicrochipCursor />
-      <NavBar />
-      <main>
-        <HeroSection />
-        <VisionSection />
-        <AgentsSection />
-        <CrossIndustrySection />
-        <DevicesSection />
-        <TechStackSection />
-        <DevelopersSection />
-        <CTASection />
-      </main>
-      <Footer />
-    </div>
+    <LanguageProvider>
+      <ReactLenis root options={{ lerp: 0.07, smoothWheel: true }}>
+        <div className="relative">
+          <ChatBot />
+          <GlobalScrollOrb />
+          <MicrochipCursor />
+          <NavBar />
+          <main>
+            <HeroSection />
+            <VisionSection />
+            <AgentsSection />
+            <CrossIndustrySection />
+            <DevicesSection />
+            <TechStackSection />
+            <DevelopersSection />
+            <CTASection />
+          </main>
+          <Footer />
+        </div>
+      </ReactLenis>
+    </LanguageProvider>
   );
 }
+

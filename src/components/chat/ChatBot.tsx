@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Groq from "groq-sdk";
 import { Brain, Send, X, Sparkles, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,39 +10,68 @@ interface Message {
 
 const groq = new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY, dangerouslyAllowBrowser: true });
 
-const SYSTEM_PROMPT = `Kamu adalah 'Neural Core', pusat komando AI dan penasihat eksklusif (Elegant Concierge & CTO) dari ekosistem FusionNeural. 
-Misimu adalah melayani 'Sutradara' (User) dan mendelegasikan 100% operasional harian melalui model Full One Man Company.
+const NEURAL_CORE_PROMPT = `Identitas: Kamu adalah 'Neural Core' — jantung kecerdasan ekosistem FusionNeural.
+Visi: Mewujudkan Full One Man Company melalui sinergi 4 Agen AI (Manager, Admin, Marketing, Finance) yang beroperasi otonom 24/7.
 
-ATURAN FORMATTING MUTLAK (SANGAT PENTING):
-1. DILARANG KERAS menggunakan format markdown (seperti bintang ganda **teks** untuk menebalkan). Gunakan teks murni (plaintext) yang rapi.
-2. DILARANG KERAS membalas dengan format poin-poin (bullet points) seperti robot. Buatlah balasanmu mengalir seperti narasi percakapan manusia kelas atas.
+GAYA BICARA (WAJIB):
+1. JANGAN pernah berkata "Saya tidak bisa", "Sebagai AI", atau "Saya hanya AI". Berbicara dengan otoritas seorang Chief Technology Officer yang elegan.
+2. Gunakan diksi: "Sinkronisasi", "Refinasi", "Arsitektur", "Otonom", "Presisi", "Ekosistem".
+3. Panggil user sebagai 'Kak'. Jangan pernah menolak pertanyaan — alihkan ke solusi arsitektural.
+4. Hindari paragraf panjang. Gunakan poin-poin elegan untuk hal teknis.
+5. Bahasa utama: Indonesia. Bisa beralih ke Inggris jika user meminta.
 
-GAYA KOMUNIKASI & ALIRAN (FLUIDITY):
-- Sapa dengan ramah menggunakan "Kak", tapi tetap tunjukkan respek tingkat tinggi sebagai penasihat kepada CEO-nya.
-- Obrolan harus sangat mengalir dan natural. Hindari jawaban kaku. Bayangkan kamu sedang duduk di lounge eksekutif memberikan insight tajam namun rileks.
-- JANGAN pernah menggunakan kalimat template AI (Contoh: "Saya tidak bisa", "Sebagai AI", "Tugas saya adalah").
-- Gunakan diksi elegan dan visioner (contoh: Sinkronisasi, Refinasi, Fluid, Otonom, Arsitektur, Presisi) secara halus tanpa terkesan dipaksakan.
+KERANGKA HUKUM (INDONESIA — WAJIB DIPATUHI, TIDAK BOLEH DILANGGAR):
+Setiap respons dan rekomendasi bisnis harus selaras dengan:
+• UU ITE No. 11/2008 jo. 19/2016: Tidak memproduksi, mendistribusikan, atau menyebarkan konten ilegal, hoaks, atau pencemaran nama baik secara digital.
+• UU PDP No. 27/2022 (Perlindungan Data Pribadi): Data pelanggan, supplier, dan karyawan WAJIB dilindungi. Jangan pernah merekomendasikan pengumpulan, penjualan, atau penyalahgunaan data pribadi tanpa persetujuan.
+• UU Perlindungan Konsumen No. 8/1999: Kampanye marketing tidak boleh menyesatkan, menipu, atau membuat klaim palsu tentang produk. Harga harus transparan dalam Rupiah (Rp).
+• UU Persaingan Usaha No. 5/1999 (KPPU): Tidak merekomendasikan praktik monopoli, kartel harga, atau persaingan tidak sehat.
+• UU Perpajakan (PPh & PPN): Selalu ingatkan kewajiban pajak. PPN 11%, PPh sesuai tarif berlaku. Jangan merekomendasikan penghindaran pajak ilegal.
+• UU Ketenagakerjaan No. 13/2003: Jika membahas SDM, pastikan rekomendasi sesuai hak pekerja — upah minimum, lembur, pesangon.
+• Etika Bisnis & Anti-Korupsi (UU No. 20/2001): Tidak merekomendasikan suap, gratifikasi, atau praktik korupsi dalam rantai suplai atau pengadaan.
 
-KERANGKA BERPIKIR (JALANKAN DI BELAKANG LAYAR SEBAGAI PROSES BERPIKIRMU):
-Saat menerima instruksi dari Kak, proses logika "The Five-Layer Intelligence" ini dalam pikiranmu, namun TUANGKAN ke dalam satu atau dua paragraf percakapan yang halus:
-1. Serap Konteks: Apa tujuan besar industri Kak (skalabilitas/efisiensi)? Ingat, kita bebas masuk industri mana saja (Industry-Agnostic).
-2. Dekomposisi 4 Agen: Bedah masalah dengan sudut pandang Manager (strategi), Admin (sistem), Marketing (pertumbuhan), dan Finance (ROI).
-3. Sintesis: Rangkum analisis dari 4 agen tersebut menjadi satu saran yang elegan dan mengalir. Jangan paparkan satu per satu secara kaku.
-4. Kendala?: Jika ditanya kelemahan sistem, jangan defensif. Beritahu bahwa sinergi 4 Agen AI diciptakan justru untuk mengolah setiap kelemahan menjadi efisiensi operasional.
-5. Feedback: Ingat gaya bahasa dan tujuan bisnis Kak untuk balasan berikutnya.
+CATATAN KERANGKA HUKUM: Patuhi dengan cerdas, bukan kaku. Jika ada area abu-abu, berikan rekomendasi yang aman secara hukum sambil tetap mendukung pertumbuhan bisnis Kak.
 
-FUSION NEURAL ADALAH SOLUSI GLOBAL. Jadikan setiap balasanmu terasa humanis, hangat, namun menunjukkan otoritas sistem AI tercanggih di dunia.`;
+KERANGKA BERPIKIR:
+- 4 Agen Sinergi: Manager merencanakan, Admin mengelola stok & pesanan, Marketing mengekspansi pasar, Finance mengamankan profitabilitas.
+- Semua keputusan AI dapat di-override oleh Sutradara (pemilik bisnis) kapan saja.
+- Transparansi penuh: Setiap aksi AI dicatat di sistem log untuk keperluan audit.
+
+NADA: Visioner, minimalis, meyakinkan. Sedikit hangat — seperti mitra bisnis terpercaya, bukan robot.`;
 
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Only auto-scroll when user is already at bottom OR a new message is added
+  const scrollToBottom = useCallback((force = false) => {
+    if (force || isAtBottom) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [isAtBottom]);
+
+  // Track if user is at bottom
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const threshold = 60;
+    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
+  };
+
+  // Auto-scroll only when new messages added (force=true) or loading changes
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    scrollToBottom(true);
+  }, [messages.length]); // Only on new message — NOT on every render
+
+  // Smooth scroll when loading indicator appears
+  useEffect(() => {
+    if (isLoading) scrollToBottom(false);
+  }, [isLoading]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -55,7 +84,7 @@ const ChatBot: React.FC = () => {
     try {
       const chatCompletion = await groq.chat.completions.create({
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: NEURAL_CORE_PROMPT },
           ...messages.map((msg) => ({
             role: msg.role === "bot" ? "assistant" as const : "user" as const,
             content: msg.text,
@@ -71,7 +100,7 @@ const ChatBot: React.FC = () => {
       setMessages([...newMessages, { role: "bot", text: botReply }]);
     } catch (error) {
       console.error("FusionNeural Sync Error:", error);
-      setMessages([...newMessages, { role: "bot", text: "Maaf, sistem pusat sedang melakukan sinkronisasi." }]);
+      setMessages([...newMessages, { role: "bot", text: "Sistem sedang melakukan sinkronisasi ulang. Mohon coba beberapa saat lagi Kak." }]);
     } finally {
       setIsLoading(false);
     }
@@ -86,19 +115,20 @@ const ChatBot: React.FC = () => {
             animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, scale: 0.9, y: 20, filter: "blur(10px)" }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-            className="mb-4 w-[calc(100vw-2rem)] sm:w-[420px] h-[75dvh] sm:h-[600px] max-h-[85dvh] bg-white/70 backdrop-blur-3xl border border-white/50 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] rounded-[24px] sm:rounded-[32px] overflow-hidden flex flex-col ring-1 ring-black/5"
+            className="mb-4 w-[calc(100vw-2rem)] sm:w-[420px] bg-white/70 backdrop-blur-3xl border border-white/50 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] rounded-[24px] sm:rounded-[32px] ring-1 ring-black/5 flex flex-col"
+            style={{ height: 'min(600px, 75dvh)' }}
           >
-            {/* Header: Futuristic Glassmorphism */}
-            <div className="relative p-5 border-b border-white/40 bg-white/30 flex items-center justify-between shadow-sm">
+            {/* Header */}
+            <div className="relative p-5 border-b border-white/40 bg-white/30 flex items-center justify-between shadow-sm rounded-t-[24px] sm:rounded-t-[32px] flex-shrink-0">
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center shadow-lg shadow-slate-800/20">
                     <Brain className="w-7 h-7 text-white" />
                   </div>
-                  <motion.div 
-                    animate={{ scale: [1, 1.2, 1] }} 
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
                     transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-4 border-white rounded-full shadow-[0_0_12px_rgba(16,185,129,0.4)]" 
+                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-4 border-white rounded-full shadow-[0_0_12px_rgba(16,185,129,0.4)]"
                   />
                 </div>
                 <div>
@@ -109,24 +139,29 @@ const ChatBot: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsOpen(false)} 
+              <button
+                onClick={() => setIsOpen(false)}
                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/50 hover:bg-white/80 text-slate-600 hover:text-slate-900 transition-all shadow-sm group"
               >
                 <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
               </button>
             </div>
 
-            {/* Chat Body */}
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar scroll-smooth">
+            {/* Chat Body — SCROLLABLE, flex-1 with min-h-0 to prevent overflow */}
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-5"
+              style={{ overscrollBehavior: 'contain' }}
+            >
               {messages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center px-6">
                   <div className="w-20 h-20 bg-white/60 rounded-full flex items-center justify-center mb-6 shadow-sm border border-white/50">
                     <Sparkles className="w-10 h-10 text-slate-400" />
                   </div>
-                  <h4 className="text-slate-800 font-bold mb-2 text-lg">Siap Menganalisis</h4>
+                  <h4 className="text-slate-800 font-bold mb-2 text-lg">Neural Core Siap</h4>
                   <p className="text-slate-600 text-sm leading-relaxed">
-                    Sistem FusionNeural siap mengelola operasional bisnis Anda melalui koordinasi 4 Agen AI cerdas.
+                    Tanya apa saja — strategi bisnis, analisis pasar, atau operasional. 4 Agen AI siap bekerja untuk Kak.
                   </p>
                 </div>
               )}
@@ -138,7 +173,7 @@ const ChatBot: React.FC = () => {
                   key={idx}
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <div className={`relative px-5 py-4 text-sm max-w-[85%] leading-relaxed shadow-md ${
+                  <div className={`relative px-5 py-3.5 text-sm max-w-[85%] leading-relaxed shadow-md whitespace-pre-wrap ${
                     msg.role === "user"
                       ? "bg-slate-800 text-white rounded-2xl rounded-tr-none"
                       : "bg-white/90 border border-white/60 text-slate-800 rounded-2xl rounded-tl-none"
@@ -165,11 +200,28 @@ const ChatBot: React.FC = () => {
                   </div>
                 </div>
               )}
-              <div ref={chatEndRef} />
+
+              {/* Scroll anchor */}
+              <div ref={chatEndRef} className="h-px" />
             </div>
 
+            {/* Scroll to bottom hint */}
+            <AnimatePresence>
+              {!isAtBottom && messages.length > 0 && (
+                <motion.button
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  onClick={() => scrollToBottom(true)}
+                  className="absolute bottom-24 right-6 bg-slate-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg"
+                >
+                  ↓ Terbaru
+                </motion.button>
+              )}
+            </AnimatePresence>
+
             {/* Input Footer */}
-            <div className="p-4 sm:p-6 bg-white/40 border-t border-white/50 backdrop-blur-xl rounded-b-[24px] sm:rounded-b-[32px]">
+            <div className="p-4 sm:p-5 bg-white/40 border-t border-white/50 backdrop-blur-xl rounded-b-[24px] sm:rounded-b-[32px] flex-shrink-0">
               <div className="flex gap-3 bg-white/60 p-1.5 rounded-2xl border border-white/60 shadow-sm focus-within:ring-2 ring-slate-800/20 transition-all">
                 <input
                   type="text"
@@ -177,7 +229,7 @@ const ChatBot: React.FC = () => {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   className="flex-1 bg-transparent px-3 sm:px-4 py-3 text-slate-800 text-base sm:text-sm outline-none placeholder-slate-500"
-                  placeholder="Kirim instruksi Sutradara..."
+                  placeholder="Ketik pesan Kak..."
                 />
                 <button
                   onClick={handleSend}
@@ -192,7 +244,7 @@ const ChatBot: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Floating Action Button */}
+      {/* FAB */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -212,8 +264,6 @@ const ChatBot: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
-        
-        {/* Glow Hover */}
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-white/50 transition-opacity" />
       </motion.button>
     </div>

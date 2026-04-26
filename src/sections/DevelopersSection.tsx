@@ -1,13 +1,16 @@
 import { useRef, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLang } from '../context/LanguageContext';
 
 interface GachaCardProps {
   m: {
     name: string;
+    nim: string;
     color: string;
     image: string;
     jobdesk: string[];
+    jobdeskEN: string[];
     instagram: string;
   };
   offset: number;
@@ -18,6 +21,8 @@ interface GachaCardProps {
 
 function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
   const isRevealed = isActive;
+  const { isEnglish } = useLang();
+  const jobs = isEnglish ? m.jobdeskEN : m.jobdesk;
 
   return (
     <div
@@ -73,23 +78,38 @@ function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
           
           {/* Text & Button Area */}
           <div className={`px-6 pb-6 flex flex-col flex-1 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isRevealed ? 'mt-0' : '-mt-[90px] relative z-10'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                  <h3 className={`${isDark ? 'text-white' : 'text-slate-800'} text-[22px] font-extrabold tracking-tight whitespace-nowrap overflow-hidden text-ellipsis m-0 drop-shadow-sm`} dangerouslySetInnerHTML={{ __html: m.name.replace('<br/>', ' ') }}></h3>
+              {/* Name — allow wrap, scale down font if name is long */}
+              <div className="flex items-start gap-2 mb-0.5">
+                  <h3
+                    className={`${isDark ? 'text-white' : 'text-slate-800'} font-extrabold tracking-tight m-0 drop-shadow-sm leading-tight ${m.name.length > 20 ? 'text-[16px]' : 'text-[20px]'}`}
+                    dangerouslySetInnerHTML={{ __html: m.name.replace('<br/>', '<br/>') }}
+                  />
                   {isActive && (
-                     <div className="bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.4)] ml-1">
+                     <div className="bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.4)] mt-0.5">
                         <Check size={13} className="text-white" strokeWidth={3} />
                      </div>
                   )}
               </div>
+              <p className={`text-[10px] font-mono tracking-widest mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>NIM: {m.nim}</p>
               
               {/* Container for Jobdesk - hidden if not revealed */}
               <div className={`transition-all duration-700 ease-in-out overflow-hidden flex-1 flex flex-col ${isRevealed ? 'max-h-[220px] opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                      {m.jobdesk.map((job: string) => (
-                         <span key={job} className={`text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-md border ${isDark ? 'text-slate-300 bg-white/5 border-white/10' : 'text-slate-700 bg-black/5 border-black/5'}`}>
-                            {job}
-                         </span>
-                      ))}
+                  {/* Elegant list style */}
+                  <div className="flex flex-col gap-1.5 mb-3">
+                    {/* First item — role badge */}
+                    <span
+                      className="self-start text-[11px] font-bold px-3 py-1 rounded-full"
+                      style={{ background: `${m.color}20`, color: m.color }}
+                    >
+                      {jobs[0]}
+                    </span>
+                    {/* Remaining items — clean dotted list */}
+                    {jobs.slice(1).map((job: string) => (
+                      <div key={job} className="flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full shrink-0" style={{ background: m.color }} />
+                        <span className={`text-[12px] font-medium leading-tight ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{job}</span>
+                      </div>
+                    ))}
                   </div>
                   
                   {/* Bottom Row */}
@@ -105,7 +125,7 @@ function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
               {/* Initial state Info */}
               <div className={`transition-all duration-500 overflow-hidden ${!isRevealed ? 'max-h-[50px] opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
                   <div className={`flex items-center gap-3 ${isDark ? 'text-slate-400' : 'text-emerald-600'} text-[13px] font-bold tracking-wide`}>
-                      <span>{m.jobdesk[0]}</span>
+                      <span>{jobs[0]}</span>
                   </div>
               </div>
 
@@ -117,10 +137,74 @@ function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
 
 function TeamCarousel({ isDark }: { isDark: boolean }) {
   const TEAM_MEMBERS = [
-    { name: 'Reza Maulana', color: '#0ea5e9', image: 'https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?auto=format&fit=crop&q=80&w=800', jobdesk: ['The Engineer', 'Arsitek Sistem'], instagram: 'https://www.instagram.com/rreza_.maulana' },
-    { name: 'Dzaky Alfauzi', color: '#10b981', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800', jobdesk: ['The Leader', 'Spesialis Presentasi'], instagram: 'https://www.instagram.com/dzakyalfauzii' },
-    { name: 'Divo Farrelly', color: '#f59e0b', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800', jobdesk: ['The Brain', 'Konseptor'], instagram: 'https://www.instagram.com/divo.farrelly' }
+    {
+      name: 'Dzaky Al Fauzy Naw-Waf Akbar',
+      nim: '243140707111046',
+      color: '#10b981',
+      image: new URL('../assets/Dzaky Al Fauzy Naw-Waf Akbar - 243140707111046.jpeg', import.meta.url).href,
+      jobdesk: [
+        'Ketua Tim',
+        'Koordinator Tim & Manajemen Proyek',
+        'Presentasi, Komunikasi & Negosiasi',
+        'Perancang Alur Logika & Keputusan AI',
+        'Perencana Skenario Bisnis Otonom',
+        'Quality Assurance & Validasi Sistem',
+      ],
+      jobdeskEN: [
+        'Team Leader',
+        'Team Coordination & Project Management',
+        'Presentation, Communication & Negotiation',
+        'AI Logic & Decision Flow Design',
+        'Autonomous Business Scenario Planning',
+        'Quality Assurance & System Validation',
+      ],
+      instagram: 'https://www.instagram.com/dzakyalfauzii'
+    },
+    {
+      name: 'Miftah Afreza Maulana',
+      nim: '243140700111026',
+      color: '#0ea5e9',
+      image: new URL('../assets/Miftah Afreza Maulana - 243140700111026.jpeg', import.meta.url).href,
+      jobdesk: [
+        'Lead Engineer',
+        'Arsitek Sistem & Full-Stack Dev',
+        'Integrasi Firebase & Groq AI',
+        'UI/UX & DevOps',
+      ],
+      jobdeskEN: [
+        'Lead Engineer',
+        'System Architect & Full-Stack Dev',
+        'Firebase & Groq AI Integration',
+        'UI/UX & DevOps',
+      ],
+      instagram: 'https://www.instagram.com/rreza_.maulana'
+    },
+    {
+      name: 'Divo Farrelly Sattar',
+      nim: '243140707111074',
+      color: '#f59e0b',
+      image: new URL('../assets/Divo Farrelly Sattar - 243140707111074.jpeg', import.meta.url).href,
+      jobdesk: [
+        'Chief Conceptor',
+        'Perancang Model Bisnis & Logika AI',
+        'Analis Kebutuhan Pengguna',
+        'Riset & Pengembangan Fitur',
+        'Desain Alur Sistem Otonom',
+        'Dokumentasi Teknis',
+      ],
+      jobdeskEN: [
+        'Chief Conceptor',
+        'Business Model & AI Logic Designer',
+        'User Needs Analyst',
+        'Feature Research & Development',
+        'Autonomous System Flow Design',
+        'Technical Documentation',
+      ],
+      instagram: 'https://www.instagram.com/divo.farrelly'
+    },
   ];
+
+
 
   const [active, setActive] = useState(0);
 
@@ -212,9 +296,10 @@ function TeamCarousel({ isDark }: { isDark: boolean }) {
 export default function DevelopersSection() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-100px' });
+  const { isEnglish } = useLang();
 
   return (
-    <section id="developers" className="relative py-20 overflow-hidden select-none bg-[#f3f4f6]">
+    <section id="developers" className="relative py-20 overflow-hidden select-none bg-white">
       <div className="max-w-6xl mx-auto px-6 relative z-10" ref={ref}>
         <div className="text-center mb-4">
           <motion.span
@@ -223,7 +308,7 @@ export default function DevelopersSection() {
             transition={{ duration: 0.5 }}
             className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-slate-500 mb-4 px-4 py-1.5"
           >
-            The Minds Behind FusionNeural
+            {isEnglish ? 'The Minds Behind FusionNeural' : 'Otak di Balik FusionNeural'}
           </motion.span>
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
@@ -231,7 +316,7 @@ export default function DevelopersSection() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="font-inter font-extrabold text-4xl md:text-5xl text-slate-800 tracking-tight"
           >
-            Meet the Developers
+            {isEnglish ? 'Meet the Developers' : 'Kenali Tim Developer'}
           </motion.h2>
         </div>
 

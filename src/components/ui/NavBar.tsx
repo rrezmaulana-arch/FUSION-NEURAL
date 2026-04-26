@@ -1,10 +1,18 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { Zap, LogIn, LayoutDashboard } from 'lucide-react';
+import { Zap, LogIn, LayoutDashboard, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/LanguageContext';
 
-const navLinks = [
+const navLinksID = [
+  { label: 'Visi', href: '#vision' },
+  { label: 'Agen AI', href: '#agents' },
+  { label: 'Industri', href: '#cross-industry' },
+  { label: 'Platform', href: '#devices' },
+  { label: 'Developer', href: '#developers' },
+];
+const navLinksEN = [
   { label: 'Vision', href: '#vision' },
   { label: 'Agents', href: '#agents' },
   { label: 'Applications', href: '#cross-industry' },
@@ -16,6 +24,8 @@ export default function NavBar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { currentUser } = useAuth();
+  const { isEnglish, toggle } = useLang();
+  const navLinks = isEnglish ? navLinksEN : navLinksID;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -57,30 +67,32 @@ export default function NavBar() {
           ))}
         </div>
 
-        {/* CTA */}
-        <div className="hidden md:flex items-center gap-4">
+        {/* CTA + Language Toggle */}
+        <div className="hidden md:flex items-center gap-3">
+          <button
+            onClick={toggle}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-space font-bold border border-fn-navy/20 text-fn-navy/60 hover:text-fn-emerald hover:border-fn-emerald/40 transition-all"
+          >
+            <Globe size={13} />
+            {isEnglish ? 'ID' : 'EN'}
+          </button>
           <a
             href="#cta"
             data-cursor
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-space font-semibold text-white bg-fn-navy hover:bg-fn-navy-light transition-all shadow-lg btn-shimmer"
           >
             <span className="w-2 h-2 rounded-full bg-fn-emerald animate-pulse" />
-            Join Revolution
+            {isEnglish ? 'Join Revolution' : 'Mulai Sekarang'}
           </a>
-          
           <Link
             to={currentUser ? "/dashboard" : "/login"}
             data-cursor
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-space font-semibold border border-fn-navy text-fn-navy hover:bg-fn-navy/5 transition-all shadow-sm"
           >
             {currentUser ? (
-              <>
-                <LayoutDashboard size={16} /> Dashboard
-              </>
+              <><LayoutDashboard size={16} /> Dashboard</>
             ) : (
-              <>
-                <LogIn size={16} /> Login
-              </>
+              <><LogIn size={16} /> Login</>
             )}
           </Link>
         </div>

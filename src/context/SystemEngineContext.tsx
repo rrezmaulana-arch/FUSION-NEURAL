@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { TrendingUp, Users } from 'lucide-react';
+import { NeuralCore } from '../services/NeuralCore';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 // --- TYPES ---
 interface Transaction { id: number; type: string; amount: number; time: string; isPositive: boolean; }
@@ -31,6 +34,11 @@ interface SystemEngineState {
   systemRequests: number;
   performers: Performer[];
   pingPerformer: (id: string) => void;
+
+  // Simulator State
+  isSimulating: boolean;
+  toggleSimulator: () => void;
+  simulatorStats: any;
 }
 
 const SystemEngineContext = createContext<SystemEngineState | undefined>(undefined);
@@ -71,6 +79,58 @@ export const SystemEngineProvider: React.FC<{ children: React.ReactNode }> = ({ 
     { id: '2', name: 'Reza', role: 'Engineer', score: 4.7, status: 'Online', initial: 'RZ', color: 'bg-emerald-100 text-emerald-600' },
     { id: '3', name: 'Divo', role: 'Financial', score: 4.5, status: 'Online', initial: 'DV', color: 'bg-purple-100 text-purple-600' },
   ]);
+
+  // Global Simulator State
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulatorStats, setSimulatorStats] = useState<any>({});
+  const simulatorInterval = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Force initialize prompts to Firebase — wrapped in try/catch to prevent crash if Firestore is offline
+    NeuralCore.initCorePrompts().catch((e) => console.warn('Neural Core init skipped (Firestore offline?):', e));
+
+    // Listen to market_simulator/live_stats globally
+    const unsub = onSnapshot(doc(db, 'market_simulator', 'live_stats'), (docSnap) => {
+      if (docSnap.exists()) {
+        setSimulatorStats(docSnap.data());
+      }
+    });
+
+    return () => {
+      unsub();
+      if (simulatorInterval.current) clearInterval(simulatorInterval.current);
+    };
+  }, []);
+
+  const runSimulationCycle = async () => {
+    try {
+      const events = ["Sudden Order Spike", "Competitor Flash Sale", "Viral TikTok Video Mentioning Us"];
+      const randomEvent = events[Math.floor(Math.random() * events.length)];
+      
+      // Use the latest stats available in state
+      setSimulatorStats((currentStats: any) => {
+        NeuralCore.triggerMarketEvent(randomEvent, currentStats).catch(console.error);
+        return currentStats;
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const toggleSimulator = async () => {
+    if (isSimulating) {
+      setIsSimulating(false);
+      if (simulatorInterval.current) clearInterval(simulatorInterval.current);
+    } else {
+      setIsSimulating(true);
+      await NeuralCore.initCorePrompts();
+      runSimulationCycle();
+      simulatorInterval.current = setInterval(() => {
+        runSimulationCycle();
+      }, 15000);
+    }
+  };
+
 
   // --- THE VIRTUAL NEURAL ENGINE (Backend Loop) ---
   useEffect(() => {
@@ -175,7 +235,8 @@ export const SystemEngineProvider: React.FC<{ children: React.ReactNode }> = ({ 
       revenue, expenses, transactions, financeChartData,
       campaignActive, setCampaignActive, budgetUsed, conversions, eqHeights,
       payloads, activeNodes, adminLogs, adminChartData,
-      systemRequests, performers, pingPerformer
+      systemRequests, performers, pingPerformer,
+      isSimulating, toggleSimulator, simulatorStats
     }}>
       {children}
     </SystemEngineContext.Provider>

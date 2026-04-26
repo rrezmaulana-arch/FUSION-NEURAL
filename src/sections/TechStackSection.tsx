@@ -1,24 +1,26 @@
 import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { TECH_STACK } from '../data/content';
-import { MessageCircle, Network, ShoppingBag, ShoppingCart, MessageSquare } from 'lucide-react';
+import { Brain, Network, Database, Code2, Globe } from 'lucide-react';
+import { useLang } from '../context/LanguageContext';
 
 const nodeIcons: Record<string, React.ReactNode> = {
-  telegram: <MessageCircle size={20} />,
-  n8n: <Network size={24} />,
-  tiktok: <ShoppingBag size={20} />,
-  shopee: <ShoppingCart size={20} />,
-  whatsapp: <MessageSquare size={20} />,
+  groq: <Brain size={20} />,
+  neural: <Network size={24} />,
+  firebase: <Database size={20} />,
+  react: <Code2 size={20} />,
+  vercel: <Globe size={20} />,
 };
 
 export default function TechStackSection() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
+  const { isEnglish } = useLang();
 
   // Separate nodes
-  const telegram = TECH_STACK.find(n => n.id === 'telegram')!;
-  const n8n = TECH_STACK.find(n => n.id === 'n8n')!;
-  const outputs = TECH_STACK.filter(n => n.id !== 'telegram' && n.id !== 'n8n');
+  const groqNode = TECH_STACK.find(n => n.id === 'groq')!;
+  const neuralNode = TECH_STACK.find(n => n.id === 'neural')!;
+  const outputs = TECH_STACK.filter(n => n.id !== 'groq' && n.id !== 'neural');
 
   return (
     <section id="tech-stack" className="relative py-20 overflow-hidden bg-[#0a1628]" ref={ref}>
@@ -44,7 +46,7 @@ export default function TechStackSection() {
             transition={{ duration: 0.5 }}
             className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full bg-fn-emerald/10 border border-fn-emerald/20"
           >
-            Neural Path · Tech Stack
+            {isEnglish ? 'Neural Path · Tech Stack' : 'Jalur Neural · Tumpukan Teknologi'}
           </motion.span>
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
@@ -52,9 +54,9 @@ export default function TechStackSection() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="font-space font-bold text-4xl md:text-6xl text-white"
           >
-            The Nervous System
+            {isEnglish ? 'The Nervous System' : 'Sistem Saraf'}
             <br />
-            <span className="text-fn-emerald">of the Ecosystem</span>
+            <span className="text-fn-emerald">{isEnglish ? 'of the Ecosystem' : 'Ekosistem FusionNeural'}</span>
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -62,7 +64,9 @@ export default function TechStackSection() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-4 text-white/50 font-inter text-lg max-w-xl mx-auto"
           >
-            Every signal flows through the n8n Centralized Engine — connecting Telegram commands to marketplace actions in milliseconds.
+            {isEnglish
+              ? 'Every signal flows through Neural Core Engine — connecting AI commands with real-time Firestore data in milliseconds.'
+              : 'Setiap sinyal mengalir melalui Neural Core Engine — menghubungkan perintah AI dengan data real-time Firestore dalam hitungan milidetik.'}
           </motion.p>
         </div>
 
@@ -76,7 +80,7 @@ export default function TechStackSection() {
             transition={{ duration: 0.7, delay: 0.3 }}
             className="flex flex-col items-center select-none"
           >
-            <NodeCard node={telegram} />
+            <NodeCard node={groqNode} />
           </motion.div>
 
           {/* Connector Arrow 1 */}
@@ -117,12 +121,12 @@ export default function TechStackSection() {
                 className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg mx-auto mb-4"
                 style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}
               >
-                {nodeIcons[n8n.id] || <Network size={28} />}
+                {nodeIcons[neuralNode.id] || <Network size={28} />}
               </div>
-              <h3 className="font-space font-bold text-white text-xl">{n8n.label}</h3>
-              <p className="text-fn-emerald text-xs font-inter mt-1">{n8n.desc}</p>
+              <h3 className="font-space font-bold text-white text-xl">{neuralNode.label}</h3>
+              <p className="text-fn-emerald text-xs font-inter mt-1">{neuralNode.desc}</p>
               <div className="flex gap-2 justify-center mt-4 flex-wrap">
-                {['Webhook', 'AI Router', 'Executor', 'Handler'].map(tag => (
+                {['Groq API', 'Firestore', 'Auth', 'Real-time'].map(tag => (
                   <span key={tag} className="px-2 py-0.5 rounded-full text-xs font-inter text-fn-emerald bg-fn-emerald/10 border border-fn-emerald/20">
                     {tag}
                   </span>

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
-import { AGENTS } from '../data/content';
+import { AGENTS, AGENTS_EN } from '../data/content';
 import { BrainCircuit, Box, Sparkles, TrendingUp } from 'lucide-react';
+import { useLang } from '../context/LanguageContext';
 
 const agentIcons: Record<string, React.ReactNode> = {
   manager: <BrainCircuit size={24} />,
@@ -114,29 +115,32 @@ export default function AgentsSection() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const { isEnglish } = useLang();
+  const agents = isEnglish ? AGENTS_EN : AGENTS;
 
   return (
-    <section id="agents" className="relative py-20 overflow-hidden bg-slate-50" ref={ref}>
+    <section id="agents" className="relative py-20 overflow-hidden bg-white" ref={ref}>
 
       <div className="max-w-6xl mx-auto px-6 relative z-10">
-        {/* Header */}
         <div className="text-center mb-16">
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={inView ? { opacity: 1 } : {}}
-            transition={{ duration: 0.5 }}
-            className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full glass-emerald"
-          >
-            The Neural Council
-          </motion.span>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={inView ? { opacity: 1 } : {}}
+              transition={{ duration: 0.5 }}
+              className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald px-4 py-1.5 rounded-full glass-emerald"
+            >
+              {isEnglish ? 'The Neural Council' : 'Dewan Neural'}
+            </motion.span>
+          </div>
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.1 }}
             className="font-space font-bold text-4xl md:text-6xl text-fn-navy"
           >
-            4 AI Agents.{' '}
-            <span className="gradient-text">One Ecosystem.</span>
+            {isEnglish ? '4 AI Agents.' : '4 Agen AI.'}{' '}
+            <span className="gradient-text">{isEnglish ? 'One Ecosystem.' : 'Satu Ekosistem.'}</span>
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -144,13 +148,15 @@ export default function AgentsSection() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-4 text-fn-navy/55 font-inter text-lg max-w-xl mx-auto"
           >
-            Each agent is a specialized intelligence layer — collectively forming a self-managing company.
+            {isEnglish
+              ? 'Each agent is a specialized intelligence layer — collectively forming a self-managing company.'
+              : 'Setiap agen adalah lapisan kecerdasan khusus — bersama membentuk perusahaan yang mengelola dirinya sendiri.'}
           </motion.p>
         </div>
 
         {/* Cards Grid */}
         <div className="flex sm:grid overflow-x-auto sm:overflow-visible sm:grid-cols-2 xl:grid-cols-4 gap-5 pb-8 pt-4 -my-4 -mx-6 px-6 sm:mx-0 sm:px-0 sm:pb-0 sm:pt-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] items-stretch">
-          {AGENTS.map((agent, i) => (
+          {agents.map((agent, i) => (
             <div 
               key={agent.id} 
               className="w-[85vw] sm:w-auto flex-shrink-0 snap-center flex"
@@ -172,7 +178,7 @@ export default function AgentsSection() {
           transition={{ duration: 0.8, delay: 0.8 }}
           className="mt-12 bg-white border border-slate-200 rounded-3xl p-8 flex flex-wrap justify-center items-center gap-4 shadow-sm"
         >
-          {AGENTS.map((agent, i) => (
+          {agents.map((agent, i) => (
             <div key={agent.id} className="flex items-center gap-4">
               <div className="flex flex-col items-center gap-2">
                 <div
@@ -195,9 +201,9 @@ export default function AgentsSection() {
             </div>
           ))}
           <div className="w-full text-center mt-2">
-            <span className="text-xs text-fn-navy/40 font-inter tracking-widest uppercase">
-              Orchestrated by n8n Centralized Engine
-            </span>
+              <span className="text-xs font-inter text-fn-navy/40 tracking-widest uppercase">
+                {isEnglish ? 'Orchestrated by AI Core Engine' : 'Diorkestrasikan oleh Neural Core Engine'}
+              </span>
           </div>
         </motion.div>
       </div>

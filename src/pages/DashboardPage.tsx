@@ -4,23 +4,35 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LogOut, LayoutDashboard, Menu as MenuIcon, X,
-  Users, DollarSign, PieChart, Target, FileText, ChevronLeft, ChevronRight, Bell, Cloud, Server
+  ChevronLeft, ChevronRight, Bell, Cloud,
+  TrendingUp, Flame, Package, Network, BookOpen,
+  Cpu, Shield, Sparkles, Radio, CalendarDays, BarChart2, Fingerprint,
+  ShoppingCart, Building2, Gamepad2, Rocket
 } from 'lucide-react';
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
 
-import FinanceDashboard from './dashboards/finance/FinanceDashboard';
-import MarketingDashboard from './dashboards/marketing/MarketingDashboard';
 import ManagerDashboard from './dashboards/manager/ManagerDashboard';
-import AdminDashboard from './dashboards/admin/AdminDashboard';
 
-import PayrollPage from './dashboards/finance/PayrollPage';
-import TaxPage from './dashboards/finance/TaxPage';
-import LeadsPage from './dashboards/marketing/LeadsPage';
-import AnalyticsPage from './dashboards/marketing/AnalyticsPage';
-import NodesPage from './dashboards/admin/NodesPage';
+import ProfitLedgerPage from './dashboards/finance/ProfitLedgerPage';
+import OperationalBurnPage from './dashboards/finance/OperationalBurnPage';
+import ROIIntelligencePage from './dashboards/finance/ROIIntelligencePage';
+import FinancialPolicyPage from './dashboards/finance/FinancialPolicyPage';
+import CampaignForgePage from './dashboards/marketing/CampaignForgePage';
+import MarketSignalsPage from './dashboards/marketing/MarketSignalsPage';
+import ContentLaunchpadPage from './dashboards/marketing/ContentLaunchpadPage';
+import ConversionFeedbackPage from './dashboards/marketing/ConversionFeedbackPage';
+import BrandDNAPage from './dashboards/marketing/BrandDNAPage';
 import LogsPage from './dashboards/admin/LogsPage';
-import TeamPage from './dashboards/manager/TeamPage';
-import ReportsPage from './dashboards/manager/ReportsPage';
+import InventoryTrackerPage from './dashboards/admin/InventoryTrackerPage';
+import OrderStreamPage from './dashboards/admin/OrderStreamPage';
+import SupplySignalsPage from './dashboards/admin/SupplySignalsPage';
+import SupplierHubPage from './dashboards/admin/SupplierHubPage';
+import AgentOrchestratorPage from './dashboards/manager/AgentOrchestratorPage';
+import ExecutiveSummaryPage from './dashboards/manager/ExecutiveSummaryPage';
+import NeuralStatusPage from './dashboards/manager/NeuralStatusPage';
+import StrategicAuditPage from './dashboards/manager/StrategicAuditPage';
+import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
+import LaunchSimulatorPage from './dashboards/marketing/LaunchSimulatorPage';
 
 // --- TYPESCRIPT INTERFACES ---
 interface ThemeConfig {
@@ -47,36 +59,45 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     title: 'Command Center',
     theme: { gradient: 'from-[#1E293B] to-[#0F172A]', text: 'text-slate-800', glow: 'bg-slate-500/20' },
     menus: [
-      { path: '/dashboard', label: 'Network Status', icon: LayoutDashboard },
-      { path: '/dashboard/nodes', label: 'Server Nodes', icon: Server },
-      { path: '/dashboard/logs', label: 'Traffic Logs', icon: FileText },
+      { path: '/dashboard', label: 'Inventory Tracker', icon: Package },
+      { path: '/dashboard/orders', label: 'Order Stream', icon: ShoppingCart },
+      { path: '/dashboard/supply-signals', label: 'Supply Signals', icon: Radio },
+      { path: '/dashboard/suppliers', label: 'Supplier Hub', icon: Building2 },
+      { path: '/dashboard/marketplace-sim', label: 'Marketplace Simulator', icon: Gamepad2 },
     ]
   },
   finance: {
     title: 'Treasury Dept',
     theme: { gradient: 'from-[#059669] to-[#047857]', text: 'text-emerald-600', glow: 'bg-emerald-500/20' },
     menus: [
-      { path: '/dashboard', label: 'Cashflow', icon: DollarSign },
-      { path: '/dashboard/payroll', label: 'Payroll', icon: Users },
-      { path: '/dashboard/tax', label: 'Tax & Invoices', icon: FileText },
+      { path: '/dashboard', label: 'Profit Ledger', icon: BookOpen },
+      { path: '/dashboard/burn', label: 'Operational Burn', icon: Flame },
+      { path: '/dashboard/roi-intel', label: 'ROI Intelligence', icon: TrendingUp },
+      { path: '/dashboard/policy', label: 'Financial Policy', icon: Shield },
     ]
   },
   marketing: {
     title: 'Growth Engine',
     theme: { gradient: 'from-[#A21CAF] to-[#86198F]', text: 'text-purple-600', glow: 'bg-purple-500/20' },
     menus: [
-      { path: '/dashboard', label: 'Campaigns', icon: Target },
-      { path: '/dashboard/leads', label: 'Leads & Conversions', icon: Users },
-      { path: '/dashboard/analytics', label: 'Analytics', icon: PieChart },
+      { path: '/dashboard', label: 'Campaign Forge', icon: Sparkles },
+      { path: '/dashboard/signals', label: 'Market Signals', icon: Radio },
+      { path: '/dashboard/launchpad', label: 'Content Launchpad', icon: CalendarDays },
+      { path: '/dashboard/conversion', label: 'Conversion Feedback', icon: BarChart2 },
+      { path: '/dashboard/brand-dna', label: 'Brand DNA', icon: Fingerprint },
+      { path: '/dashboard/launch-sim', label: 'Launch Simulator', icon: Rocket },
     ]
   },
+
   manager: {
     title: 'Management Suite',
     theme: { gradient: 'from-[#0F766E] to-[#0D9488]', text: 'text-teal-600', glow: 'bg-teal-500/20' },
     menus: [
-      { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-      { path: '/dashboard/team', label: 'Team Performance', icon: Users },
-      { path: '/dashboard/reports', label: 'System Reports', icon: PieChart },
+      { path: '/dashboard', label: 'Workspace Dashboard', icon: LayoutDashboard },
+      { path: '/dashboard/orchestrator', label: 'Agent Orchestrator', icon: Network },
+      { path: '/dashboard/executive', label: 'Executive Summary', icon: TrendingUp },
+      { path: '/dashboard/neural-status', label: 'Neural Status Panel', icon: Cpu },
+      { path: '/dashboard/strategic-audit', label: 'Strategic Audit Hub', icon: Shield },
     ]
   },
   default: {
@@ -121,24 +142,38 @@ export default function DashboardPage() {
 
   const renderDashboardContent = () => {
     switch (activePath) {
-      // Marketing
-      case '/dashboard/leads': return <LeadsPage />;
-      case '/dashboard/analytics': return <AnalyticsPage />;
-      // Finance
-      case '/dashboard/payroll': return <PayrollPage />;
-      case '/dashboard/tax': return <TaxPage />;
-      // Admin
-      case '/dashboard/nodes': return <NodesPage />;
+      // Finance Routes
+      case '/dashboard/burn': return <OperationalBurnPage />;
+      case '/dashboard/roi-intel': return <ROIIntelligencePage />;
+      case '/dashboard/policy': return <FinancialPolicyPage />;
+
+      // Marketing Routes
+      case '/dashboard/signals': return <MarketSignalsPage />;
+      case '/dashboard/launchpad': return <ContentLaunchpadPage />;
+      case '/dashboard/conversion': return <ConversionFeedbackPage />;
+      case '/dashboard/brand-dna': return <BrandDNAPage />;
+      // Admin Routes
+      case '/dashboard/orders': return <OrderStreamPage />;
+      case '/dashboard/supply-signals': return <SupplySignalsPage />;
+      case '/dashboard/suppliers': return <SupplierHubPage />;
       case '/dashboard/logs': return <LogsPage />;
-      // Manager
-      case '/dashboard/team': return <TeamPage />;
-      case '/dashboard/reports': return <ReportsPage />;
-      // Defaults
+      case '/dashboard/marketplace-sim': return <MarketplaceSimulatorPage />;
+
+      // Marketing Simulator
+      case '/dashboard/launch-sim': return <LaunchSimulatorPage />;
+
+      // Manager Routes
+      case '/dashboard/orchestrator': return <AgentOrchestratorPage />;
+      case '/dashboard/executive': return <ExecutiveSummaryPage />;
+      case '/dashboard/neural-status': return <NeuralStatusPage />;
+      case '/dashboard/strategic-audit': return <StrategicAuditPage />;
+
+      // Defaults Base Paths based on Role
       case '/dashboard':
         switch (safeRole) {
-          case 'admin': return <AdminDashboard />;
-          case 'finance': return <FinanceDashboard />;
-          case 'marketing': return <MarketingDashboard />;
+          case 'admin': return <InventoryTrackerPage />;
+          case 'finance': return <ProfitLedgerPage />;
+          case 'marketing': return <CampaignForgePage />;
           case 'manager':
           default: return <ManagerDashboard />;
         }
