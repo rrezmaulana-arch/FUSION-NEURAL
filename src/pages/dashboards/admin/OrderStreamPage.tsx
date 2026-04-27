@@ -102,7 +102,7 @@ export default function OrderStreamPage() {
             </motion.div>
           ) : filtered.map((order, i) => {
             const status = (order.status as OrderStatus) || 'pending';
-            const cfg = STATUS_CONFIG[status];
+            const cfg = STATUS_CONFIG[status] || { label: status, color: 'bg-slate-100 text-slate-700', icon: <Package size={11} /> };
             const pipelineIdx = PIPELINE.indexOf(status);
             const canAdvance = pipelineIdx >= 0 && pipelineIdx < PIPELINE.length - 1;
             return (

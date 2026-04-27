@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { Brain, Zap, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { Brain, Zap, CheckCircle2, Clock, AlertTriangle, FileText, Palette, DollarSign } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface AgentStatus {
   agent: string;
   label: string;
   color: string;
-  icon: string;
+  icon: ReactNode;
   status: 'Online' | 'Idle' | 'Processing';
   promptVersion: string;
   tokenUsed: number;
@@ -16,10 +17,10 @@ interface AgentStatus {
 }
 
 const AGENTS: AgentStatus[] = [
-  { agent: 'admin_brain', label: 'Admin Agent', color: 'text-blue-600 bg-blue-50', icon: '🗂️', status: 'Online', promptVersion: 'v2.1', tokenUsed: 1240, tokenLimit: 5000 },
-  { agent: 'marketing_brain', label: 'Marketing Agent', color: 'text-purple-600 bg-purple-50', icon: '🎨', status: 'Online', promptVersion: 'v1.8', tokenUsed: 3100, tokenLimit: 5000 },
-  { agent: 'finance_brain', label: 'Finance Agent', color: 'text-emerald-600 bg-emerald-50', icon: '💰', status: 'Idle', promptVersion: 'v1.5', tokenUsed: 680, tokenLimit: 5000 },
-  { agent: 'manager_brain', label: 'Manager AI', color: 'text-teal-600 bg-teal-50', icon: '🧠', status: 'Processing', promptVersion: 'v3.0', tokenUsed: 2200, tokenLimit: 5000 },
+  { agent: 'admin_brain', label: 'Admin Agent', color: 'text-blue-600 bg-blue-50', icon: <FileText size={20} />, status: 'Online', promptVersion: 'v2.1', tokenUsed: 1240, tokenLimit: 5000 },
+  { agent: 'marketing_brain', label: 'Marketing Agent', color: 'text-purple-600 bg-purple-50', icon: <Palette size={20} />, status: 'Online', promptVersion: 'v1.8', tokenUsed: 3100, tokenLimit: 5000 },
+  { agent: 'finance_brain', label: 'Finance Agent', color: 'text-emerald-600 bg-emerald-50', icon: <DollarSign size={20} />, status: 'Idle', promptVersion: 'v1.5', tokenUsed: 680, tokenLimit: 5000 },
+  { agent: 'manager_brain', label: 'Manager AI', color: 'text-teal-600 bg-teal-50', icon: <Brain size={20} />, status: 'Processing', promptVersion: 'v3.0', tokenUsed: 2200, tokenLimit: 5000 },
 ];
 
 export default function NeuralStatusPage() {

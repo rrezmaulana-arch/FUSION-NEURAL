@@ -78,7 +78,7 @@ export default function StrategicAuditPage() {
       const promptToInject = customPrompt.trim() || evalResult.new_prompt;
       await setDoc(doc(db, 'neural_configs', evalResult.target_agent), { prompt: promptToInject });
       await FirebaseLogger.logAgentAction('Manager', 'INJECT_PROMPT', `${evalResult.target_agent} berhasil di-override dengan instruksi baru.`);
-      setSuccessMsg(`✅ Prompt baru berhasil disuntikkan ke "${evalResult.target_agent}"`);
+      setSuccessMsg(`Prompt baru berhasil disuntikkan ke "${evalResult.target_agent}"`);
       setEvalResult(null);
       setCustomPrompt('');
     } catch (e) { console.error(e); }
@@ -205,9 +205,9 @@ export default function StrategicAuditPage() {
               <div className="p-6 space-y-5">
                 {/* AI Recommendation */}
                 <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Re-Alignment Output (AI Recommendation)</p>
-                  <div className="bg-slate-900 rounded-xl p-4 font-mono text-xs text-slate-300 leading-relaxed">
-                    {evalResult.new_prompt}
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Re-Alignment Output (AI Recommendation)</p>
+                  <div className="bg-slate-900 rounded-xl p-4 font-mono text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+                    {evalResult.new_prompt.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1')}
                   </div>
                 </div>
 

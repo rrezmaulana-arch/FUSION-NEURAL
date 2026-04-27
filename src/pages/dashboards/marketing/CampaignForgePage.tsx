@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RefreshCw, Copy, CheckCircle2, Wand2 } from 'lucide-react';
+import { Sparkles, RefreshCw, Copy, CheckCircle2, Wand2, Image, Video, Download, ExternalLink, Film, Camera } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 
@@ -12,6 +12,28 @@ const TONES = [
 
 const FORMATS = ['Caption Instagram', 'Skrip TikTok', 'Tagline Produk', 'Email Marketing', 'Press Release'];
 
+// Stock media content library using Picsum for photos
+const STOCK_PHOTOS = [
+  { id: 1, url: 'https://picsum.photos/seed/business1/400/300', label: 'Business Meeting', tag: 'Corporate' },
+  { id: 2, url: 'https://picsum.photos/seed/tech2/400/300', label: 'Technology', tag: 'Tech' },
+  { id: 3, url: 'https://picsum.photos/seed/office3/400/300', label: 'Office Workspace', tag: 'Workspace' },
+  { id: 4, url: 'https://picsum.photos/seed/product4/400/300', label: 'Product Showcase', tag: 'Product' },
+  { id: 5, url: 'https://picsum.photos/seed/data5/400/300', label: 'Data Analytics', tag: 'Analytics' },
+  { id: 6, url: 'https://picsum.photos/seed/abstract6/400/300', label: 'Abstract Visual', tag: 'Creative' },
+  { id: 7, url: 'https://picsum.photos/seed/city7/400/300', label: 'Urban Business', tag: 'Location' },
+  { id: 8, url: 'https://picsum.photos/seed/team8/400/300', label: 'Team Synergy', tag: 'People' },
+  { id: 9, url: 'https://picsum.photos/seed/growth9/400/300', label: 'Growth Chart', tag: 'Finance' },
+];
+
+const VIDEO_TEMPLATES = [
+  { id: 'v1', thumbnail: 'https://picsum.photos/seed/vid1/400/225', label: 'Product Launch Reel', duration: '15s', platform: 'TikTok/Reels' },
+  { id: 'v2', thumbnail: 'https://picsum.photos/seed/vid2/400/225', label: 'Brand Story', duration: '30s', platform: 'Instagram' },
+  { id: 'v3', thumbnail: 'https://picsum.photos/seed/vid3/400/225', label: 'Testimonial Template', duration: '60s', platform: 'YouTube' },
+  { id: 'v4', thumbnail: 'https://picsum.photos/seed/vid4/400/225', label: 'Promo Countdown', duration: '10s', platform: 'All Platforms' },
+];
+
+type MediaTab = 'photos' | 'videos';
+
 export default function CampaignForgePage() {
   const [brief, setBrief] = useState('');
   const [tone, setTone] = useState('premium');
@@ -19,6 +41,8 @@ export default function CampaignForgePage() {
   const [result, setResult] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [mediaTab, setMediaTab] = useState<MediaTab>('photos');
+  const [selectedMedia, setSelectedMedia] = useState<number | string | null>(null);
 
   const handleGenerate = async () => {
     if (!brief.trim()) return;
@@ -29,12 +53,12 @@ export default function CampaignForgePage() {
 Tone: ${tone.toUpperCase()}
 Format yang diminta: ${format}
 
-Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasan tambahan.`;
+Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasan tambahan. Jangan gunakan markdown bold (**).`;
       const content = await NeuralCore.generateMarketingCampaign(brief, context);
-      setResult(content);
+      setResult(content.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1'));
       await FirebaseLogger.logAgentAction('Marketing', 'CAMPAIGN_FORGE', `Generated ${format} - Tone: ${tone}`);
     } catch (e) {
-      setResult('⚠️ Gagal menghubungi AI. Pastikan Groq API key aktif.');
+      setResult('Gagal menghubungi AI. Pastikan Groq API key aktif.');
     } finally {
       setIsGenerating(false);
     }
@@ -183,6 +207,169 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
               </AnimatePresence>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── Content Launchpad — Stock Media Library ───────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <Film size={18} className="text-purple-500" />
+              Content Launchpad — Stock Media Library
+            </h2>
+            <span className="text-xs text-slate-400">{mediaTab === 'photos' ? STOCK_PHOTOS.length : VIDEO_TEMPLATES.length} aset tersedia</span>
+          </div>
+          <p className="text-xs text-slate-500">Pilih visual pendukung kampanye Kak langsung dari library ini</p>
+
+          {/* Tab */}
+          <div className="flex gap-2 mt-4">
+            {([['photos', 'Foto', Camera], ['videos', 'Video Template', Video]] as [MediaTab, string, any][]).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                onClick={() => setMediaTab(key)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  mediaTab === key
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Icon size={13} />{label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Media Grid */}
+        <div className="p-6">
+          <AnimatePresence mode="wait">
+            {mediaTab === 'photos' ? (
+              <motion.div
+                key="photos"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 gap-4"
+              >
+                {STOCK_PHOTOS.map((photo, i) => (
+                  <motion.div
+                    key={photo.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.04 }}
+                    onClick={() => setSelectedMedia(selectedMedia === photo.id ? null : photo.id)}
+                    className={`group relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${
+                      selectedMedia === photo.id
+                        ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]'
+                        : 'border-transparent hover:border-slate-200'
+                    }`}
+                  >
+                    <img
+                      src={photo.url}
+                      alt={photo.label}
+                      className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                      <p className="text-white text-xs font-bold">{photo.label}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[9px] bg-white/20 text-white px-2 py-0.5 rounded-full">{photo.tag}</span>
+                        <ExternalLink size={10} className="text-white/70 ml-auto" />
+                      </div>
+                    </div>
+                    {selectedMedia === photo.id && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                        <CheckCircle2 size={12} className="text-white" />
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="videos"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-5"
+              >
+                {VIDEO_TEMPLATES.map((vid, i) => (
+                  <motion.div
+                    key={vid.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.06 }}
+                    onClick={() => setSelectedMedia(selectedMedia === vid.id ? null : vid.id)}
+                    className={`group relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${
+                      selectedMedia === vid.id
+                        ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.25)]'
+                        : 'border-slate-100 hover:border-slate-200'
+                    }`}
+                  >
+                    <div className="relative">
+                      <img
+                        src={vid.thumbnail}
+                        alt={vid.label}
+                        className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      {/* Play overlay */}
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <div className="w-12 h-12 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full flex items-center justify-center group-hover:bg-white/30 transition-all">
+                          <Video size={20} className="text-white ml-0.5" />
+                        </div>
+                      </div>
+                      {/* Duration badge */}
+                      <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">
+                        {vid.duration}
+                      </span>
+                      {selectedMedia === vid.id && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                          <CheckCircle2 size={12} className="text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 bg-white">
+                      <p className="text-sm font-bold text-slate-800">{vid.label}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full">{vid.platform}</span>
+                        <button className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 transition-colors">
+                          <Download size={11} /> Template
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Action bar when media selected */}
+          <AnimatePresence>
+            {selectedMedia !== null && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                className="mt-5 flex items-center justify-between bg-purple-50 border border-purple-200 rounded-2xl p-4"
+              >
+                <div className="flex items-center gap-2">
+                  {mediaTab === 'photos' ? <Image size={16} className="text-purple-500" /> : <Video size={16} className="text-purple-500" />}
+                  <p className="text-sm font-bold text-purple-800">
+                    {mediaTab === 'photos'
+                      ? `Foto "${STOCK_PHOTOS.find(p => p.id === selectedMedia)?.label}" dipilih`
+                      : `Template "${VIDEO_TEMPLATES.find(v => v.id === selectedMedia)?.label}" dipilih`}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedMedia(null)}
+                    className="text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-xl hover:bg-white transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button className="flex items-center gap-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 px-4 py-1.5 rounded-xl transition-all">
+                    <Download size={12} /> Gunakan Aset
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

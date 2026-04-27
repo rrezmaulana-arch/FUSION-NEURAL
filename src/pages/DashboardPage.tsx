@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, Bell, Cloud,
   TrendingUp, Flame, Package, Network, BookOpen,
   Cpu, Shield, Sparkles, Radio, CalendarDays, BarChart2, Fingerprint,
-  ShoppingCart, Building2, Gamepad2, Rocket
+  ShoppingCart, Building2, Gamepad2, Rocket, Users
 } from 'lucide-react';
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
 
@@ -33,6 +33,7 @@ import NeuralStatusPage from './dashboards/manager/NeuralStatusPage';
 import StrategicAuditPage from './dashboards/manager/StrategicAuditPage';
 import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
 import LaunchSimulatorPage from './dashboards/marketing/LaunchSimulatorPage';
+import OrderLeadsPage from './dashboards/owner/OrderLeadsPage';
 
 // --- TYPESCRIPT INTERFACES ---
 interface ThemeConfig {
@@ -98,6 +99,13 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
       { path: '/dashboard/executive', label: 'Executive Summary', icon: TrendingUp },
       { path: '/dashboard/neural-status', label: 'Neural Status Panel', icon: Cpu },
       { path: '/dashboard/strategic-audit', label: 'Strategic Audit Hub', icon: Shield },
+    ]
+  },
+  owner: {
+    title: 'Owner Suite',
+    theme: { gradient: 'from-[#B91C1C] to-[#991B1B]', text: 'text-red-700', glow: 'bg-red-500/20' },
+    menus: [
+      { path: '/dashboard', label: 'Pemesanan Masuk', icon: Users }
     ]
   },
   default: {
@@ -174,6 +182,7 @@ export default function DashboardPage() {
           case 'admin': return <InventoryTrackerPage />;
           case 'finance': return <ProfitLedgerPage />;
           case 'marketing': return <CampaignForgePage />;
+          case 'owner': return <OrderLeadsPage />;
           case 'manager':
           default: return <ManagerDashboard />;
         }

@@ -1,9 +1,10 @@
 import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, Zap, ShieldCheck } from 'lucide-react';
 import HeroScene from '../components/three/HeroScene';
 import gsap from 'gsap';
 import { useLang } from '../context/LanguageContext';
+import { Link } from 'react-router-dom';
 
 const HEADLINE_WORDS = ['FUSION', 'NEURAL'];
 
@@ -106,22 +107,22 @@ export default function HeroSection() {
             transition={{ duration: 0.8, delay: 1.2 }}
             className="flex flex-col sm:flex-row flex-wrap justify-center lg:justify-start gap-4 mt-8 md:mt-10 w-full sm:w-auto"
           >
-            <a
-              href="#vision"
+            <Link
+              to="/pemesanan"
               data-cursor
               className="group flex items-center justify-center gap-2.5 px-7 py-4 md:py-3.5 rounded-full bg-fn-navy text-white font-space font-semibold text-sm hover:bg-fn-navy-light transition-all shadow-xl btn-shimmer w-full sm:w-auto"
             >
-              {isEnglish ? 'Explore Ecosystem' : 'Jelajahi Ekosistem'}
-              <ArrowDown size={15} className="group-hover:translate-y-1 transition-transform" />
-            </a>
-            <a
-              href="#agents"
+              {isEnglish ? 'Order Now' : 'Pesan Sekarang'}
+              <Zap size={15} className="text-fn-emerald group-hover:scale-110 transition-transform" />
+            </Link>
+            <Link
+              to="/login"
               data-cursor
               className="flex items-center justify-center gap-2.5 px-7 py-4 md:py-3.5 rounded-full glass border border-fn-emerald/30 text-fn-navy font-space font-semibold text-sm hover:border-fn-emerald/60 hover:bg-fn-emerald/5 transition-all w-full sm:w-auto"
             >
-              <span className="text-fn-emerald">⚡</span>
-              {isEnglish ? 'Meet the Agents' : 'Kenali Para Agen'}
-            </a>
+              <ShieldCheck size={16} className="text-fn-emerald" />
+              {isEnglish ? 'Dashboard Access' : 'Masuk Dashboard'}
+            </Link>
           </motion.div>
 
           {/* Stats row - Grid untuk Mobile, Flex untuk Desktop */}

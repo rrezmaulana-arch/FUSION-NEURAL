@@ -69,7 +69,7 @@ export default function OperationalBurnPage() {
         >
           <AlertTriangle size={18} className="text-rose-500 shrink-0" />
           <div>
-            <p className="text-sm font-black text-rose-700">🔥 Burn Rate Alert!</p>
+            <p className="text-sm font-black text-rose-700">Burn Rate Alert!</p>
             <p className="text-xs text-rose-600">Total biaya melebihi budget cap. Review pengeluaran segera.</p>
           </div>
         </motion.div>

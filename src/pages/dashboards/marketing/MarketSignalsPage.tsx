@@ -169,7 +169,7 @@ export default function MarketSignalsPage() {
                   </div>
                   <p className="text-slate-600 text-xs">{signal.desc}</p>
                   {successMap[signal.id] ? (
-                    <p className="text-emerald-600 text-xs font-bold mt-1">✅ {successMap[signal.id]}</p>
+                    <p className="text-emerald-600 text-xs font-bold mt-1">{successMap[signal.id]}</p>
                   ) : (
                     <p className="text-slate-400 text-[10px] mt-1 flex items-center gap-1"><ArrowRight size={9} />{signal.action}</p>
                   )}

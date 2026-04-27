@@ -46,7 +46,7 @@ export default function ConversionFeedbackPage() {
       );
       setSuggestion(result || 'Tidak ada rekomendasi dari AI.');
     } catch (e) {
-      setSuggestion('⚠️ Gagal menghubungi AI Manager. Periksa koneksi API.');
+      setSuggestion('Gagal menghubungi AI Manager. Periksa koneksi API.');
     } finally {
       setIsAnalyzing(false);
     }

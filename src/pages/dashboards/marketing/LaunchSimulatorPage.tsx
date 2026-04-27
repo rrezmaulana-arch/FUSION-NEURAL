@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, Square, Eye, Heart, MessageCircle, Share2, TrendingUp, Zap, Globe, Users, BarChart3, History } from 'lucide-react';
+import { 
+  Rocket, Square, Eye, Heart, MessageCircle, Share2, 
+  TrendingUp, Zap, Globe, Users, BarChart3, History, 
+  Library, Image as ImageIcon, Film, CheckCircle2
+} from 'lucide-react';
 import { doc, setDoc, serverTimestamp, addDoc, collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { db } from '../../../lib/firebase'; // Sesuaikan path ini dengan projectmu
 
 interface Platform {
   name: string;
@@ -21,6 +25,13 @@ interface CampaignConfig {
   platforms: string[];
 }
 
+// Data Dummy Library (Nanti bisa diganti dengan fetch dari Firebase Firestore)
+const LIBRARY_ITEMS = [
+  { id: 'lib-1', title: 'Koleksi Eksklusif Edisi Terbatas', caption: 'Premium. Limited Edition. Yours.', platform: 'Instagram', type: 'image' },
+  { id: 'lib-2', title: 'POV: Upgrade Terbaik FusionNeural', caption: 'FusionNeural Edisi Visioner — untuk yang selalu selangkah di depan.', platform: 'TikTok', type: 'video' },
+  { id: 'lib-3', title: 'Clarity & Precision Product Launch', caption: 'Satu produk. Satu standar tinggi.', platform: 'Web', type: 'image' }
+];
+
 const PLATFORM_PRESETS: Record<string, { growthRate: number; likeRatio: number; commentRatio: number; shareRatio: number; color: string; textColor: string; accent: string }> = {
   TikTok: { growthRate: 450, likeRatio: 0.08, commentRatio: 0.015, shareRatio: 0.025, color: 'bg-slate-900', textColor: 'text-white', accent: '#ff0050' },
   Instagram: { growthRate: 180, likeRatio: 0.12, commentRatio: 0.02, shareRatio: 0.018, color: 'bg-gradient-to-br from-purple-500 to-pink-500', textColor: 'text-white', accent: '#e1306c' },
@@ -30,11 +41,14 @@ const PLATFORM_PRESETS: Record<string, { growthRate: number; likeRatio: number; 
 export default function LaunchSimulatorPage() {
   const [isLaunched, setIsLaunched] = useState(false);
   const [elapsed, setElapsed] = useState(0); // seconds
+  const [selectedLibraryId, setSelectedLibraryId] = useState<string | null>(null);
+  
   const [config, setConfig] = useState<CampaignConfig>({
     title: '',
     caption: '',
     platforms: ['TikTok', 'Instagram'],
   });
+  
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [totalViews, setTotalViews] = useState(0);
   const [totalLikes, setTotalLikes] = useState(0);
@@ -46,7 +60,6 @@ export default function LaunchSimulatorPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef(0);
 
-  // Load riwayat campaign dari Firestore
   useEffect(() => {
     const q = query(
       collection(db, 'simulator_campaigns_summary'),
@@ -55,7 +68,7 @@ export default function LaunchSimulatorPage() {
     );
     const unsub = onSnapshot(q, snap => {
       setCampaignHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, () => {}); // silent error jika collection belum ada
+    }, () => {}); 
     return () => unsub();
   }, []);
 
@@ -77,6 +90,22 @@ export default function LaunchSimulatorPage() {
       shares: 0,
     }));
 
+  const handleSelectLibraryItem = (item: typeof LIBRARY_ITEMS[0]) => {
+    if (selectedLibraryId === item.id) {
+      // Deselect
+      setSelectedLibraryId(null);
+      setConfig({ title: '', caption: '', platforms: ['TikTok', 'Instagram'] });
+    } else {
+      // Select
+      setSelectedLibraryId(item.id);
+      setConfig({
+        title: item.title,
+        caption: item.caption,
+        platforms: [item.platform] // Otomatis menyesuaikan platform bawaan konten
+      });
+    }
+  };
+
   const launchCampaign = async () => {
     setPlatforms(initPlatforms());
     setTotalViews(0);
@@ -88,13 +117,13 @@ export default function LaunchSimulatorPage() {
     tickRef.current = 0;
     setIsLaunched(true);
 
-    // Log launch event ke Firebase
     try {
       await addDoc(collection(db, 'simulator_campaigns'), {
         title: config.title || 'Untitled Campaign',
         caption: config.caption || '',
         platforms: config.platforms,
         status: 'running',
+        source_library_id: selectedLibraryId, // Menyimpan log asal konten
         launchedAt: serverTimestamp(),
       });
     } catch (e) { console.warn('[LaunchSim] Firebase launch error:', e); }
@@ -104,7 +133,6 @@ export default function LaunchSimulatorPage() {
     setIsLaunched(false);
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    // Simpan final stats ke Firestore
     try {
       const campaignRef = doc(db, 'simulator_campaigns_summary', `campaign_${Date.now()}`);
       await setDoc(campaignRef, {
@@ -120,6 +148,7 @@ export default function LaunchSimulatorPage() {
         estimated_new_followers: Math.floor(totalLikes * 0.12),
         estimated_conversions: Math.floor(totalViews * 0.008),
         viral_moments: viralMoments,
+        source_library_id: selectedLibraryId,
         completedAt: serverTimestamp(),
       });
     } catch (e) { console.warn('[LaunchSim] Firebase save error:', e); }
@@ -132,7 +161,6 @@ export default function LaunchSimulatorPage() {
       tickRef.current += 1;
       setElapsed(tickRef.current);
 
-      // Viral curve: rapid growth early, plateau, then decay
       const t = tickRef.current;
       const viralMultiplier = Math.max(0.1, Math.sin(t / 20) * 1.5 + 1.2 - t / 200);
 
@@ -143,7 +171,6 @@ export default function LaunchSimulatorPage() {
         const preset = PLATFORM_PRESETS[p.name];
         if (!preset) return p;
 
-        // Base growth + viral surge + random noise
         const baseGrowth = preset.growthRate * viralMultiplier;
         const noise = (Math.random() - 0.3) * baseGrowth * 0.4;
         const viewsGain = Math.max(0, Math.floor(baseGrowth + noise));
@@ -159,26 +186,21 @@ export default function LaunchSimulatorPage() {
         return { ...p, views: newViews, likes: newLikes, comments: newComments, shares: newShares };
       }));
 
-      setTotalViews(prev => {
-        const next = prev + tickTotalViews;
-        return next;
-      });
+      setTotalViews(prev => prev + tickTotalViews);
       setTotalLikes(prev => prev + Math.max(0, tickTotalLikes));
       setPeakViewsPerSec(prev => Math.max(prev, tickTotalViews));
 
-      // Viral moment events
-      if (t === 5) setViralMoments(p => [`⚡ ${t}s — Konten mulai viral di FYP TikTok!`, ...p]);
-      if (t === 15) setViralMoments(p => [`🔥 ${t}s — ${formatNum(tickTotalViews * 15)} views/menit!`, ...p]);
-      if (t === 30) setViralMoments(p => [`📢 ${t}s — Konten masuk trending #1 lokal!`, ...p]);
-      if (t === 60) setViralMoments(p => [`🏆 ${t}s — 1 menit! Peak engagement tercapai!`, ...p]);
-      if (t === 90) setViralMoments(p => [`💤 ${t}s — Growth mulai melambat, distribusi organik aktif`, ...p]);
+      if (t === 5) setViralMoments(p => [`[ALERT] ${t}s — Konten mulai viral di FYP TikTok!`, ...p]);
+      if (t === 15) setViralMoments(p => [`[TREND] ${t}s — ${formatNum(tickTotalViews * 15)} views/menit!`, ...p]);
+      if (t === 30) setViralMoments(p => [`[VIRAL] ${t}s — Konten masuk trending #1 lokal!`, ...p]);
+      if (t === 60) setViralMoments(p => [`[PEAK] ${t}s — 1 menit! Peak engagement tercapai!`, ...p]);
+      if (t === 90) setViralMoments(p => [`[INFO] ${t}s — Growth mulai melambat, distribusi organik aktif`, ...p]);
 
     }, 1000);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isLaunched, config.platforms]);
 
-  // Engagement rate
   useEffect(() => {
     if (totalViews > 0) {
       setEngagementRate(((totalLikes) / totalViews) * 100);
@@ -202,7 +224,7 @@ export default function LaunchSimulatorPage() {
       <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Launch Simulator</h1>
-          <p className="text-slate-500 text-sm mt-1">Simulasikan viral campaign — views & engagement naik real-time, tersimpan ke Firebase</p>
+          <p className="text-slate-500 text-sm mt-1">Pilih konten dari library & simulasikan metrik viral secara real-time</p>
         </div>
         {isLaunched && (
           <div className="flex items-center gap-3">
@@ -218,20 +240,61 @@ export default function LaunchSimulatorPage() {
         )}
       </div>
 
-      {/* Firebase badge */}
       <div className="flex items-center gap-2 text-xs text-purple-600 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5 w-fit">
         <span className="w-2 h-2 rounded-full bg-purple-500" />
         <span className="font-bold">Terhubung ke Firebase</span>
         <span className="text-purple-400">— hasil disimpan ke <code className="font-mono">simulator_campaigns_summary</code> saat Stop</span>
       </div>
 
-      {/* Setup Panel — only when not launched */}
+      {/* Setup Panel */}
       <AnimatePresence>
         {!isLaunched && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="bg-white rounded-2xl p-6 border border-purple-100 shadow-sm space-y-4"
+            className="bg-white rounded-2xl p-6 border border-purple-100 shadow-sm space-y-6"
           >
             <h3 className="text-sm font-black text-slate-800 flex items-center gap-2"><Rocket size={16} className="text-purple-500" /> Setup Campaign</h3>
+
+            {/* --- NEW: Pilih dari Library --- */}
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
+                <Library size={12} /> Pilih dari Library Konten
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {LIBRARY_ITEMS.map(item => {
+                  const isSelected = selectedLibraryId === item.id;
+                  return (
+                    <div 
+                      key={item.id} 
+                      onClick={() => handleSelectLibraryItem(item)}
+                      className={`relative p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                        isSelected 
+                          ? 'border-purple-500 bg-purple-50/50 shadow-sm' 
+                          : 'border-slate-100 bg-white hover:border-purple-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 text-purple-600">
+                          <CheckCircle2 size={16} className="fill-purple-100" />
+                        </div>
+                      )}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${isSelected ? 'bg-purple-100' : 'bg-slate-100'}`}>
+                        {item.type === 'video' 
+                          ? <Film size={14} className={isSelected ? 'text-purple-600' : 'text-slate-500'} /> 
+                          : <ImageIcon size={14} className={isSelected ? 'text-purple-600' : 'text-slate-500'} />
+                        }
+                      </div>
+                      <p className="text-xs font-bold text-slate-800 line-clamp-1">{item.title}</p>
+                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{item.caption}</p>
+                      <span className="inline-block mt-2 text-[9px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full">
+                        {item.platform}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <hr className="border-slate-100" />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -240,8 +303,8 @@ export default function LaunchSimulatorPage() {
                   type="text"
                   value={config.title}
                   onChange={e => setConfig(c => ({ ...c, title: e.target.value }))}
-                  placeholder="Flash Sale Koleksi Terbaru 🔥"
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 ring-purple-300"
+                  placeholder="Atau ketik judul manual di sini..."
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 ring-purple-300 transition-all"
                 />
               </div>
               <div>
@@ -250,8 +313,8 @@ export default function LaunchSimulatorPage() {
                   type="text"
                   value={config.caption}
                   onChange={e => setConfig(c => ({ ...c, caption: e.target.value }))}
-                  placeholder="POV: kamu baru aja upgrade ke yang terbaik..."
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 ring-purple-300"
+                  placeholder="Ketik caption manual..."
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 ring-purple-300 transition-all"
                 />
               </div>
             </div>
@@ -275,20 +338,19 @@ export default function LaunchSimulatorPage() {
 
             <button
               onClick={launchCampaign}
-              disabled={config.platforms.length === 0}
-              className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg disabled:opacity-40 text-sm tracking-wide"
+              disabled={config.platforms.length === 0 || !config.title}
+              className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed text-sm tracking-wide"
             >
-              <Rocket size={16} /> 🚀 LAUNCH CAMPAIGN
+              <Rocket size={16} /> LAUNCH CAMPAIGN
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Live Metrics — shown when launched */}
+      {/* Live Metrics */}
       <AnimatePresence>
         {isLaunched && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
-            {/* Hero Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
               {[
                 { label: 'Total Views', value: formatNum(totalViews), icon: <Eye size={16} />, color: 'from-purple-500 to-indigo-600', textColor: 'text-white' },
@@ -306,7 +368,6 @@ export default function LaunchSimulatorPage() {
               ))}
             </div>
 
-            {/* Per-Platform Breakdown */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               {platforms.map(p => (
                 <motion.div key={p.name} layout
@@ -326,8 +387,6 @@ export default function LaunchSimulatorPage() {
                       </div>
                     ))}
                   </div>
-
-                  {/* View progress bar */}
                   <div className="mt-3 bg-white/20 rounded-full h-1.5 overflow-hidden">
                     <motion.div
                       animate={{ width: `${Math.min((p.views / Math.max(totalViews, 1)) * 100, 100)}%` }}
@@ -339,7 +398,6 @@ export default function LaunchSimulatorPage() {
               ))}
             </div>
 
-            {/* Combined stats row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center"><Globe size={18} className="text-purple-500" /></div>
@@ -364,15 +422,13 @@ export default function LaunchSimulatorPage() {
               </div>
             </div>
 
-            {/* Viral Moment Log */}
             {viralMoments.length > 0 && (
               <div className="bg-slate-900 rounded-2xl p-5">
                 <h3 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-3">Viral Moments Log</h3>
                 <AnimatePresence>
                   {viralMoments.map((m, i) => (
                     <motion.p key={i}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                       className="text-xs text-slate-300 font-mono py-1 border-b border-slate-800 last:border-0"
                     >
                       {m}
@@ -385,7 +441,7 @@ export default function LaunchSimulatorPage() {
         )}
       </AnimatePresence>
 
-      {/* Riwayat Campaign dari Firebase */}
+      {/* Riwayat Campaign */}
       {!isLaunched && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
@@ -408,9 +464,7 @@ export default function LaunchSimulatorPage() {
             <div className="divide-y divide-slate-50">
               {campaignHistory.map((c, i) => (
                 <motion.div key={c.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                   className="flex items-center gap-4 px-5 py-3.5"
                 >
                   <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
@@ -444,4 +498,3 @@ export default function LaunchSimulatorPage() {
     </div>
   );
 }
-

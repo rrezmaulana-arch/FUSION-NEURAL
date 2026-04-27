@@ -101,9 +101,9 @@ export default function FinancialPolicyPage() {
               policy.margin_target >= 20 ? 'bg-blue-50 text-blue-700' :
               'bg-amber-50 text-amber-700'
             }`}>
-              {policy.margin_target >= 30 ? '✅ Target agresif — AI Marketing akan memprioritaskan produk premium'
-                : policy.margin_target >= 20 ? '🎯 Target sehat — keseimbangan volume & profitabilitas'
-                : '⚠️ Target konservatif — waspadai kompetitor dengan margin lebih tinggi'}
+              {policy.margin_target >= 30 ? 'Target agresif — AI Marketing akan memprioritaskan produk premium'
+                : policy.margin_target >= 20 ? 'Target sehat — keseimbangan volume & profitabilitas'
+                : 'Target konservatif — waspadai kompetitor dengan margin lebih tinggi'}
             </div>
           </div>
         </div>

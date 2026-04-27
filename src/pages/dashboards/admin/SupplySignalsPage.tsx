@@ -79,10 +79,10 @@ export default function SupplySignalsPage() {
           'Buat kampanye cuci gudang menarik untuk produk overstock — diskon kilat atau bundle offer'
         );
         await FirebaseLogger.logAgentAction('Admin', 'OVERSTOCK_SIGNAL_SENT', `Sinyal cuci gudang dikirim ke Marketing untuk ${signal.product}`);
-        setSuccessMap(p => ({ ...p, [signal.id]: '✅ Sinyal terkirim ke Marketing Agent!' }));
+        setSuccessMap(p => ({ ...p, [signal.id]: 'Sinyal terkirim ke Marketing Agent!' }));
       } else {
         await FirebaseLogger.logAgentAction('Admin', 'RESTOCK_ALERT', `Restock alert: ${signal.product} perlu dipesan ulang`);
-        setSuccessMap(p => ({ ...p, [signal.id]: '✅ Alert dikirim ke Sutradara!' }));
+        setSuccessMap(p => ({ ...p, [signal.id]: 'Alert dikirim ke Sutradara!' }));
       }
     } catch (e) { console.error(e); }
     finally { setResponding(null); }

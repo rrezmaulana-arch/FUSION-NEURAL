@@ -11,6 +11,7 @@ import TechStackSection from '../sections/TechStackSection';
 import DevicesSection from '../sections/DevicesSection';
 import DevelopersSection from '../sections/DevelopersSection';
 import CTASection from '../sections/CTASection';
+import PricingSection from '../sections/PricingSection';
 import ChatBot from '../components/chat/ChatBot';
 import { LanguageProvider } from '../context/LanguageContext';
 
@@ -30,6 +31,7 @@ export default function LandingPage() {
             <CrossIndustrySection />
             <DevicesSection />
             <TechStackSection />
+            <PricingSection />
             <DevelopersSection />
             <CTASection />
           </main>

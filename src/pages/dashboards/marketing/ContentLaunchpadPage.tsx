@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays, Clock, CheckCircle2, XCircle, Heart, Globe, Plus, Rocket } from 'lucide-react';
+import { 
+  CalendarDays, Clock, CheckCircle2, XCircle, 
+  Heart, Globe, Plus, Rocket, UploadCloud, 
+  Image as ImageIcon, Film 
+} from 'lucide-react';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 
 interface ScheduledPost {
@@ -11,8 +15,14 @@ interface ScheduledPost {
   status: 'pending' | 'approved' | 'rejected';
 }
 
-const PLATFORMS = ['Instagram', 'TikTok', 'Web'];
+interface MediaItem {
+  id: string;
+  url: string;
+  type: 'image' | 'video';
+  name: string;
+}
 
+const PLATFORMS = ['Instagram', 'TikTok', 'Web'];
 const DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const SLOTS = ['09:00', '12:00', '15:00', '18:00', '21:00'];
 
@@ -26,6 +36,10 @@ export default function ContentLaunchpadPage() {
   const [newPlatform, setNewPlatform] = useState<'TikTok' | 'Instagram' | 'Web'>('Instagram');
   const [newSlot, setNewSlot] = useState('09:00');
   const [isAdding, setIsAdding] = useState(false);
+
+  const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleApprove = async (id: string) => {
     setPosts(p => p.map(post => post.id === id ? { ...post, status: 'approved' } : post));
@@ -52,6 +66,63 @@ export default function ContentLaunchpadPage() {
     await FirebaseLogger.logAgentAction('Marketing', 'POST_SCHEDULED', `Post baru dijadwalkan ke ${newPlatform} jam ${newSlot}`);
   };
 
+  // --- Handlers Media (Sudah ditambahkan Tipe TypeScript untuk elemen Div) ---
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const filesArray = Array.from(e.dataTransfer.files as Iterable<File> | ArrayLike<File>);
+      await processFiles(filesArray);
+    }
+  };
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files as Iterable<File> | ArrayLike<File>);
+      await processFiles(filesArray);
+    }
+    // Reset agar file yang sama bisa diupload ulang
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const processFiles = async (files: File[]) => {
+    const validFiles = files.filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
+    
+    if (validFiles.length === 0) return;
+
+    const newMediaItems: MediaItem[] = validFiles.map(file => {
+      const isVideo = file.type.startsWith('video/');
+      const fileUrl = isVideo ? `${URL.createObjectURL(file)}#t=0.1` : URL.createObjectURL(file);
+
+      return {
+        id: `${Date.now()}-${Math.random()}`,
+        url: fileUrl,
+        type: isVideo ? 'video' : 'image',
+        name: file.name
+      };
+    });
+
+    setMediaLibrary(prev => [...newMediaItems, ...prev]);
+    
+    // PERBAIKAN: Menggunakan kategori 'Marketing' dan memodifikasi pesannya agar tidak error
+    await FirebaseLogger.logAgentAction(
+      'Marketing', 
+      'POST_SCHEDULED', 
+      `${validFiles.length} aset konten baru masuk antrian library`
+    );
+  };
+
   const platformIcon = (p: string) => {
     if (p === 'Instagram') return <Heart size={13} />;
     if (p === 'TikTok') return <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.17 8.17 0 004.78 1.53V6.77a4.85 4.85 0 01-1.01-.08z"/></svg>;
@@ -75,7 +146,7 @@ export default function ContentLaunchpadPage() {
       <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Content Launchpad</h1>
-          <p className="text-slate-500 text-sm mt-1">Timeline & distribusi — kendali penuh atas kapan visi dipublikasikan</p>
+          <p className="text-slate-500 text-sm mt-1">Timeline, distribusi & aset — kendali penuh atas publikasi</p>
         </div>
         <button
           onClick={() => setIsAdding(!isAdding)}
@@ -85,7 +156,6 @@ export default function ContentLaunchpadPage() {
         </button>
       </div>
 
-      {/* Add Post Form */}
       <AnimatePresence>
         {isAdding && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
@@ -129,7 +199,69 @@ export default function ContentLaunchpadPage() {
         )}
       </AnimatePresence>
 
-      {/* Omnichannel Calendar */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+            <ImageIcon size={16} /> Stok Konten (Firebase Asset Library)
+          </h3>
+          <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-lg">
+            {mediaLibrary.length} Media
+          </span>
+        </div>
+
+        <div 
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+            isDragging ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+          }`}
+        >
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileInput} 
+            multiple 
+            accept="image/*,video/*" 
+            className="hidden" 
+          />
+          <UploadCloud className={`mx-auto mb-2 ${isDragging ? 'text-purple-500' : 'text-slate-400'}`} size={32} />
+          <p className="text-sm font-bold text-slate-700">Tarik & Lepas file ke sini</p>
+          <p className="text-xs text-slate-400 mt-1">atau klik untuk memilih foto/video</p>
+        </div>
+
+        {mediaLibrary.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mt-6">
+            <AnimatePresence>
+              {mediaLibrary.map((item, i) => (
+                <motion.div 
+                  key={item.id} 
+                  initial={{ opacity: 0, scale: 0.8 }} 
+                  animate={{ opacity: 1, scale: 1 }} 
+                  transition={{ delay: i * 0.05 }}
+                  className="relative group aspect-square rounded-xl overflow-hidden bg-slate-100 border border-slate-200"
+                >
+                  {item.type === 'image' ? (
+                    <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full relative">
+                      <video src={item.url} className="w-full h-full object-cover" muted preload="metadata" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <Film className="text-white drop-shadow-md" size={24} />
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 translate-y-full group-hover:translate-y-0 transition-transform">
+                    <p className="text-[9px] text-white font-medium truncate">{item.name}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
         <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><CalendarDays size={16} /> Omnichannel Calendar</h3>
         <div className="overflow-x-auto">
@@ -155,7 +287,6 @@ export default function ContentLaunchpadPage() {
         </div>
       </div>
 
-      {/* Queue */}
       <div className="space-y-3">
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Antrian Konten ({posts.length})</h2>
         {posts.map((post, i) => (

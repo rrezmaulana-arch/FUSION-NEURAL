@@ -43,7 +43,7 @@ export default function ROIIntelligencePage() {
       );
       setSuggestion(result);
     } catch (e) {
-      setSuggestion('⚠️ Gagal menghubungi AI. Periksa koneksi API.');
+      setSuggestion('Gagal menghubungi AI. Periksa koneksi API.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -163,7 +163,9 @@ export default function ROIIntelligencePage() {
             <Brain size={14} className="text-emerald-400" />
             <span className="text-emerald-400 text-xs font-bold uppercase tracking-widest">Spending Strategy — AI Finance</span>
           </div>
-          <p className="text-slate-300 text-sm leading-relaxed">{suggestion}</p>
+          <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+            {suggestion.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1')}
+          </p>
         </motion.div>
       )}
     </div>

@@ -54,7 +54,7 @@ export default function InventoryTrackerPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'ai',
-      content: '🤖 AI Admin Terminal aktif. Saya siap menerima perintah. Contoh:\n- "Tampilkan semua produk kritis"\n- "Berikan saran restok untuk produk menipis"\n- "Buat laporan stok hari ini"\n- "Cek produk apa yang perlu di-reorder segera"',
+      content: 'AI Admin Terminal aktif. Saya siap menerima perintah. Contoh:\n- "Tampilkan semua produk kritis"\n- "Berikan saran restok untuk produk menipis"\n- "Buat laporan stok hari ini"\n- "Cek produk apa yang perlu di-reorder segera"',
       timestamp: new Date(),
     }
   ]);

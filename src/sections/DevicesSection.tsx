@@ -62,9 +62,24 @@ export default function DevicesSection() {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="flex flex-wrap items-center justify-center lg:justify-start gap-4"
             >
-              {['💻 MacBook', '📱 iPad', '📲 iPhone'].map(device => (
-                <div key={device} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 font-inter text-sm">
-                  {device}
+              {[
+                { label: 'MacBook', icon: 'Laptop' },
+                { label: 'iPad', icon: 'Tablet' },
+                { label: 'iPhone', icon: 'Smartphone' },
+              ].map(device => (
+                <div key={device.label} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 font-inter text-sm">
+                  <span className="w-4 h-4 opacity-60">
+                    {device.icon === 'Laptop' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 20h20"/></svg>
+                    )}
+                    {device.icon === 'Tablet' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    )}
+                    {device.icon === 'Smartphone' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    )}
+                  </span>
+                  {device.label}
                 </div>
               ))}
             </motion.div>

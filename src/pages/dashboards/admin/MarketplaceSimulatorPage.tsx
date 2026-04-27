@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, addDoc, serverTimestamp, doc, setDoc, increment } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { ShoppingBag, Play, Square, Zap, TrendingUp, Package, Clock, RefreshCw } from 'lucide-react';
+import { ShoppingBag, Play, Square, Zap, TrendingUp, Package, Clock, RefreshCw, Snail, ChevronRight, ChevronsRight } from 'lucide-react';
 
 interface SimOrder {
   id: string;
@@ -139,11 +139,22 @@ export default function MarketplaceSimulatorPage() {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     intervalRef.current = setInterval(async () => {
-      const order = generateOrder();
-      setOrders(prev => [order, ...prev].slice(0, 30));
-      setTotalRevenue(prev => prev + order.price * order.qty);
-      setOrderCount(prev => prev + 1);
-      await saveOrderToFirestore(order);
+      setOrderCount(prevCount => {
+        const nextCount = prevCount + 1;
+        if (nextCount > 20) {
+          stopSimulator();
+          return prevCount;
+        }
+        
+        const order = generateOrder();
+        setOrders(prev => [order, ...prev].slice(0, 30));
+        setTotalRevenue(prev => prev + order.price * order.qty);
+        
+        // Save without awaiting to keep interval synchronous-like for state updates
+        saveOrderToFirestore(order).catch(console.warn);
+        
+        return nextCount;
+      });
     }, speedMs[speed]);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
@@ -187,7 +198,7 @@ export default function MarketplaceSimulatorPage() {
                 onClick={() => setSpeed(s)}
                 className={`px-3 py-2 transition-colors capitalize ${speed === s ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
               >
-                {s === 'slow' ? '🐢 Slow' : s === 'normal' ? '▶ Normal' : '⚡ Fast'}
+                {s === 'slow' ? <span className="flex items-center gap-1"><Snail size={14}/> Slow</span> : s === 'normal' ? <span className="flex items-center gap-1"><ChevronRight size={14}/> Normal</span> : <span className="flex items-center gap-1"><ChevronsRight size={14}/> Fast</span>}
               </button>
             ))}
           </div>
