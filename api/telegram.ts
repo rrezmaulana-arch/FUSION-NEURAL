@@ -70,11 +70,11 @@ function isSensitiveQuery(text: string): boolean {
   const sensitiveKeywords = [
     // Koding & Teknis
     'coding', 'koding', 'code', 'typescript', 'react', 'firebase', 'vercel', 'api',
-    'webhook', 'database', 'firestore', 'arsitektur', 'sistem', 'teknologi', 'tech stack',
-    'groq', 'llama', 'gemini', 'openai', 'model', 'ai', 'llm', 'prompt', 'neural',
+    'webhook', 'database', 'firestore', 'arsitektur', 'teknologi', 'tech stack',
+    'groq', 'llama', 'gemini', 'openai', 'model', 'llm', 'prompt',
     // Finance & Bisnis Internal
     'finance', 'keuangan', 'revenue', 'profit', 'pajak', 'ppn', 'roi', 'biaya',
-    'langganan', 'harga internal', 'margin', 'modal', 'omzet', 'laba',
+    'harga internal', 'margin', 'modal', 'omzet', 'laba',
     // Admin & Operasional
     'inventory', 'stok', 'supplier', 'pesanan internal', 'order sistem',
     // Autentikasi & Keamanan
