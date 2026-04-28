@@ -13,8 +13,27 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // ─────────────────────────────────────────────
 const NEURAL_HANDSHAKE_KEY = process.env.NEURAL_HANDSHAKE_KEY || 'Olivia-FN-2026';
 
-import { db } from '../src/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+// ─────────────────────────────────────────────
+// 🔥 FIREBASE — Server-Side Init (process.env)
+//    Tidak mengimport src/lib/firebase.ts karena
+//    file itu adalah Client SDK (import.meta.env).
+//    Di sini kita init langsung dengan process.env.
+// ─────────────────────────────────────────────
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+
+const _fbApp = getApps().length === 0
+  ? initializeApp({
+      apiKey:            process.env.VITE_FIREBASE_API_KEY,
+      authDomain:        process.env.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId:         process.env.VITE_FIREBASE_PROJECT_ID,
+      storageBucket:     process.env.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+      appId:             process.env.VITE_FIREBASE_APP_ID,
+    })
+  : getApps()[0];
+
+const db = getFirestore(_fbApp);
 
 // ─────────────────────────────────────────────
 // 🤖 GROQ CHAT — Brain Power
