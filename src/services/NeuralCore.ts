@@ -4,8 +4,12 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { FirebaseLogger } from './FirebaseLogger';
 
 // Initialize Groq Client
+const groqApiKey = typeof process !== 'undefined' && process.env 
+  ? process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY
+  : import.meta.env?.VITE_GROQ_API_KEY;
+
 const groq = new Groq({
-  apiKey: import.meta.env.VITE_GROQ_API_KEY,
+  apiKey: groqApiKey,
   dangerouslyAllowBrowser: true
 });
 
@@ -465,6 +469,34 @@ export class NeuralCore {
     } catch (error) {
       console.error("Simulation Error:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Send a direct notification via Telegram Neural Link
+   */
+  static async sendTelegramNotification(chatId: number, text: string, parseMode: string = 'Markdown'): Promise<void> {
+    try {
+      const token = typeof process !== 'undefined' && process.env 
+        ? process.env.TELEGRAM_BOT_TOKEN 
+        : import.meta.env?.VITE_TELEGRAM_BOT_TOKEN;
+        
+      if (!token) {
+        console.warn('Telegram Bot Token not found in environment.');
+        return;
+      }
+
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          parse_mode: parseMode,
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to send Telegram Notification via Neural Core:', error);
     }
   }
 }

@@ -6,8 +6,8 @@ import {
   LogOut, LayoutDashboard, Menu as MenuIcon, X,
   ChevronLeft, ChevronRight, Bell, Cloud,
   TrendingUp, Flame, Package, Network, BookOpen,
-  Cpu, Shield, Sparkles, Radio, CalendarDays, BarChart2, Fingerprint,
-  ShoppingCart, Building2, Gamepad2, Rocket, Users
+  Activity, Shield, Sparkles, Radio, CalendarDays, BarChart2, Fingerprint,
+  ShoppingCart, Building2, Gamepad2, Rocket, Users, Calculator
 } from 'lucide-react';
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
 
@@ -22,14 +22,14 @@ import MarketSignalsPage from './dashboards/marketing/MarketSignalsPage';
 import ContentLaunchpadPage from './dashboards/marketing/ContentLaunchpadPage';
 import ConversionFeedbackPage from './dashboards/marketing/ConversionFeedbackPage';
 import BrandDNAPage from './dashboards/marketing/BrandDNAPage';
-import LogsPage from './dashboards/admin/LogsPage';
+import TaxCalculatorPage from './dashboards/admin/TaxCalculatorPage';
 import InventoryTrackerPage from './dashboards/admin/InventoryTrackerPage';
 import OrderStreamPage from './dashboards/admin/OrderStreamPage';
 import SupplySignalsPage from './dashboards/admin/SupplySignalsPage';
 import SupplierHubPage from './dashboards/admin/SupplierHubPage';
 import AgentOrchestratorPage from './dashboards/manager/AgentOrchestratorPage';
 import ExecutiveSummaryPage from './dashboards/manager/ExecutiveSummaryPage';
-import NeuralStatusPage from './dashboards/manager/NeuralStatusPage';
+import AgentHealthPage from './dashboards/manager/AgentHealthPage';
 import StrategicAuditPage from './dashboards/manager/StrategicAuditPage';
 import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
 import LaunchSimulatorPage from './dashboards/marketing/LaunchSimulatorPage';
@@ -65,6 +65,7 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
       { path: '/dashboard/supply-signals', label: 'Supply Signals', icon: Radio },
       { path: '/dashboard/suppliers', label: 'Supplier Hub', icon: Building2 },
       { path: '/dashboard/marketplace-sim', label: 'Marketplace Simulator', icon: Gamepad2 },
+      { path: '/dashboard/tax-calc', label: 'Tax Calculator', icon: Calculator },
     ]
   },
   finance: {
@@ -97,7 +98,7 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
       { path: '/dashboard', label: 'Workspace Dashboard', icon: LayoutDashboard },
       { path: '/dashboard/orchestrator', label: 'Agent Orchestrator', icon: Network },
       { path: '/dashboard/executive', label: 'Executive Summary', icon: TrendingUp },
-      { path: '/dashboard/neural-status', label: 'Neural Status Panel', icon: Cpu },
+      { path: '/dashboard/agent-health', label: 'Agent Health Monitor', icon: Activity },
       { path: '/dashboard/strategic-audit', label: 'Strategic Audit Hub', icon: Shield },
     ]
   },
@@ -164,7 +165,7 @@ export default function DashboardPage() {
       case '/dashboard/orders': return <OrderStreamPage />;
       case '/dashboard/supply-signals': return <SupplySignalsPage />;
       case '/dashboard/suppliers': return <SupplierHubPage />;
-      case '/dashboard/logs': return <LogsPage />;
+      case '/dashboard/tax-calc': return <TaxCalculatorPage />;
       case '/dashboard/marketplace-sim': return <MarketplaceSimulatorPage />;
 
       // Marketing Simulator
@@ -173,7 +174,7 @@ export default function DashboardPage() {
       // Manager Routes
       case '/dashboard/orchestrator': return <AgentOrchestratorPage />;
       case '/dashboard/executive': return <ExecutiveSummaryPage />;
-      case '/dashboard/neural-status': return <NeuralStatusPage />;
+      case '/dashboard/agent-health': return <AgentHealthPage />;
       case '/dashboard/strategic-audit': return <StrategicAuditPage />;
 
       // Defaults Base Paths based on Role
