@@ -5,10 +5,8 @@ import { Link } from 'react-router-dom';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useSearchParams } from 'react-router-dom';
-import Groq from 'groq-sdk';
 import { NeuralCore } from '../services/NeuralCore';
-
-const groq = new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY, dangerouslyAllowBrowser: true });
+import { PRICING, getTierName } from '../config/pricing';
 
 interface Message {
   id: string;
@@ -27,56 +25,64 @@ interface OrderSnapshot {
   confirmed: boolean;
 }
 
-// ── Heuristic extractor: parse AI-confirmed order from conversation ──
-function extractOrderFromHistory(history: Message[]): OrderSnapshot | null {
-  const fullText = history.map((m) => m.text).join('\n').toLowerCase();
+// ── AI LLM extractor: parse AI-confirmed order from conversation ──
+async function extractOrderFromHistory(history: Message[]): Promise<OrderSnapshot | null> {
+  const fullText = history.map((m) => `${m.sender}: ${m.text}`).join('\n');
 
-  // Detect confirmation keyword
-  const confirmed =
-    fullText.includes('sinkronisasi pesanan') ||
-    fullText.includes('pesanan telah tersimpan') ||
-    fullText.includes('mengonfirmasi sinkronisasi');
+  try {
+    const response = await fetch('/api/neural', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          { 
+            role: 'system', 
+            content: `Kamu adalah asisten parser JSON. Analisis log chat antara 'bot' (Frontline Architect AI) dan 'user' (calon klien).
+Ekstrak detail pesanan HANYA JIKA AI sudah meminta konfirmasi (contoh: "Apakah Kakak mengonfirmasi sinkronisasi pesanan ini sekarang?") DAN user sudah membalas dengan SETUJU (contoh: "ya", "oke", "lanjut").
+Jika belum dikonfirmasi atau user menolak, kembalikan JSON kosong {}.
+Jika terkonfirmasi, ekstrak ke JSON persis dengan format berikut:
+{
+  "name": "Nama Klien",
+  "phone": "Nomor WhatsApp/HP Klien",
+  "tierKey": "tier1" | "tier2" | "tier3",
+  "autonomy": "100% Full Otonom AI" | "50% Sinergi Hybrid"
+}
+Catatan Tier:
+- Starter Agent = tier1
+- Dual Synergy = tier2
+- Full One Man Company = tier3
+`
+          },
+          { role: 'user', content: fullText }
+        ],
+        model: 'llama-3.3-70b-versatile',
+        response_format: { type: 'json_object' }
+      })
+    });
 
-  if (!confirmed) return null;
+    const data = await response.json();
+    const resultString = data.choices?.[0]?.message?.content;
+    if (!resultString) return null;
+    
+    const parsed = JSON.parse(resultString);
+    if (!parsed.name || !parsed.phone || !parsed.tierKey) return null;
 
-  // Tier detection
-  let tierKey = 'tier2';
-  let tier = 'Dual Synergy (2 Agen AI)';
-  if (fullText.includes('full one man company') || fullText.includes('tier3')) {
-    tierKey = 'tier3';
-    tier = 'Full One Man Company (4 Agen AI)';
-  } else if (fullText.includes('starter agent') || fullText.includes('tier1')) {
-    tierKey = 'tier1';
-    tier = 'Starter Agent (1 Agen AI)';
+    const isFullAuto = parsed.autonomy.includes('100');
+    const price = isFullAuto ? PRICING[parsed.tierKey].p100 : PRICING[parsed.tierKey].p50;
+
+    return { 
+      name: parsed.name, 
+      phone: parsed.phone, 
+      tier: getTierName(parsed.tierKey), 
+      tierKey: parsed.tierKey, 
+      autonomy: parsed.autonomy, 
+      price, 
+      confirmed: true 
+    };
+  } catch (error) {
+    console.error("Order Extraction Error:", error);
+    return null;
   }
-
-  // Autonomy & price
-  const isFullAuto = fullText.includes('100%') || fullText.includes('full otonom');
-  const autonomy = isFullAuto ? '100% Full Otonom AI' : '50% Sinergi Hybrid';
-
-  const PRICES: Record<string, { p50: number; p100: number }> = {
-    tier1: { p50: 2900000, p100: 4900000 },
-    tier2: { p50: 5400000, p100: 8900000 },
-    tier3: { p50: 8400000, p100: 14900000 },
-  };
-  const price = isFullAuto ? PRICES[tierKey].p100 : PRICES[tierKey].p50;
-
-  // Phone detection from user messages
-  const userMessages = history.filter((m) => m.sender === 'user').map((m) => m.text);
-  const phoneMsg = userMessages.find((t) => /^(\+62|08)[0-9]{7,13}$/.test(t.trim()));
-  const phone = phoneMsg?.trim() ?? '';
-
-  // Name: first user message that is a short, non-phone, non-keyword string
-  const nameMsg = userMessages.find(
-    (t) =>
-      t.length >= 2 &&
-      t.length <= 60 &&
-      !/^(\+62|08)[0-9]/.test(t) &&
-      !/(tier|agen|hybrid|otonom|ya|tidak|iya|confirm)/i.test(t),
-  );
-  const name = nameMsg?.trim() ?? '';
-
-  return { name, phone, tier, tierKey, autonomy, price, confirmed };
 }
 
 export default function OrderPage() {
@@ -148,14 +154,19 @@ export default function OrderPage() {
         });
       }
 
-      const completion = await groq.chat.completions.create({
-        messages: groqMessages,
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.72,
-        max_tokens: 600,
+      const response = await fetch('/api/neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: groqMessages,
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.72,
+          max_tokens: 600
+        })
       });
 
-      const reply = completion.choices[0]?.message?.content ?? 'Sinkronisasi sedang berlangsung, Kak. Mohon tunggu sebentar.';
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content ?? 'Sinkronisasi sedang berlangsung, Kak. Mohon tunggu sebentar.';
 
       setMessages((prev) => [
         ...prev,
@@ -202,7 +213,7 @@ export default function OrderPage() {
       userText.includes('lanjut');
 
     if (botAskedConfirm && userConfirmed) {
-      const snap = extractOrderFromHistory(allMessages);
+      const snap = await extractOrderFromHistory(allMessages);
       if (snap && snap.name && snap.phone && !orderSaved) {
         setOrderSaved(true);
         setOrderSnap(snap);

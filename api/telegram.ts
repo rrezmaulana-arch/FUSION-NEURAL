@@ -13,8 +13,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // ─────────────────────────────────────────────
 const NEURAL_HANDSHAKE_KEY = process.env.NEURAL_HANDSHAKE_KEY || 'Olivia-FN-2026';
 
-// Session storage in-memory (per cold-start; untuk persistent pakai Firestore)
-const sessionStore: Record<number, { unlocked: boolean; pending_auth: boolean }> = {};
+import { db } from '../src/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // ─────────────────────────────────────────────
 // 🤖 GROQ CHAT — Brain Power
@@ -151,11 +151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const chatId: number = message.chat.id;
     const text: string = message.text.trim();
 
-    // Inisialisasi sesi user
-    if (!sessionStore[chatId]) {
-      sessionStore[chatId] = { unlocked: false, pending_auth: false };
-    }
-    const session = sessionStore[chatId];
+    const sessionRef = doc(db, 'telegram_sessions', chatId.toString());
+    const sessionSnap = await getDoc(sessionRef);
+    let session = sessionSnap.exists() ? sessionSnap.data() : { unlocked: false, pending_auth: false };
 
     // ──────────────────────────────────────────
     // 🔑 FASE 1: CEK APAKAH SEDANG MENUNGGU AUTH
@@ -165,6 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ✅ KUNCI BENAR — UNLOCK DEEP CORTEX
         session.unlocked = true;
         session.pending_auth = false;
+        await setDoc(sessionRef, session, { merge: true });
 
         const unlockMsg = `🔓 *Otentikasi Berhasil.*
 
@@ -185,6 +184,7 @@ _Presisi 100% — siap melayani._`;
       } else {
         // ❌ KUNCI SALAH
         session.pending_auth = false;
+        await setDoc(sessionRef, session, { merge: true });
         const denyMsg = `🚫 *Akses Ditolak.*
 
 Parameter otentikasi tidak valid. Neural Handshake gagal diverifikasi.
@@ -215,6 +215,7 @@ _Mode: Public Surface_ 🌐`;
     // /lock — Kunci ulang sesi
     if (text === '/lock') {
       session.unlocked = false;
+      await setDoc(sessionRef, session, { merge: true });
       await sendMessage(chatId, '🔒 *Deep Cortex telah dikunci.* Mode kembali ke Public Surface.');
       return res.status(200).json({ ok: true });
     }
@@ -235,6 +236,7 @@ _Mode: Public Surface_ 🌐`;
     if (!session.unlocked && isSensitiveQuery(text)) {
       // 🚨 PESAN SENSITIF + BELUM TERAUTENTIKASI — Minta kata kunci
       session.pending_auth = true;
+      await setDoc(sessionRef, session, { merge: true });
 
       const gateMsg = `🛡️ *Sistem Keamanan FusionNeural.*
 

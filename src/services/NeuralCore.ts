@@ -1,17 +1,7 @@
-import Groq from 'groq-sdk';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { FirebaseLogger } from './FirebaseLogger';
-
-// Initialize Groq Client
-const groqApiKey = typeof process !== 'undefined' && process.env 
-  ? process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY
-  : import.meta.env?.VITE_GROQ_API_KEY;
-
-const groq = new Groq({
-  apiKey: groqApiKey,
-  dangerouslyAllowBrowser: true
-});
+import { PRICING } from '../config/pricing';
 
 // DEFAULT PROMPTS SEEDER — DENGAN KERANGKA HUKUM INDONESIA
 const DEFAULT_PROMPTS = {
@@ -80,15 +70,15 @@ Status: The Fluid Interceptor & Dynamic Conversion Engine.
 Identitas: Kamu adalah Frontline Architect di FusionNeural. Visimu adalah mengedukasi, memandu, dan mengeksekusi konfigurasi pemesanan calon klien untuk mewujudkan ekosistem Full One Man Company. Kamu memiliki akses ke logika kalkulasi harga dinamis.
 
 STRUKTUR HARGA (WAJIB HAFAL & GUNAKAN):
-• Starter Agent (1 Agen AI):
-  - 50% Sinergi Hybrid: Rp 2.900.000 setup + Rp 990.000/bulan | Rp 9.500.000/tahun
-  - 100% Full Otonom AI: Rp 4.900.000 setup + Rp 1.790.000/bulan | Rp 17.200.000/tahun
-• Dual Synergy (2 Agen AI):
-  - 50% Sinergi Hybrid: Rp 5.400.000 setup + Rp 1.750.000/bulan | Rp 16.800.000/tahun
-  - 100% Full Otonom AI: Rp 8.900.000 setup + Rp 2.950.000/bulan | Rp 28.300.000/tahun
-• Full One Man Company (4 Agen AI):
-  - 50% Sinergi Hybrid: Rp 8.400.000 setup + Rp 2.690.000/bulan | Rp 25.800.000/tahun
-  - 100% Full Otonom AI: Rp 14.900.000 setup + Rp 4.750.000/bulan | Rp 45.600.000/tahun
+• ${PRICING.tier1.name}:
+  - 50% Sinergi Hybrid: Rp ${PRICING.tier1.p50.toLocaleString('id-ID')} setup + Rp ${PRICING.tier1.p50Monthly.toLocaleString('id-ID')}/bulan
+  - 100% Full Otonom AI: Rp ${PRICING.tier1.p100.toLocaleString('id-ID')} setup + Rp ${PRICING.tier1.p100Monthly.toLocaleString('id-ID')}/bulan
+• ${PRICING.tier2.name}:
+  - 50% Sinergi Hybrid: Rp ${PRICING.tier2.p50.toLocaleString('id-ID')} setup + Rp ${PRICING.tier2.p50Monthly.toLocaleString('id-ID')}/bulan
+  - 100% Full Otonom AI: Rp ${PRICING.tier2.p100.toLocaleString('id-ID')} setup + Rp ${PRICING.tier2.p100Monthly.toLocaleString('id-ID')}/bulan
+• ${PRICING.tier3.name}:
+  - 50% Sinergi Hybrid: Rp ${PRICING.tier3.p50.toLocaleString('id-ID')} setup + Rp ${PRICING.tier3.p50Monthly.toLocaleString('id-ID')}/bulan
+  - 100% Full Otonom AI: Rp ${PRICING.tier3.p100.toLocaleString('id-ID')} setup + Rp ${PRICING.tier3.p100Monthly.toLocaleString('id-ID')}/bulan
 Catatan: Langganan tahunan hemat ±20% dibandingkan bulanan.
 
 1. ARSITEKTUR KOMUNIKASI & KALKULASI DINAMIS (Fluid & Elegan):
@@ -235,16 +225,21 @@ export class NeuralCore {
         Jika semua agen baik-baik saja, kembalikan target_agent: 'none'.
       `;
 
-      const completion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: managerPrompt },
-          { role: 'user', content: context }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        response_format: { type: 'json_object' }
+      const response = await fetch('/api/neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: managerPrompt },
+            { role: 'user', content: context }
+          ],
+          model: 'llama-3.3-70b-versatile',
+          response_format: { type: 'json_object' }
+        })
       });
 
-      const responseString = completion.choices[0]?.message?.content;
+      const data = await response.json();
+      const responseString = data.choices?.[0]?.message?.content;
       if (!responseString) throw new Error("No response from Groq");
 
       const aiResponse = JSON.parse(responseString);
@@ -276,16 +271,21 @@ export class NeuralCore {
         Pastikan nama item (sku atau name) cocok dengan stok. Jika barang tidak ada, kembalikan new_stock sesuai yang kamu asumsikan.
       `;
 
-      const completion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: context }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        response_format: { type: 'json_object' }
+      const response = await fetch('/api/neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: prompt },
+            { role: 'user', content: context }
+          ],
+          model: 'llama-3.3-70b-versatile',
+          response_format: { type: 'json_object' }
+        })
       });
 
-      const responseString = completion.choices[0]?.message?.content;
+      const data = await response.json();
+      const responseString = data.choices?.[0]?.message?.content;
       if (!responseString) throw new Error("No response from Groq");
 
       const aiResponse = JSON.parse(responseString);
@@ -307,15 +307,20 @@ export class NeuralCore {
         ? `${context}\n\nBrief kampanye: ${brief}\n\nBuat konten langsung tanpa penjelasan tambahan.`
         : `Produk/Kampanye: ${brief}\nBuatkan caption promosi premium. Langsung tulis kontennya saja.`;
 
-      const completion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        model: 'llama-3.3-70b-versatile',
+      const response = await fetch('/api/neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage }
+          ],
+          model: 'llama-3.3-70b-versatile'
+        })
       });
 
-      return completion.choices[0]?.message?.content || 'Konten berhasil dibuat.';
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || 'Konten berhasil dibuat.';
     } catch (error) {
       console.error('AI Marketing Error:', error);
       throw error;
@@ -339,16 +344,21 @@ export class NeuralCore {
         { "net_profit": angka, "roi_percentage": angka, "analysis_text": "analisis singkat" }
       `;
 
-      const completion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: context }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        response_format: { type: 'json_object' }
+      const response = await fetch('/api/neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: prompt },
+            { role: 'user', content: context }
+          ],
+          model: 'llama-3.3-70b-versatile',
+          response_format: { type: 'json_object' }
+        })
       });
 
-      const responseString = completion.choices[0]?.message?.content;
+      const data = await response.json();
+      const responseString = data.choices?.[0]?.message?.content;
       if (!responseString) throw new Error("No response from Groq");
 
       const aiResponse = JSON.parse(responseString);
@@ -384,16 +394,21 @@ export class NeuralCore {
         }
       `;
 
-      const completion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: context }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        response_format: { type: 'json_object' }
+      const response = await fetch('/api/neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: prompt },
+            { role: 'user', content: context }
+          ],
+          model: 'llama-3.3-70b-versatile',
+          response_format: { type: 'json_object' }
+        })
       });
 
-      const responseString = completion.choices[0]?.message?.content;
+      const data = await response.json();
+      const responseString = data.choices?.[0]?.message?.content;
       if (!responseString) throw new Error("No response from Groq");
 
       const aiResponse = JSON.parse(responseString);
@@ -477,9 +492,9 @@ export class NeuralCore {
    */
   static async sendTelegramNotification(chatId: number, text: string, parseMode: string = 'Markdown'): Promise<void> {
     try {
-      const token = typeof process !== 'undefined' && process.env 
+      const token = typeof process !== 'undefined' && process.env.TELEGRAM_BOT_TOKEN 
         ? process.env.TELEGRAM_BOT_TOKEN 
-        : import.meta.env?.VITE_TELEGRAM_BOT_TOKEN;
+        : import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
         
       if (!token) {
         console.warn('Telegram Bot Token not found in environment.');
