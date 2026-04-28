@@ -21,6 +21,7 @@ interface InventoryItem {
   sku: string;
   quantity?: number;
   qty?: number;
+  price?: number;
 }
 
 const PLATFORMS = [
@@ -77,15 +78,21 @@ export default function MarketplaceSimulatorPage() {
 
   const getRandomItem = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-  const generateOrder = (): SimOrder => {
+  const generateOrder = (): SimOrder | null => {
     const platform = getRandomItem(PLATFORMS);
     const buyer = getRandomItem(platform.buyers);
-    const productNames = inventory.length > 0
-      ? inventory.map(i => i.name).filter(Boolean)
-      : ['Minimalist Quartz Watch', 'Pro Sound Wireless', 'Aero Runner v2', 'Leather Bag Premium', 'Smart Wallet'];
-    const product = getRandomItem(productNames);
-    const qty = Math.floor(Math.random() * 3) + 1;
-    const price = (Math.floor(Math.random() * 500) + 50) * 1000;
+    
+    // Filter out products with 0 stock
+    const availableProducts = inventory.filter(i => (i.quantity ?? i.qty ?? 0) > 0);
+    if (availableProducts.length === 0) return null; // No stock left!
+
+    const productItem = getRandomItem(availableProducts);
+    const product = productItem.name || 'Unknown Product';
+    const currentQty = productItem.quantity ?? productItem.qty ?? 0;
+    
+    const qty = Math.min(Math.floor(Math.random() * 3) + 1, currentQty);
+    const price = productItem.price ? productItem.price : (Math.floor(Math.random() * 500) + 50) * 1000;
+    
     const now = new Date();
     const time = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     return {
@@ -97,27 +104,52 @@ export default function MarketplaceSimulatorPage() {
       price,
       time,
       city: getRandomItem(CITIES),
-    };
+      ...( { _productId: productItem.id } ) // Add hidden product id for tracking
+    } as SimOrder;
   };
 
   // Simpan order ke Firestore
   const saveOrderToFirestore = async (order: SimOrder) => {
     try {
-      // 1. Simpan dokumen order individual
-      await addDoc(collection(db, 'simulator_orders'), {
+      // 1. Simpan dokumen order individual ke 'orders' (Terbaca oleh Finance)
+      await addDoc(collection(db, 'orders'), {
         platform: order.platform,
         buyer: order.buyer,
         product: order.product,
         qty: order.qty,
         price: order.price,
+        amount: order.price * order.qty,
+        total: order.price * order.qty,
         revenue: order.price * order.qty,
         city: order.city,
         time: order.time,
+        status: 'processed',
         session: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
         createdAt: serverTimestamp(),
+        timestamp: serverTimestamp(),
       });
 
-      // 2. Update summary akumulatif per platform
+      // 2. Kurangi stok di inventory riil
+      const productId = (order as any)._productId;
+      if (productId) {
+        const itemRef = doc(db, 'inventory', productId);
+        const invItem = inventory.find(i => i.id === productId);
+        if (invItem) {
+           const updateData: any = {};
+           if (invItem.quantity !== undefined) updateData.quantity = increment(-order.qty);
+           if (invItem.qty !== undefined) updateData.qty = increment(-order.qty);
+           await setDoc(itemRef, updateData, { merge: true });
+        }
+      }
+
+      // 3. Tambahkan ke global finance
+      const financeRef = doc(db, 'financial_reports', 'latest');
+      await setDoc(financeRef, {
+         revenue: increment(order.price * order.qty),
+         net_profit: increment(order.price * order.qty * 0.65), // Estimasi 65% profit margin
+      }, { merge: true });
+
+      // 4. Update summary akumulatif per platform
       const summaryRef = doc(db, 'simulator_summary', order.platform.replace(/\s/g, '_'));
       await setDoc(summaryRef, {
         platform: order.platform,
@@ -147,6 +179,12 @@ export default function MarketplaceSimulatorPage() {
         }
         
         const order = generateOrder();
+        if (!order) {
+           stopSimulator();
+           alert("Simulasi dihentikan otomatis: Semua stok produk telah habis!");
+           return prevCount;
+        }
+
         setOrders(prev => [order, ...prev].slice(0, 30));
         setTotalRevenue(prev => prev + order.price * order.qty);
         

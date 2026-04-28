@@ -11,8 +11,17 @@ import { FirebaseLogger } from '../../../services/FirebaseLogger';
 
 
 export default function ManagerDashboard() {
-  const { systemRequests: requests, performers, pingPerformer, financeChartData: chartDataRaw } = useSystemEngine();
+  const { performers, pingPerformer, financeChartData: chartDataRaw } = useSystemEngine();
   const chartData = Array.isArray(chartDataRaw) && chartDataRaw.length >= 6 ? chartDataRaw : [40, 55, 60, 75, 65, 80];
+  
+  const [realOrderCount, setRealOrderCount] = useState(0);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'orders'), snap => {
+      setRealOrderCount(snap.docs.length);
+    });
+    return () => unsub();
+  }, []);
   
   // ─── AI Evaluation Drawer ───────────────────────────────────────────────
   const [logs, setLogs] = useState<any[]>([]);
@@ -223,9 +232,9 @@ export default function ManagerDashboard() {
           />
 
           <div className="relative z-10 text-white">
-            <p className="text-white/80 font-medium mb-1">System requests for today</p>
-            <motion.h2 key={requests} initial={{ opacity: 0.5, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-6xl md:text-7xl font-bold tracking-tight mb-8">
-              {requests.toLocaleString()}
+            <p className="text-white/80 font-medium mb-1">System processed orders today</p>
+            <motion.h2 key={realOrderCount} initial={{ opacity: 0.5, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-6xl md:text-7xl font-bold tracking-tight mb-8">
+              {realOrderCount.toLocaleString()}
             </motion.h2>
             
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
@@ -303,8 +312,8 @@ export default function ManagerDashboard() {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#2A5C6A] text-white flex items-center justify-center"><DollarSign size={20} /></div>
               <div>
-                <p className="text-xl font-bold text-slate-800">12,841</p>
-                <p className="text-xs text-slate-400">Monthly execution</p>
+                <p className="text-xl font-bold text-slate-800">{realOrderCount.toLocaleString()}</p>
+                <p className="text-xs text-slate-400">Total processed</p>
               </div>
             </div>
             <div className="p-2 border border-slate-100 rounded-lg text-slate-400 cursor-pointer hover:bg-slate-50"><CalendarDays size={18} /></div>

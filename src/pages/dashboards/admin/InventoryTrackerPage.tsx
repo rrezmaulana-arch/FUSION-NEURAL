@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, increment } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import {
   Package, Plus, AlertTriangle, CheckCircle2, X, Tag, Warehouse,
-  ImageIcon, Terminal, Send, Bot, Loader2, ChevronDown, ChevronUp
+  ImageIcon, Terminal, Send, Bot, Loader2, ChevronDown, ChevronUp, Edit2, Trash2
 } from 'lucide-react';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import { NeuralCore } from '../../../services/NeuralCore';
@@ -44,6 +44,7 @@ const getPhoto = (p: Product) => p.photo_url || p.image || '';
 export default function InventoryTrackerPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', sku: '', category: '', quantity: 0, min_stock: 5, max_stock: 100, warehouse: 'Gudang Utama', photo_url: '' });
   const [photoPreview, setPhotoPreview] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -91,17 +92,42 @@ export default function InventoryTrackerPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleAdd = async () => {
+  const handleSave = async () => {
     if (!form.name || !form.sku) return;
     setIsSaving(true);
     try {
-      await addDoc(collection(db, 'inventory'), { ...form, createdAt: serverTimestamp() });
-      await FirebaseLogger.logAgentAction('Admin', 'PRODUCT_ADDED', `Produk "${form.name}" (${form.sku}) ditambahkan ke inventory`);
+      if (isEditing) {
+        await updateDoc(doc(db, 'inventory', isEditing), { ...form, qty: form.quantity });
+        await FirebaseLogger.logAgentAction('Admin', 'PRODUCT_UPDATED', `Produk "${form.name}" diperbarui`);
+      } else {
+        await addDoc(collection(db, 'inventory'), { ...form, qty: form.quantity, createdAt: serverTimestamp() });
+        await FirebaseLogger.logAgentAction('Admin', 'PRODUCT_ADDED', `Produk "${form.name}" (${form.sku}) ditambahkan ke inventory`);
+      }
       setForm({ name: '', sku: '', category: '', quantity: 0, min_stock: 5, max_stock: 100, warehouse: 'Gudang Utama', photo_url: '' });
       setPhotoPreview('');
       setIsAdding(false);
+      setIsEditing(null);
     } catch (e) { console.error(e); }
     finally { setIsSaving(false); }
+  };
+
+  const handleEditClick = (p: Product) => {
+    setForm({
+      name: p.name || '', sku: p.sku || '', category: p.category || '', 
+      quantity: getQty(p), min_stock: p.min_stock || 5, max_stock: p.max_stock || 100, 
+      warehouse: p.warehouse || 'Gudang Utama', photo_url: getPhoto(p)
+    });
+    setPhotoPreview(getPhoto(p));
+    setIsEditing(p.id);
+    setIsAdding(true);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Hapus produk ${name}?`)) return;
+    try {
+      await deleteDoc(doc(db, 'inventory', id));
+      await FirebaseLogger.logAgentAction('Admin', 'PRODUCT_DELETED', `Produk "${name}" dihapus`);
+    } catch (e) { console.error(e); }
   };
 
   // AI Command Handler
@@ -113,6 +139,33 @@ export default function InventoryTrackerPage() {
     setChatMessages(p => [...p, userMsg]);
     setChatInput('');
     setIsProcessing(true);
+
+    // AI Intent Interception for Stock Management
+    const matchTambah = cmd.match(/tambah(?:kan)? stok (.*) (\d+)/i) || cmd.match(/masukin stok (.*) (\d+)/i);
+    if (matchTambah) {
+      const queryName = matchTambah[1].trim().toLowerCase();
+      const addedQty = parseInt(matchTambah[2], 10);
+      
+      const targetProduct = products.find(p => p.name?.toLowerCase().includes(queryName) || p.sku?.toLowerCase().includes(queryName));
+      if (targetProduct) {
+        try {
+          await updateDoc(doc(db, 'inventory', targetProduct.id), {
+             quantity: increment(addedQty),
+             qty: increment(addedQty)
+          });
+          await FirebaseLogger.logAgentAction('Admin', 'AI_STOCK_ADD', `Menambah ${addedQty} stok ke ${targetProduct.name} via AI Terminal`);
+          setChatMessages(p => [...p, { role: 'ai', content: `✅ Siap! Saya telah menambahkan ${addedQty} unit ke stok ${targetProduct.name}.`, timestamp: new Date() }]);
+        } catch (e) {
+          setChatMessages(p => [...p, { role: 'ai', content: `❌ Terjadi kesalahan saat menambah stok.`, timestamp: new Date() }]);
+        }
+        setIsProcessing(false);
+        return;
+      } else {
+        setChatMessages(p => [...p, { role: 'ai', content: `❌ Produk dengan nama/SKU "${queryName}" tidak ditemukan di database.`, timestamp: new Date() }]);
+        setIsProcessing(false);
+        return;
+      }
+    }
 
     try {
       const inventorySummary = products.length > 0
@@ -212,8 +265,8 @@ PERINTAH DARI ADMIN: ${cmd}`;
             className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
           >
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-black text-slate-800">Tambah Produk Baru</h3>
-              <button onClick={() => { setIsAdding(false); setPhotoPreview(''); }}>
+              <h3 className="text-sm font-black text-slate-800">{isEditing ? 'Edit Produk' : 'Tambah Produk Baru'}</h3>
+              <button onClick={() => { setIsAdding(false); setIsEditing(null); setPhotoPreview(''); }}>
                 <X size={16} className="text-slate-400" />
               </button>
             </div>
@@ -277,11 +330,11 @@ PERINTAH DARI ADMIN: ${cmd}`;
               ))}
             </div>
             <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => { setIsAdding(false); setPhotoPreview(''); }} className="text-sm text-slate-400 hover:text-slate-600">Batal</button>
-              <button onClick={handleAdd} disabled={isSaving}
+              <button onClick={() => { setIsAdding(false); setIsEditing(null); setPhotoPreview(''); }} className="text-sm text-slate-400 hover:text-slate-600">Batal</button>
+              <button onClick={handleSave} disabled={isSaving}
                 className="px-5 py-2 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 disabled:opacity-50"
               >
-                {isSaving ? 'Menyimpan...' : 'Simpan ke Inventory'}
+                {isSaving ? 'Menyimpan...' : (isEditing ? 'Simpan Perubahan' : 'Simpan ke Inventory')}
               </button>
             </div>
           </motion.div>
@@ -314,12 +367,12 @@ PERINTAH DARI ADMIN: ${cmd}`;
               className={`bg-white rounded-2xl overflow-hidden border shadow-sm ${s.color.includes('rose') ? 'border-rose-200' : s.color.includes('amber') ? 'border-amber-200' : 'border-slate-100'}`}
             >
               {/* Product Photo */}
-              <div className="relative w-full h-36 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
+              <div className="relative w-full h-36 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden group">
                 {photo ? (
                   <img
                     src={photo}
                     alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
@@ -328,7 +381,14 @@ PERINTAH DARI ADMIN: ${cmd}`;
                     <span className="text-[9px] text-slate-300 font-bold">No Photo</span>
                   </div>
                 )}
-                <span className={`absolute top-2 right-2 flex items-center gap-1 text-[9px] font-black px-2 py-1 rounded-full border backdrop-blur-sm bg-white/80 ${s.color}`}>
+                
+                {/* Actions Overlay */}
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[1px]">
+                   <button onClick={() => handleEditClick(product)} className="w-9 h-9 rounded-full bg-white text-slate-700 flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600 hover:scale-110 transition-all shadow-lg"><Edit2 size={16} /></button>
+                   <button onClick={() => handleDelete(product.id, product.name)} className="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 hover:scale-110 transition-all shadow-lg"><Trash2 size={16} /></button>
+                </div>
+
+                <span className={`absolute top-2 right-2 flex items-center gap-1 text-[9px] font-black px-2 py-1 rounded-full border backdrop-blur-sm bg-white/80 ${s.color} z-10`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
                   {s.label}
                 </span>
