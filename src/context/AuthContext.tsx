@@ -36,9 +36,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setLoading(false);
+    }, (_error) => {
+      // Firebase auth error — tetap set loading false agar app tidak stuck
+      console.warn('[FusionNeural] Firebase Auth error, continuing as guest.', _error);
+      setLoading(false);
     });
 
-    return unsubscribe;
+    // Fallback: jika Firebase tidak merespons dalam 5 detik, unblock app
+    const fallbackTimer = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   // FUNGSI LOGOUT YANG SUDAH DIUBAH
@@ -65,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
