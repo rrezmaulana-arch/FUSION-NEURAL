@@ -83,7 +83,7 @@ export const SystemEngineProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Global Simulator State
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatorStats, setSimulatorStats] = useState<any>({});
-  const simulatorInterval = useRef<NodeJS.Timeout | null>(null);
+  const simulatorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Force initialize prompts to Firebase — wrapped in try/catch to prevent crash if Firestore is offline

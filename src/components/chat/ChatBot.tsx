@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import Groq from "groq-sdk";
 import { Brain, Send, X, Sparkles, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -7,8 +6,6 @@ interface Message {
   role: "user" | "bot";
   text: string;
 }
-
-const groq = new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY, dangerouslyAllowBrowser: true });
 
 const NEURAL_CORE_PROMPT = `Identitas: Kamu adalah 'Neural Core' — jantung kecerdasan ekosistem FusionNeural.
 Visi: Mewujudkan Full One Man Company melalui sinergi 4 Agen AI (Manager, Admin, Marketing, Finance) yang beroperasi otonom 24/7.
@@ -82,25 +79,30 @@ const ChatBot: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          { role: "system", content: NEURAL_CORE_PROMPT },
-          ...messages.map((msg) => ({
-            role: msg.role === "bot" ? "assistant" as const : "user" as const,
-            content: msg.text,
-          })),
-          { role: "user", content: input },
-        ],
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.7,
-        max_tokens: 1024,
+      const response = await fetch('/api/neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: NEURAL_CORE_PROMPT },
+            ...messages.map((msg) => ({
+              role: msg.role === 'bot' ? 'assistant' as const : 'user' as const,
+              content: msg.text,
+            })),
+            { role: 'user', content: input },
+          ],
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.7,
+          max_tokens: 1024,
+        }),
       });
 
-      const botReply = chatCompletion.choices[0]?.message?.content || "Maaf, terjadi kesalahan.";
-      setMessages([...newMessages, { role: "bot", text: botReply }]);
+      const data = await response.json();
+      const botReply = data.choices?.[0]?.message?.content || 'Maaf, terjadi kesalahan.';
+      setMessages([...newMessages, { role: 'bot', text: botReply }]);
     } catch (error) {
-      console.error("FusionNeural Sync Error:", error);
-      setMessages([...newMessages, { role: "bot", text: "Sistem sedang melakukan sinkronisasi ulang. Mohon coba beberapa saat lagi Kak." }]);
+      console.error('FusionNeural Sync Error:', error);
+      setMessages([...newMessages, { role: 'bot', text: 'Sistem sedang melakukan sinkronisasi ulang. Mohon coba beberapa saat lagi Kak.' }]);
     } finally {
       setIsLoading(false);
     }

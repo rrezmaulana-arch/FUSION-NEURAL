@@ -374,7 +374,7 @@ export class NeuralCore {
    */
   static async triggerMarketEvent(eventDesc: string, currentStats: any) {
     try {
-      const prompt = await this.getAgentPrompt('manager');
+      const prompt = await this.getAgentPrompt('manager_brain');
       
       const context = `
         Current Market Stats:
@@ -492,9 +492,7 @@ export class NeuralCore {
    */
   static async sendTelegramNotification(chatId: number, text: string, parseMode: string = 'Markdown'): Promise<void> {
     try {
-      const token = typeof process !== 'undefined' && process.env.TELEGRAM_BOT_TOKEN 
-        ? process.env.TELEGRAM_BOT_TOKEN 
-        : import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
+      const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN as string | undefined;
         
       if (!token) {
         console.warn('Telegram Bot Token not found in environment.');
