@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -25,12 +26,7 @@ interface CampaignConfig {
   platforms: string[];
 }
 
-// Data Dummy Library (Nanti bisa diganti dengan fetch dari Firebase Firestore)
-const LIBRARY_ITEMS = [
-  { id: 'lib-1', title: 'Koleksi Eksklusif Edisi Terbatas', caption: 'Premium. Limited Edition. Yours.', platform: 'Instagram', type: 'image' },
-  { id: 'lib-2', title: 'POV: Upgrade Terbaik FusionNeural', caption: 'FusionNeural Edisi Visioner — untuk yang selalu selangkah di depan.', platform: 'TikTok', type: 'video' },
-  { id: 'lib-3', title: 'Clarity & Precision Product Launch', caption: 'Satu produk. Satu standar tinggi.', platform: 'Web', type: 'image' }
-];
+// Data Library sekarang difetch dari Firebase
 
 const PLATFORM_PRESETS: Record<string, { growthRate: number; likeRatio: number; commentRatio: number; shareRatio: number; color: string; textColor: string; accent: string }> = {
   TikTok: { growthRate: 450, likeRatio: 0.08, commentRatio: 0.015, shareRatio: 0.025, color: 'bg-slate-900', textColor: 'text-white', accent: '#ff0050' },
@@ -53,23 +49,52 @@ export default function LaunchSimulatorPage() {
   const [totalViews, setTotalViews] = useState(0);
   const [totalLikes, setTotalLikes] = useState(0);
   const [peakViewsPerSec, setPeakViewsPerSec] = useState(0);
-  const [engagementRate, setEngagementRate] = useState(0);
+  const engagementRate = totalViews > 0 ? (totalLikes / totalViews) * 100 : 0;
   const [viralMoments, setViralMoments] = useState<string[]>([]);
   const [campaignHistory, setCampaignHistory] = useState<any[]>([]);
+  const [libraryItems, setLibraryItems] = useState<any[]>([]);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef(0);
 
   useEffect(() => {
+    // Fetch riwayat simulator
     const q = query(
       collection(db, 'simulator_campaigns_summary'),
       orderBy('completedAt', 'desc'),
       limit(10)
     );
-    const unsub = onSnapshot(q, snap => {
+    const unsubHistory = onSnapshot(q, snap => {
       setCampaignHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, () => {}); 
-    return () => unsub();
+
+    // Fetch marketing_posts untuk dijadikan library
+    const unsubLibrary = onSnapshot(collection(db, 'marketing_posts'), snap => {
+      const items: any[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        const contentStr = data.content || '';
+        const titleMatch = contentStr.split('.')[0];
+        const titleStr = titleMatch ? (titleMatch.length > 35 ? titleMatch.substring(0, 35) + '...' : titleMatch) : 'Untitled Content';
+        
+        items.push({
+          id: d.id,
+          title: titleStr,
+          caption: contentStr,
+          platform: data.platform || 'Instagram',
+          type: data.mediaType || 'image',
+          status: data.status || 'pending'
+        });
+      });
+      // Prioritaskan yang approved
+      items.sort((a, b) => a.status === 'approved' ? -1 : (b.status === 'approved' ? 1 : 0));
+      setLibraryItems(items);
+    }, () => {});
+
+    return () => {
+      unsubHistory();
+      unsubLibrary();
+    };
   }, []);
 
   const formatNum = (n: number) => {
@@ -90,7 +115,7 @@ export default function LaunchSimulatorPage() {
       shares: 0,
     }));
 
-  const handleSelectLibraryItem = (item: typeof LIBRARY_ITEMS[0]) => {
+  const handleSelectLibraryItem = (item: any) => {
     if (selectedLibraryId === item.id) {
       // Deselect
       setSelectedLibraryId(null);
@@ -111,7 +136,6 @@ export default function LaunchSimulatorPage() {
     setTotalViews(0);
     setTotalLikes(0);
     setPeakViewsPerSec(0);
-    setEngagementRate(0);
     setElapsed(0);
     setViralMoments([]);
     tickRef.current = 0;
@@ -201,12 +225,6 @@ export default function LaunchSimulatorPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isLaunched, config.platforms]);
 
-  useEffect(() => {
-    if (totalViews > 0) {
-      setEngagementRate(((totalLikes) / totalViews) * 100);
-    }
-  }, [totalViews, totalLikes]);
-
   const togglePlatform = (name: string) => {
     setConfig(c => ({
       ...c,
@@ -259,39 +277,52 @@ export default function LaunchSimulatorPage() {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
                 <Library size={12} /> Pilih dari Library Konten
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {LIBRARY_ITEMS.map(item => {
-                  const isSelected = selectedLibraryId === item.id;
-                  return (
-                    <div 
-                      key={item.id} 
-                      onClick={() => handleSelectLibraryItem(item)}
-                      className={`relative p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                        isSelected 
-                          ? 'border-purple-500 bg-purple-50/50 shadow-sm' 
-                          : 'border-slate-100 bg-white hover:border-purple-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 text-purple-600">
-                          <CheckCircle2 size={16} className="fill-purple-100" />
+              {libraryItems.length === 0 ? (
+                 <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-400 text-xs font-bold">
+                   Tidak ada antrian konten. Coba jadwalkan sesuatu dari Content Launchpad!
+                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {libraryItems.map((item: any) => {
+                    const isSelected = selectedLibraryId === item.id;
+                    return (
+                      <div 
+                        key={item.id} 
+                        onClick={() => handleSelectLibraryItem(item)}
+                        className={`relative p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                          isSelected 
+                            ? 'border-purple-500 bg-purple-50/50 shadow-sm' 
+                            : 'border-slate-100 bg-white hover:border-purple-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 text-purple-600">
+                            <CheckCircle2 size={16} className="fill-purple-100" />
+                          </div>
+                        )}
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${isSelected ? 'bg-purple-100' : 'bg-slate-100'}`}>
+                          {item.type === 'video' 
+                            ? <Film size={14} className={isSelected ? 'text-purple-600' : 'text-slate-500'} /> 
+                            : <ImageIcon size={14} className={isSelected ? 'text-purple-600' : 'text-slate-500'} />
+                          }
                         </div>
-                      )}
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${isSelected ? 'bg-purple-100' : 'bg-slate-100'}`}>
-                        {item.type === 'video' 
-                          ? <Film size={14} className={isSelected ? 'text-purple-600' : 'text-slate-500'} /> 
-                          : <ImageIcon size={14} className={isSelected ? 'text-purple-600' : 'text-slate-500'} />
-                        }
+                        <p className="text-xs font-bold text-slate-800 line-clamp-1">{item.title}</p>
+                        <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{item.caption}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="inline-block text-[9px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full">
+                            {item.platform}
+                          </span>
+                          {item.status === 'approved' && (
+                            <span className="inline-block text-[9px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">
+                              Approved
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs font-bold text-slate-800 line-clamp-1">{item.title}</p>
-                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{item.caption}</p>
-                      <span className="inline-block mt-2 text-[9px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full">
-                        {item.platform}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <hr className="border-slate-100" />

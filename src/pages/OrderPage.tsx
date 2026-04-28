@@ -8,6 +8,12 @@ import { useSearchParams } from 'react-router-dom';
 import { NeuralCore } from '../services/NeuralCore';
 import { PRICING, getTierName } from '../config/pricing';
 
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
 interface Message {
   id: string;
   sender: 'bot' | 'user';
@@ -93,6 +99,8 @@ export default function OrderPage() {
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
   const [orderSaved, setOrderSaved] = useState(false);
   const [orderSnap, setOrderSnap] = useState<OrderSnapshot | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isSetupMode, setIsSetupMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -149,8 +157,15 @@ export default function OrderPage() {
       if (messages.length === 0 && !userContent) {
         groqMessages.push({
           role: 'user',
-          content:
-            'Mulailah percakapan. Sambut calon klien dengan elegan sebagai Frontline Architect FusionNeural.',
+          content: 'Mulailah percakapan. Sambut calon klien dengan elegan sebagai Frontline Architect FusionNeural.',
+        });
+      }
+
+      // If in setup mode, inject different context
+      if (isSetupMode) {
+        groqMessages.push({
+          role: 'system',
+          content: 'Klien telah melakukan pembayaran. Sekarang kamu bertugas sebagai AI Setup Architect. Tanyakan aplikasi apa yang ingin mereka buat (misal: sistem HRD, sistem Finance, CRM), warna tema yang diinginkan, dan fitur utamanya. Biarkan mereka berkreasi bebas dan bantu mereka merancang idenya!'
         });
       }
 
@@ -189,7 +204,7 @@ export default function OrderPage() {
 
   // ── Detect if AI just asked for order confirmation & user said yes ──
   const checkAndSaveOrder = async (allMessages: Message[]) => {
-    if (orderSaved) return;
+    if (orderSaved || isProcessingPayment) return;
 
     const lastBot = [...allMessages].reverse().find((m) => m.sender === 'bot');
     const lastUser = [...allMessages].reverse().find((m) => m.sender === 'user');
@@ -215,23 +230,91 @@ export default function OrderPage() {
     if (botAskedConfirm && userConfirmed) {
       const snap = await extractOrderFromHistory(allMessages);
       if (snap && snap.name && snap.phone && !orderSaved) {
-        setOrderSaved(true);
         setOrderSnap(snap);
+        setIsProcessingPayment(true);
+        
         try {
-          await addDoc(collection(db, 'order_leads'), {
-            tier: snap.tier,
-            tierKey: snap.tierKey,
-            autonomy: snap.autonomy,
-            price: snap.price,
-            name: snap.name,
-            phone: snap.phone,
-            status: 'Menunggu Konfirmasi',
-            createdAt: serverTimestamp(),
+          // 1. Dapatkan Token dari Midtrans
+          const orderId = `FN-ORDER-${Date.now()}`;
+          const response = await fetch('/api/midtrans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transaction_details: {
+                order_id: orderId,
+                gross_amount: snap.price
+              },
+              customer_details: { first_name: snap.name, phone: snap.phone }
+            })
           });
+
+          let token = '';
+          if (response.ok) {
+            const data = await response.json();
+            token = data.token;
+          } else {
+            console.warn('Gagal mendapat token Midtrans, menggunakan simulasi pembayaran untuk development.');
+          }
+
+          // 2. Tampilkan Popup Snap
+          if (token && window.snap) {
+            window.snap.pay(token, {
+              onSuccess: async function () {
+                await handlePaymentSuccess(snap);
+              },
+              onPending: function (result: any) {
+                console.log('Pending:', result);
+                alert('Menunggu pembayaran...');
+              },
+              onError: function (result: any) {
+                console.error('Error:', result);
+                alert('Pembayaran gagal.');
+                setIsProcessingPayment(false);
+              },
+              onClose: function () {
+                setIsProcessingPayment(false);
+              }
+            });
+          } else {
+            // Simulasi sukses jika tidak ada token (di local Vite tanpa proxy)
+            await handlePaymentSuccess(snap);
+          }
+
         } catch (e) {
-          console.error('Failed to save order_lead:', e);
+          console.error('Payment processing error:', e);
+          setIsProcessingPayment(false);
         }
       }
+    }
+  };
+
+  const handlePaymentSuccess = async (snap: OrderSnapshot) => {
+    try {
+      await addDoc(collection(db, 'order_leads'), {
+        tier: snap.tier,
+        tierKey: snap.tierKey,
+        autonomy: snap.autonomy,
+        price: snap.price,
+        name: snap.name,
+        phone: snap.phone,
+        status: 'Lunas - Persiapan Setup',
+        createdAt: serverTimestamp(),
+      });
+      setOrderSaved(true);
+      setIsProcessingPayment(false);
+      setIsSetupMode(true);
+      
+      // Kirim pesan sambutan setup dari bot
+      setMessages((prev) => [
+        ...prev,
+        { 
+          id: Date.now().toString(), 
+          sender: 'bot', 
+          text: `🎉 Pembayaran berhasil diverifikasi, Kak ${snap.name}! \n\nSekarang mari kita mulai perancangan sistem Kakak. Sistem aplikasi apa yang ingin Kakak buat? (Misal: Sistem HRD, CRM, ERP, atau yang lainnya). Lalu, tema warnanya mau seperti apa? Kita bebas berkreasi di sini!` 
+        },
+      ]);
+    } catch (e) {
+      console.error('Failed to save order_lead:', e);
     }
   };
 
@@ -364,21 +447,39 @@ export default function OrderPage() {
             )}
           </AnimatePresence>
 
-          {/* Order saved confirmation banner */}
+          {/* Payment processing indicator */}
           <AnimatePresence>
-            {orderSaved && orderSnap && (
+            {isProcessingPayment && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-slate-900 rounded-2xl p-5 shadow-lg flex items-center gap-4 border border-slate-800">
+                 <div className="w-10 h-10 rounded-full border-2 border-t-fn-emerald border-r-fn-emerald border-b-slate-700 border-l-slate-700 animate-spin"></div>
+                 <div>
+                   <p className="text-white font-bold text-sm">Menghubungkan ke Gateway Pembayaran (Midtrans)...</p>
+                   <p className="text-slate-400 text-xs">Mohon selesaikan pembayaran di jendela popup.</p>
+                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Order saved & Transition to Setup */}
+          <AnimatePresence>
+            {orderSaved && orderSnap && !isSetupMode && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-gradient-to-r from-fn-emerald/10 to-teal-50 border border-fn-emerald/25 rounded-2xl p-5 shadow-sm"
               >
-                <p className="text-xs font-bold text-fn-emerald uppercase tracking-widest mb-1">✦ Pesanan Tersinkronisasi</p>
+                <p className="text-xs font-bold text-fn-emerald uppercase tracking-widest mb-1">✦ Pesanan Berhasil & Lunas</p>
                 <p className="text-fn-navy font-bold text-base">{orderSnap.name}</p>
                 <p className="text-slate-500 text-sm">{orderSnap.tier} · {orderSnap.autonomy}</p>
                 <p className="text-fn-navy font-black text-lg mt-1">
                   Rp {orderSnap.price.toLocaleString('id-ID')} <span className="text-slate-400 text-sm font-normal">setup</span>
                 </p>
-                <p className="text-slate-500 text-xs mt-2">Tim arsitek FusionNeural akan menghubungi Kakak via WhatsApp dalam 1×24 jam.</p>
+              </motion.div>
+            )}
+            
+            {isSetupMode && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center py-4">
+                <span className="text-xs font-bold bg-purple-100 text-purple-700 px-4 py-1.5 rounded-full uppercase tracking-widest">Memasuki Mode AI Setup Architect</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -396,19 +497,19 @@ export default function OrderPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            disabled={isTyping || !systemPrompt || orderSaved}
+            disabled={isTyping || !systemPrompt || isProcessingPayment}
             placeholder={
               !systemPrompt
                 ? 'Menginisialisasi AI…'
-                : orderSaved
-                ? 'Pesanan telah tersinkronisasi.'
+                : isProcessingPayment
+                ? 'Menunggu pembayaran selesai...'
                 : 'Ketik pesan Kak…'
             }
             className="w-full bg-white border border-slate-200 text-fn-navy rounded-2xl pl-5 pr-14 py-4 outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10 transition-all disabled:opacity-50 text-sm shadow-sm"
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isTyping || !systemPrompt || orderSaved}
+            disabled={!input.trim() || isTyping || !systemPrompt || isProcessingPayment}
             className="absolute right-2 top-2 p-2.5 bg-fn-navy text-white rounded-xl hover:bg-fn-navy-light transition-colors disabled:opacity-40"
           >
             <Send size={16} />

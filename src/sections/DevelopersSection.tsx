@@ -93,7 +93,7 @@ function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
               <p className={`text-[10px] font-mono tracking-widest mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>NIM: {m.nim}</p>
               
               {/* Container for Jobdesk - hidden if not revealed */}
-              <div className={`transition-all duration-700 ease-in-out overflow-hidden flex-1 flex flex-col ${isRevealed ? 'max-h-[220px] opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
+              <div className={`transition-all duration-700 ease-in-out overflow-hidden flex-1 flex flex-col ${isRevealed ? 'max-h-[280px] opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
                   {/* Elegant list style */}
                   <div className="flex flex-col gap-1.5 mb-3">
                     {/* First item — role badge */}
@@ -168,14 +168,14 @@ function TeamCarousel({ isDark }: { isDark: boolean }) {
       jobdesk: [
         'Lead Engineer',
         'Arsitek Sistem & Full-Stack Dev',
-        'Integrasi Firebase & Groq AI',
-        'UI/UX & DevOps',
+        'Integrasi Database & Core Mesin AI',
+        'UI/UX & Infrastruktur Cloud',
       ],
       jobdeskEN: [
         'Lead Engineer',
         'System Architect & Full-Stack Dev',
-        'Firebase & Groq AI Integration',
-        'UI/UX & DevOps',
+        'Database & Core AI Engine Integration',
+        'UI/UX & Cloud Infrastructure',
       ],
       instagram: 'https://www.instagram.com/rreza_.maulana'
     },
@@ -243,9 +243,9 @@ function TeamCarousel({ isDark }: { isDark: boolean }) {
   };
 
   return (
-    <div className="team-carousel-container relative w-full h-[620px] flex flex-col items-center justify-center overflow-hidden perspective-[1200px]">
+    <div className="team-carousel-container relative w-full h-[680px] flex flex-col items-center justify-center overflow-hidden perspective-[1200px]">
        
-       <div className="team-carousel relative w-full max-w-[320px] h-[500px] flex items-center justify-center transform-style-3d top-[-20px]" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ transformStyle: 'preserve-3d' }}>
+       <div className="team-carousel relative w-full max-w-[320px] h-[550px] flex items-center justify-center transform-style-3d top-[-20px]" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ transformStyle: 'preserve-3d' }}>
           {TEAM_MEMBERS.map((m, i) => {
              const L = TEAM_MEMBERS.length;
              let normalizedActive = active % L;

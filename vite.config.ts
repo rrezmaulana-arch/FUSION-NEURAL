@@ -19,5 +19,21 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 1000
+  },
+  server: {
+    proxy: {
+      '/api/midtrans': {
+        target: 'https://app.midtrans.com/snap/v1/transactions',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/midtrans/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (req.method === 'POST') {
+              proxyReq.setHeader('Authorization', 'Basic ' + Buffer.from('Mid-server-nxtDQ6itJWk1hZ4FvxH4M9-I:').toString('base64'));
+            }
+          });
+        }
+      }
+    }
   }
 })

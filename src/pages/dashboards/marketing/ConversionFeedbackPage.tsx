@@ -53,7 +53,8 @@ export default function ConversionFeedbackPage() {
       );
       setSuggestion(result?.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1') || 'Tidak ada rekomendasi dari AI.');
       await FirebaseLogger.logAgentAction('Marketing', 'CONVERSION_ANALYSIS', `${platforms.length} platform dianalisis, revenue Rp ${totalRevenue.toLocaleString('id-ID')}`);
-    } catch (e) {
+    } catch (error) {
+      console.error(error);
       setSuggestion('Gagal menghubungi AI Manager. Periksa koneksi API.');
     } finally {
       setIsAnalyzing(false);
@@ -80,7 +81,8 @@ export default function ConversionFeedbackPage() {
       );
       setSentMsg(`✅ Biaya token Rp ${estimatedTokenCost.toLocaleString('id-ID')} berhasil dilaporkan ke Finance. OperationalBurn & ExecutiveSummary telah diperbarui.`);
       setTimeout(() => setSentMsg(''), 6000);
-    } catch (e) {
+    } catch (error) {
+      console.error(error);
       setSentMsg('❌ Gagal mengirim ke Finance. Periksa koneksi Firestore.');
     } finally {
       setIsSendingToFinance(false);

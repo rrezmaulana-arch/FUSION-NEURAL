@@ -156,26 +156,18 @@ export default function PricingSection() {
               <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
                 {isEnglish ? 'Autonomy Level' : 'Tingkat Otonomi'}
               </span>
-              <div className="flex bg-slate-100 rounded-xl p-1 gap-1 border border-slate-200">
+              <div className="flex bg-slate-200/60 rounded-[14px] p-1 gap-1 border border-slate-200/50">
                 {(['50', '100'] as AutonomyLevel[]).map((lvl) => {
                   const on = autonomy === lvl;
                   return (
                     <button
                       key={lvl}
                       onClick={() => setAutonomy(lvl)}
-                      className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 whitespace-nowrap ${
-                        on ? 'text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      className={`relative flex items-center justify-center min-w-[150px] gap-2 px-5 py-2.5 rounded-[10px] text-sm font-bold transition-all duration-300 ${
+                        on ? 'bg-white text-fn-navy shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      {on && (
-                        <motion.div
-                          layoutId="aut-bg"
-                          className={`absolute inset-0 rounded-lg ${lvl === '100' ? 'bg-fn-navy' : 'bg-fn-emerald'}`}
-                          style={{ zIndex: -1 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 38 }}
-                        />
-                      )}
-                      {lvl === '50' ? <GitMerge size={14} /> : <Zap size={14} />}
+                      {lvl === '50' ? <GitMerge size={14} className={on ? 'text-fn-emerald' : ''} /> : <Zap size={14} className={on ? 'text-fn-emerald' : ''} />}
                       {lvl === '50'
                         ? (isEnglish ? '50% Hybrid' : '50% Hybrid')
                         : (isEnglish ? '100% Autopilot' : '100% Full Otonom')}
@@ -204,30 +196,18 @@ export default function PricingSection() {
                   </motion.span>
                 )}
               </div>
-              <div className="flex bg-slate-100 rounded-xl p-1 gap-1 border border-slate-200">
+              <div className="flex bg-slate-200/60 rounded-[14px] p-1 gap-1 border border-slate-200/50">
                 {(['monthly', 'yearly'] as BillingCycle[]).map((cyc) => {
                   const on = billing === cyc;
                   return (
                     <button
                       key={cyc}
                       onClick={() => setBilling(cyc)}
-                      className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 whitespace-nowrap ${
-                        on ? 'text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      className={`relative flex items-center justify-center min-w-[120px] gap-2 px-5 py-2.5 rounded-[10px] text-sm font-bold transition-all duration-300 ${
+                        on ? 'bg-white text-fn-navy shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      {on && (
-                        <motion.div
-                          layoutId="bil-bg"
-                          className={`absolute inset-0 rounded-lg ${
-                            cyc === 'yearly'
-                              ? 'bg-gradient-to-r from-fn-emerald to-teal-500'
-                              : 'bg-fn-navy'
-                          }`}
-                          style={{ zIndex: -1 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 38 }}
-                        />
-                      )}
-                      {cyc === 'monthly' ? <RefreshCw size={13} /> : <CalendarDays size={13} />}
+                      {cyc === 'monthly' ? <RefreshCw size={14} className={on ? 'text-fn-emerald' : ''} /> : <CalendarDays size={14} className={on ? 'text-fn-emerald' : ''} />}
                       {cyc === 'monthly'
                         ? (isEnglish ? 'Monthly' : 'Bulanan')
                         : (isEnglish ? 'Yearly' : 'Tahunan')}

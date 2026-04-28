@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RefreshCw, Copy, CheckCircle2, Wand2, Image, Video, Download, ExternalLink, Film, Camera } from 'lucide-react';
+import { Sparkles, RefreshCw, Copy, CheckCircle2, Wand2, Image, Download, Film } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import { collection, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 
 const TONES = [
   { id: 'premium', label: 'Premium', desc: 'Eksklusif & otoritatif', color: 'from-amber-500 to-orange-500' },
@@ -12,27 +14,12 @@ const TONES = [
 
 const FORMATS = ['Caption Instagram', 'Skrip TikTok', 'Tagline Produk', 'Email Marketing', 'Press Release'];
 
-// Stock media content library using Picsum for photos
-const STOCK_PHOTOS = [
-  { id: 1, url: 'https://picsum.photos/seed/business1/400/300', label: 'Business Meeting', tag: 'Corporate' },
-  { id: 2, url: 'https://picsum.photos/seed/tech2/400/300', label: 'Technology', tag: 'Tech' },
-  { id: 3, url: 'https://picsum.photos/seed/office3/400/300', label: 'Office Workspace', tag: 'Workspace' },
-  { id: 4, url: 'https://picsum.photos/seed/product4/400/300', label: 'Product Showcase', tag: 'Product' },
-  { id: 5, url: 'https://picsum.photos/seed/data5/400/300', label: 'Data Analytics', tag: 'Analytics' },
-  { id: 6, url: 'https://picsum.photos/seed/abstract6/400/300', label: 'Abstract Visual', tag: 'Creative' },
-  { id: 7, url: 'https://picsum.photos/seed/city7/400/300', label: 'Urban Business', tag: 'Location' },
-  { id: 8, url: 'https://picsum.photos/seed/team8/400/300', label: 'Team Synergy', tag: 'People' },
-  { id: 9, url: 'https://picsum.photos/seed/growth9/400/300', label: 'Growth Chart', tag: 'Finance' },
-];
-
-const VIDEO_TEMPLATES = [
-  { id: 'v1', thumbnail: 'https://picsum.photos/seed/vid1/400/225', label: 'Product Launch Reel', duration: '15s', platform: 'TikTok/Reels' },
-  { id: 'v2', thumbnail: 'https://picsum.photos/seed/vid2/400/225', label: 'Brand Story', duration: '30s', platform: 'Instagram' },
-  { id: 'v3', thumbnail: 'https://picsum.photos/seed/vid3/400/225', label: 'Testimonial Template', duration: '60s', platform: 'YouTube' },
-  { id: 'v4', thumbnail: 'https://picsum.photos/seed/vid4/400/225', label: 'Promo Countdown', duration: '10s', platform: 'All Platforms' },
-];
-
-type MediaTab = 'photos' | 'videos';
+interface MediaItem {
+  id: string;
+  url: string;
+  type: 'image' | 'video';
+  name: string;
+}
 
 export default function CampaignForgePage() {
   const [brief, setBrief] = useState('');
@@ -41,8 +28,34 @@ export default function CampaignForgePage() {
   const [result, setResult] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [mediaTab, setMediaTab] = useState<MediaTab>('photos');
-  const [selectedMedia, setSelectedMedia] = useState<number | string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([]);
+
+  useEffect(() => {
+    const unsubMedia = onSnapshot(collection(db, 'marketing_assets'), (snap) => {
+      const data: MediaItem[] = [];
+      snap.forEach(d => data.push(d.data() as MediaItem));
+      setMediaLibrary(data);
+    });
+    return () => unsubMedia();
+  }, []);
+
+  const handleDeleteMedia = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Yakin ingin menghapus aset ini secara permanen?')) {
+      await deleteDoc(doc(db, 'marketing_assets', id));
+      await FirebaseLogger.logAgentAction('Marketing', 'ASSET_DELETED', `Aset ID ${id} dihapus dari library`);
+    }
+  };
+
+  const handleEditMedia = async (id: string, currentName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newName = prompt('Ubah nama aset:', currentName);
+    if (newName && newName.trim() !== '' && newName !== currentName) {
+      await updateDoc(doc(db, 'marketing_assets', id), { name: newName });
+      await FirebaseLogger.logAgentAction('Marketing', 'ASSET_RENAMED', `Aset diubah namanya menjadi "${newName}"`);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!brief.trim()) return;
@@ -57,7 +70,8 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
       const content = await NeuralCore.generateMarketingCampaign(brief, context);
       setResult(content.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1'));
       await FirebaseLogger.logAgentAction('Marketing', 'CAMPAIGN_FORGE', `Generated ${format} - Tone: ${tone}`);
-    } catch (e) {
+    } catch (error) {
+      console.error(error);
       setResult('Gagal menghubungi AI. Pastikan Groq API key aktif.');
     } finally {
       setIsGenerating(false);
@@ -211,134 +225,97 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
       </div>
 
       {/* ── Content Launchpad — Stock Media Library ───────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mt-6">
         {/* Header */}
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
               <Film size={18} className="text-purple-500" />
-              Content Launchpad — Stock Media Library
+              Content Launchpad — Asset Library
             </h2>
-            <span className="text-xs text-slate-400">{mediaTab === 'photos' ? STOCK_PHOTOS.length : VIDEO_TEMPLATES.length} aset tersedia</span>
+            <span className="text-xs text-slate-400">{mediaLibrary.length} aset tersedia</span>
           </div>
-          <p className="text-xs text-slate-500">Pilih visual pendukung kampanye Kak langsung dari library ini</p>
-
-          {/* Tab */}
-          <div className="flex gap-2 mt-4">
-            {([['photos', 'Foto', Camera], ['videos', 'Video Template', Video]] as [MediaTab, string, any][]).map(([key, label, Icon]) => (
-              <button
-                key={key}
-                onClick={() => setMediaTab(key)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  mediaTab === key
-                    ? 'bg-purple-600 text-white shadow-md'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <Icon size={13} />{label}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs text-slate-500">Kelola dan gunakan visual pendukung kampanye Anda langsung dari library ini</p>
         </div>
 
         {/* Media Grid */}
         <div className="p-6">
           <AnimatePresence mode="wait">
-            {mediaTab === 'photos' ? (
-              <motion.div
-                key="photos"
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 gap-4"
-              >
-                {STOCK_PHOTOS.map((photo, i) => (
-                  <motion.div
-                    key={photo.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.04 }}
-                    onClick={() => setSelectedMedia(selectedMedia === photo.id ? null : photo.id)}
-                    className={`group relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${
-                      selectedMedia === photo.id
-                        ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]'
-                        : 'border-transparent hover:border-slate-200'
-                    }`}
-                  >
-                    <img
-                      src={photo.url}
-                      alt={photo.label}
-                      className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                      <p className="text-white text-xs font-bold">{photo.label}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[9px] bg-white/20 text-white px-2 py-0.5 rounded-full">{photo.tag}</span>
-                        <ExternalLink size={10} className="text-white/70 ml-auto" />
+            <motion.div
+              key="library"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+            >
+              {mediaLibrary.map((item, i) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.04 }}
+                  onClick={() => setSelectedMedia(selectedMedia === item.id ? null : item.id)}
+                  className={`group relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${
+                    selectedMedia === item.id
+                      ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]'
+                      : 'border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  <div className="aspect-[4/3] bg-slate-50 relative overflow-hidden">
+                    {item.type === 'image' ? (
+                      <img
+                        src={item.url}
+                        alt={item.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full relative">
+                        <video src={item.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" muted preload="metadata" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <Film className="text-white drop-shadow-md" size={24} />
+                        </div>
                       </div>
+                    )}
+                    
+                    {/* Action Buttons (Edit / Delete) */}
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={(e) => handleEditMedia(item.id, item.name, e)}
+                        className="w-7 h-7 bg-white/90 backdrop-blur rounded-md flex items-center justify-center text-slate-600 hover:text-blue-600 shadow-sm"
+                        title="Edit Nama"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button 
+                        onClick={(e) => handleDeleteMedia(item.id, e)}
+                        className="w-7 h-7 bg-white/90 backdrop-blur rounded-md flex items-center justify-center text-slate-600 hover:text-rose-600 shadow-sm"
+                        title="Hapus"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
                     </div>
-                    {selectedMedia === photo.id && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 pt-8">
+                      <p className="text-white text-[10px] font-bold line-clamp-1">{item.name}</p>
+                      <p className="text-white/70 text-[8px] uppercase tracking-wider">{item.type}</p>
+                    </div>
+
+                    {selectedMedia === item.id && (
+                      <div className="absolute top-2 left-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center shadow-md">
                         <CheckCircle2 size={12} className="text-white" />
                       </div>
                     )}
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="videos"
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-5"
-              >
-                {VIDEO_TEMPLATES.map((vid, i) => (
-                  <motion.div
-                    key={vid.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.06 }}
-                    onClick={() => setSelectedMedia(selectedMedia === vid.id ? null : vid.id)}
-                    className={`group relative rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${
-                      selectedMedia === vid.id
-                        ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.25)]'
-                        : 'border-slate-100 hover:border-slate-200'
-                    }`}
-                  >
-                    <div className="relative">
-                      <img
-                        src={vid.thumbnail}
-                        alt={vid.label}
-                        className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      {/* Play overlay */}
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <div className="w-12 h-12 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full flex items-center justify-center group-hover:bg-white/30 transition-all">
-                          <Video size={20} className="text-white ml-0.5" />
-                        </div>
-                      </div>
-                      {/* Duration badge */}
-                      <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">
-                        {vid.duration}
-                      </span>
-                      {selectedMedia === vid.id && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                          <CheckCircle2 size={12} className="text-white" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4 bg-white">
-                      <p className="text-sm font-bold text-slate-800">{vid.label}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full">{vid.platform}</span>
-                        <button className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 transition-colors">
-                          <Download size={11} /> Template
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
+                  </div>
+                </motion.div>
+              ))}
+              
+              {mediaLibrary.length === 0 && (
+                <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                  <Image size={32} className="mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm font-bold text-slate-600">Belum ada aset</p>
+                  <p className="text-xs text-slate-400 mt-1">Upload aset melalui halaman Content Launchpad</p>
+                </div>
+              )}
+            </motion.div>
           </AnimatePresence>
 
           {/* Action bar when media selected */}
@@ -349,11 +326,9 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
                 className="mt-5 flex items-center justify-between bg-purple-50 border border-purple-200 rounded-2xl p-4"
               >
                 <div className="flex items-center gap-2">
-                  {mediaTab === 'photos' ? <Image size={16} className="text-purple-500" /> : <Video size={16} className="text-purple-500" />}
+                  <Image size={16} className="text-purple-500" />
                   <p className="text-sm font-bold text-purple-800">
-                    {mediaTab === 'photos'
-                      ? `Foto "${STOCK_PHOTOS.find(p => p.id === selectedMedia)?.label}" dipilih`
-                      : `Template "${VIDEO_TEMPLATES.find(v => v.id === selectedMedia)?.label}" dipilih`}
+                    Aset "{mediaLibrary.find(m => m.id === selectedMedia)?.name}" dipilih
                   </p>
                 </div>
                 <div className="flex gap-2">

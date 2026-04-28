@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { TrendingUp, Users } from 'lucide-react';
 import { NeuralCore } from '../services/NeuralCore';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 // --- TYPES ---
@@ -39,6 +39,7 @@ interface SystemEngineState {
   isSimulating: boolean;
   toggleSimulator: () => void;
   simulatorStats: any;
+  resetSimulator: () => Promise<void>;
 }
 
 const SystemEngineContext = createContext<SystemEngineState | undefined>(undefined);
@@ -75,15 +76,17 @@ export const SystemEngineProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Manager
   const [systemRequests, setSystemRequests] = useState(824);
   const [performers, setPerformers] = useState<Performer[]>([
-    { id: '1', name: 'Dzaky', role: 'Leader', score: 4.8, status: 'Online', initial: 'DZ', color: 'bg-blue-100 text-blue-600' },
-    { id: '2', name: 'Reza', role: 'Engineer', score: 4.7, status: 'Online', initial: 'RZ', color: 'bg-emerald-100 text-emerald-600' },
-    { id: '3', name: 'Divo', role: 'Financial', score: 4.5, status: 'Online', initial: 'DV', color: 'bg-purple-100 text-purple-600' },
+    { id: '1', name: 'AI Manager', role: 'Cortex', score: 99.8, status: 'Online', initial: 'MGR', color: 'bg-indigo-100 text-indigo-600' },
+    { id: '2', name: 'AI Admin', role: 'Logistics', score: 98.5, status: 'Online', initial: 'ADM', color: 'bg-emerald-100 text-emerald-600' },
+    { id: '3', name: 'AI Marketing', role: 'Expansion', score: 96.2, status: 'Online', initial: 'MKT', color: 'bg-amber-100 text-amber-600' },
+    { id: '4', name: 'AI Finance', role: 'Guardian', score: 99.9, status: 'Online', initial: 'FIN', color: 'bg-rose-100 text-rose-600' },
   ]);
 
   // Global Simulator State
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatorStats, setSimulatorStats] = useState<any>({});
   const simulatorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const simulationCycles = useRef(0);
 
   useEffect(() => {
     // Force initialize prompts to Firebase — wrapped in try/catch to prevent crash if Firestore is offline
@@ -123,14 +126,61 @@ export const SystemEngineProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (simulatorInterval.current) clearInterval(simulatorInterval.current);
     } else {
       setIsSimulating(true);
+      simulationCycles.current = 0; // reset cycle
       await NeuralCore.initCorePrompts();
+      
       runSimulationCycle();
+      simulationCycles.current++;
+
       simulatorInterval.current = setInterval(() => {
+        // Berhenti sendiri jika sudah jalan 20 kali pesanan / event
+        if (simulationCycles.current >= 20) {
+          setIsSimulating(false);
+          if (simulatorInterval.current) clearInterval(simulatorInterval.current);
+          return;
+        }
         runSimulationCycle();
+        simulationCycles.current++;
       }, 15000);
     }
   };
 
+
+  const resetSimulator = async () => {
+    try {
+      // 1. Ambil fungsi getDocs, collection, deleteDoc dari firebase/firestore
+      const { getDocs, collection, deleteDoc } = await import('firebase/firestore');
+      
+      // 2. Bersihkan semua koleksi simulasi kecuali neural_configs
+      const collectionsToClear = ['orders', 'inventory', 'financial_reports', 'activity_logs', 'market_simulator'];
+      
+      for (const colName of collectionsToClear) {
+        const querySnapshot = await getDocs(collection(db, colName));
+        const deletePromises = querySnapshot.docs.map(document => deleteDoc(document.ref));
+        await Promise.all(deletePromises);
+      }
+
+      // 3. Kembalikan market_simulator ke state awal
+      const resetData = {
+        revenue: 120000,
+        cost: 45000,
+        orders: 340,
+        last_event: 'System Reset',
+        logs: ['System Reset and History Cleared'],
+        new_orders: [],
+        inventory_items: [
+          { sku: 'WAT-2023-001', qty: 142, image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=150&q=80' },
+          { sku: 'AUD-2023-045', qty: 8, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=150&q=80' }
+        ],
+        geo_stats: { 'Jakarta': 120, 'Bandung': 85, 'Surabaya': 45, 'Medan': 30, 'Bali': 10 }
+      };
+      await setDoc(doc(db, 'market_simulator', 'live_stats'), resetData);
+      
+      console.log("All simulator databases cleared successfully.");
+    } catch (e) {
+      console.error("Failed to reset simulator databases:", e);
+    }
+  };
 
   // --- THE VIRTUAL NEURAL ENGINE (Backend Loop) ---
   useEffect(() => {
@@ -236,7 +286,7 @@ export const SystemEngineProvider: React.FC<{ children: React.ReactNode }> = ({ 
       campaignActive, setCampaignActive, budgetUsed, conversions, eqHeights,
       payloads, activeNodes, adminLogs, adminChartData,
       systemRequests, performers, pingPerformer,
-      isSimulating, toggleSimulator, simulatorStats
+      isSimulating, toggleSimulator, simulatorStats, resetSimulator
     }}>
       {children}
     </SystemEngineContext.Provider>

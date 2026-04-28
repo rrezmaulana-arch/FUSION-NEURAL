@@ -62,7 +62,8 @@ export default function StrategicAuditPage() {
       await FirebaseLogger.logAgentAction('Manager', 'STRATEGIC_AUDIT', `Audit selesai. Target: ${normalized.target_agent}`);
       // Scroll result into view
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    } catch (e) {
+    } catch (error) {
+      console.error(error);
       setEvalResult({ target_agent: 'error', new_prompt: 'Gagal menghubungi Manager AI. Periksa koneksi Groq API.' });
     } finally {
       setIsEvaluating(false);

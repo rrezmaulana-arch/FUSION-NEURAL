@@ -1,17 +1,16 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSystemEngine } from '../../../context/SystemEngineContext';
-import { BrainCircuit, Activity, ChevronRight, Play, Star, MapPin, CalendarDays, DollarSign, Brain, AlertTriangle, CheckCircle2, RefreshCw, BarChart3, X } from 'lucide-react';
+import { BrainCircuit, Activity, ChevronRight, Play, Star, MapPin, CalendarDays, DollarSign, Brain, AlertTriangle, CheckCircle2, RefreshCw, BarChart3, X, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
-
-
+import { Link } from 'react-router-dom';
 
 export default function ManagerDashboard() {
-  const { performers, pingPerformer, financeChartData: chartDataRaw } = useSystemEngine();
+  const { performers, pingPerformer, financeChartData: chartDataRaw, resetSimulator } = useSystemEngine();
   const chartData = Array.isArray(chartDataRaw) && chartDataRaw.length >= 6 ? chartDataRaw : [40, 55, 60, 75, 65, 80];
   
   const [realOrderCount, setRealOrderCount] = useState(0);
@@ -72,8 +71,21 @@ export default function ManagerDashboard() {
   return (
     <div className="space-y-6 pb-10">
       
-      {/* ─── Floating Evaluasi AI Button ─── */}
-      <div className="fixed bottom-28 right-6 z-40">
+      {/* ─── Floating Action Buttons ─── */}
+      <div className="fixed bottom-28 right-6 z-40 flex flex-col gap-3 items-end">
+        <button
+          onClick={async () => {
+            if (confirm("Apakah Kakak yakin ingin mereset history simulator? Data tidak dapat dikembalikan.")) {
+              await resetSimulator();
+              alert("History simulator berhasil direset!");
+            }
+          }}
+          className="flex items-center gap-2 px-5 py-3 bg-rose-600 text-white text-sm font-bold rounded-2xl shadow-xl hover:bg-rose-700 transition-all"
+        >
+          <Trash2 size={16} />
+          Reset History
+        </button>
+
         <button
           onClick={handleEvaluate}
           className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white text-sm font-bold rounded-2xl shadow-2xl hover:bg-teal-700 transition-all"
@@ -255,9 +267,9 @@ export default function ManagerDashboard() {
             </div>
           </div>
 
-          <button className="absolute bottom-0 right-0 bg-[#214D59] hover:bg-[#1A3D47] transition-colors text-white text-sm font-semibold px-6 py-4 rounded-tl-[32px] flex items-center gap-2 group">
+          <Link to="/dashboard/executive" className="absolute bottom-0 right-0 bg-[#214D59] hover:bg-[#1A3D47] transition-colors text-white text-sm font-semibold px-6 py-4 rounded-tl-[32px] flex items-center gap-2 group">
             VIEW FULL STATISTIC <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
-          </button>
+          </Link>
         </motion.div>
 
         {/* Rate Card (Kanan - Peach) */}
