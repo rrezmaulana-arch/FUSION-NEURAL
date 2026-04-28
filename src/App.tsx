@@ -6,11 +6,13 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import OrderPage from './pages/OrderPage';
 import { SystemEngineProvider } from './context/SystemEngineContext';
+import MicrochipCursor from './components/cursor/MicrochipCursor';
 
 export default function App() {
   return (
     <AuthProvider>
       <SystemEngineProvider>
+        <MicrochipCursor />
         <Router>
           <Routes>
             <Route path="/" element={<LandingPage />} />

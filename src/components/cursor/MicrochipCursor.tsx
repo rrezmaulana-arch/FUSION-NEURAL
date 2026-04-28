@@ -32,23 +32,34 @@ export default function MicrochipCursor() {
     };
     const raf = requestAnimationFrame(tick);
 
-    // Scale up on interactive elements
-    const onEnter = () => {
-      if (mainRef.current) gsap.to(mainRef.current, { scale: 1.8, duration: 0.25 });
-      if (trailRef.current) gsap.to(trailRef.current, { scale: 1.4, opacity: 0.7, duration: 0.25 });
+    const onMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      // Check if hovering over input or textarea
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        if (mainRef.current) gsap.to(mainRef.current, { opacity: 0, duration: 0.1 });
+        if (trailRef.current) gsap.to(trailRef.current, { opacity: 0, duration: 0.1 });
+        return;
+      }
+
+      // Check if hovering over interactive elements
+      const isInteractive = target.closest('button, a, [data-cursor]');
+      if (isInteractive) {
+        if (mainRef.current) gsap.to(mainRef.current, { scale: 1.8, opacity: 1, duration: 0.25 });
+        if (trailRef.current) gsap.to(trailRef.current, { scale: 1.4, opacity: 0.7, duration: 0.25 });
+      } else {
+        // Default state
+        if (mainRef.current) gsap.to(mainRef.current, { scale: 1, opacity: 1, duration: 0.25 });
+        if (trailRef.current) gsap.to(trailRef.current, { scale: 1, opacity: 0.4, duration: 0.25 });
+      }
     };
-    const onLeave = () => {
-      if (mainRef.current) gsap.to(mainRef.current, { scale: 1, duration: 0.25 });
-      if (trailRef.current) gsap.to(trailRef.current, { scale: 1, opacity: 0.4, duration: 0.25 });
-    };
-    const interactives = document.querySelectorAll('button, a, [data-cursor]');
-    interactives.forEach(el => {
-      el.addEventListener('mouseenter', onEnter);
-      el.addEventListener('mouseleave', onLeave);
-    });
+
+    document.body.addEventListener('mouseover', onMouseOver);
 
     return () => {
       window.removeEventListener('mousemove', onMove);
+      document.body.removeEventListener('mouseover', onMouseOver);
       cancelAnimationFrame(raf);
     };
   }, []);

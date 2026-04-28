@@ -1,5 +1,4 @@
 import { ReactLenis } from 'lenis/react';
-import MicrochipCursor from '../components/cursor/MicrochipCursor';
 import NavBar from '../components/ui/NavBar';
 import Footer from '../components/ui/Footer';
 import GlobalScrollOrb from '../components/ui/GlobalScrollOrb';
@@ -22,7 +21,6 @@ export default function LandingPage() {
         <div className="relative">
           <ChatBot />
           <GlobalScrollOrb />
-          <MicrochipCursor />
           <NavBar />
           <main>
             <HeroSection />

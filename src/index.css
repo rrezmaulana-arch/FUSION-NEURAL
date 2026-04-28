@@ -38,6 +38,10 @@ body {
   min-height: 100vh;
 }
 
+input, textarea {
+  cursor: text !important;
+}
+
 /* Kill Vite's default #root styles */
 #root {
   background: #ffffff;
