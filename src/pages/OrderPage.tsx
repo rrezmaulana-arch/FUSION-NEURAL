@@ -103,6 +103,7 @@ export default function OrderPage() {
   const [isSetupMode, setIsSetupMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isProcessingPaymentRef = useRef(false);
 
   // ── Load system prompt from NeuralCore (Firestore → fallback default) ──
   useEffect(() => {
@@ -204,7 +205,7 @@ export default function OrderPage() {
 
   // ── Detect if AI just asked for order confirmation & user said yes ──
   const checkAndSaveOrder = async (allMessages: Message[]) => {
-    if (orderSaved || isProcessingPayment) return;
+    if (orderSaved || isProcessingPaymentRef.current || isProcessingPayment) return;
 
     const lastBot = [...allMessages].reverse().find((m) => m.sender === 'bot');
     const lastUser = [...allMessages].reverse().find((m) => m.sender === 'user');
@@ -228,10 +229,12 @@ export default function OrderPage() {
       userText.includes('lanjut');
 
     if (botAskedConfirm && userConfirmed) {
+      isProcessingPaymentRef.current = true;
+      setIsProcessingPayment(true);
+      
       const snap = await extractOrderFromHistory(allMessages);
       if (snap && snap.name && snap.phone && !orderSaved) {
         setOrderSnap(snap);
-        setIsProcessingPayment(true);
         
         try {
           // 1. Dapatkan Token dari Midtrans
@@ -273,6 +276,7 @@ export default function OrderPage() {
               },
               onClose: function () {
                 setIsProcessingPayment(false);
+                isProcessingPaymentRef.current = false;
               }
             });
           } else {
@@ -283,13 +287,18 @@ export default function OrderPage() {
         } catch (e) {
           console.error('Payment processing error:', e);
           setIsProcessingPayment(false);
+          isProcessingPaymentRef.current = false;
         }
+      } else {
+        isProcessingPaymentRef.current = false;
+        setIsProcessingPayment(false);
       }
     }
   };
 
   const handlePaymentSuccess = async (snap: OrderSnapshot) => {
     try {
+      const clientApiKey = `fn_${Math.random().toString(36).substr(2, 9)}_${Date.now().toString(36)}`;
       await addDoc(collection(db, 'order_leads'), {
         tier: snap.tier,
         tierKey: snap.tierKey,
@@ -298,10 +307,12 @@ export default function OrderPage() {
         name: snap.name,
         phone: snap.phone,
         status: 'Lunas - Persiapan Setup',
+        clientApiKey,
         createdAt: serverTimestamp(),
       });
       setOrderSaved(true);
       setIsProcessingPayment(false);
+      isProcessingPaymentRef.current = false;
       setIsSetupMode(true);
       
       // Kirim pesan sambutan setup dari bot

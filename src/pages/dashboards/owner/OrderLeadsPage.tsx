@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { Search, Filter, CheckCircle2, Clock, AlertCircle, ChevronDown, Bot, GitMerge, Network, Zap, DollarSign } from 'lucide-react';
+import { Search, Filter, CheckCircle2, Clock, AlertCircle, ChevronDown, Bot, GitMerge, Network, Zap, DollarSign, Key, Trash2 } from 'lucide-react';
 
 interface OrderLead {
   id: string;
@@ -14,7 +14,8 @@ interface OrderLead {
   price?: number;
   // Legacy field
   package?: string;
-  status: 'Menunggu Konfirmasi' | 'Diproses' | 'Selesai' | 'Menunggu';
+  status: 'Menunggu Konfirmasi' | 'Diproses' | 'Selesai' | 'Menunggu' | 'Lunas - Persiapan Setup';
+  clientApiKey?: string;
   createdAt: any;
 }
 
@@ -27,6 +28,7 @@ const TIER_ICON: Record<string, React.ReactNode> = {
 const STATUS_CONFIG = {
   'Menunggu Konfirmasi': { color: 'bg-slate-50 border-slate-200 text-slate-600', icon: <Clock size={12} /> },
   'Menunggu': { color: 'bg-slate-50 border-slate-200 text-slate-600', icon: <Clock size={12} /> },
+  'Lunas - Persiapan Setup': { color: 'bg-indigo-50 border-indigo-200 text-indigo-700', icon: <CheckCircle2 size={12} /> },
   'Diproses': { color: 'bg-amber-50 border-amber-200 text-amber-700', icon: <AlertCircle size={12} /> },
   'Selesai': { color: 'bg-emerald-50 border-emerald-200 text-emerald-700', icon: <CheckCircle2 size={12} /> },
 };
@@ -48,6 +50,16 @@ export default function OrderLeadsPage() {
       await updateDoc(doc(db, 'order_leads', id), { status });
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const deleteLead = async (id: string) => {
+    if (confirm('Apakah kamu yakin ingin menghapus data klien ini? Data tidak bisa dikembalikan.')) {
+      try {
+        await deleteDoc(doc(db, 'order_leads', id));
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -136,6 +148,7 @@ export default function OrderLeadsPage() {
                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Investasi</th>
                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Timestamp</th>
                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">Status Sinkronisasi</th>
+                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -192,7 +205,7 @@ export default function OrderLeadsPage() {
                           <ChevronDown size={12} className="opacity-50" />
                         </button>
                         <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 py-1">
-                          {(['Menunggu Konfirmasi', 'Diproses', 'Selesai'] as OrderLead['status'][]).map((s) => (
+                          {(['Menunggu Konfirmasi', 'Lunas - Persiapan Setup', 'Diproses', 'Selesai'] as OrderLead['status'][]).map((s) => (
                             <button key={s} onClick={() => updateStatus(lead.id, s)}
                               className={`w-full text-left px-4 py-2 text-xs hover:bg-slate-50 font-medium ${
                                 s === 'Selesai' ? 'text-emerald-600' : s === 'Diproses' ? 'text-amber-600' : 'text-slate-600'
@@ -203,6 +216,21 @@ export default function OrderLeadsPage() {
                           ))}
                         </div>
                       </div>
+                      {lead.clientApiKey && (
+                        <div className="mt-2 flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded text-[10px] text-slate-500 font-mono w-max border border-slate-200">
+                          <Key size={10} className="text-slate-400" />
+                          <span>{lead.clientApiKey}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => deleteLead(lead.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Hapus Klien"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </motion.tr>
                 );
