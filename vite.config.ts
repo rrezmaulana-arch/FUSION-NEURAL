@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
                   const payload = JSON.parse(body);
                   const serverKey = env.MIDTRANS_SERVER_KEY || 'Mid-server-umbvOIGiXz0anZS1FkQBIbKQ';
                   const encodedKey = Buffer.from(serverKey + ':').toString('base64');
-                  const apiUrl = 'https://app.midtrans.com/snap/v1/transactions';
+                  const apiUrl = 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
                   const response = await fetch(apiUrl, {
                     method: 'POST',

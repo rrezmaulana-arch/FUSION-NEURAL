@@ -16,8 +16,8 @@ export default async function handler(req: Request) {
     const serverKey = process.env.MIDTRANS_SERVER_KEY || 'Mid-server-umbvOIGiXz0anZS1FkQBIbKQ';
     const encodedKey = btoa(serverKey + ':');
 
-    // Force Production based on user request
-    const apiUrl = 'https://app.midtrans.com/snap/v1/transactions';
+    // Force Sandbox as requested
+    const apiUrl = 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
     const response = await fetch(apiUrl, {
       method: 'POST',
