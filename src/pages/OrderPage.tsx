@@ -112,6 +112,13 @@ export default function OrderPage() {
     });
   }, []);
 
+  // ── Auto-focus input after bot finishes typing ──
+  useEffect(() => {
+    if (!isTyping && !isProcessingPayment && !isSetupMode && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isTyping, isProcessingPayment, isSetupMode]);
+
   // ── Send opening greeting once prompt is ready ──
   useEffect(() => {
     if (!systemPrompt) return;
@@ -510,8 +517,8 @@ export default function OrderPage() {
 
       {/* Quick Reply Chips */}
       {!orderSaved && !isProcessingPayment && messages.length < 6 && (
-        <div className="px-4 sm:px-6 pb-2 fixed bottom-24 w-full">
-          <div className="max-w-3xl mx-auto flex flex-wrap gap-2 justify-end">
+        <div className="px-4 sm:px-6 pb-3 fixed bottom-[90px] w-full z-10">
+          <div className="max-w-3xl mx-auto flex flex-wrap gap-2 justify-start">
             {[
               { label: 'Saya mau pesan paket', msg: 'Saya tertarik ingin memesan paket FusionNeural' },
               { label: 'Info harga', msg: 'Boleh kasih tau harga lengkap semua paket?' },
@@ -525,7 +532,7 @@ export default function OrderPage() {
                   handleSend(chip.msg);
                 }}
                 disabled={isTyping || !systemPrompt || isProcessingPayment}
-                className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-fn-emerald/30 text-fn-emerald hover:bg-fn-emerald hover:text-white transition-all disabled:opacity-40 shadow-sm"
+                className="text-xs font-semibold px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-fn-emerald hover:text-white hover:border-fn-emerald transition-all disabled:opacity-40 shadow-sm"
               >
                 {chip.label}
               </button>
