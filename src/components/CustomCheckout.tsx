@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, CheckCircle2, ShieldCheck, ArrowRight, Wallet, Building2, Clock, Info } from 'lucide-react';
+import { Copy, CheckCircle2, ShieldCheck, Wallet, Building2, Clock } from 'lucide-react';
 
 interface CustomCheckoutProps {
   orderData: {
