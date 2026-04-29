@@ -572,6 +572,36 @@ export default function OrderPage() {
           AI ini hanya melayani konsultasi &amp; pemesanan FusionNeural
         </p>
       </div>
+      </div>
+
+      {/* Premium Payment Overlay (Behind Midtrans) */}
+      <AnimatePresence>
+        {isProcessingPayment && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-fn-navy/80 backdrop-blur-md"
+          >
+            {/* Animated Grid Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20"></div>
+
+            <motion.div
+              animate={{ scale: [0.98, 1.02, 0.98] }}
+              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+              className="relative z-10 flex flex-col items-center px-6"
+            >
+              <div className="w-24 h-24 bg-fn-emerald/10 border border-fn-emerald/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(20,184,166,0.2)]">
+                <ShieldCheck size={48} className="text-fn-emerald" />
+              </div>
+              <h2 className="text-3xl font-black text-white tracking-tight mb-3 text-center">Secure Payment Gateway</h2>
+              <p className="text-slate-300 text-center max-w-md leading-relaxed text-sm">
+                Jendela pembayaran Midtrans telah terbuka. Silakan selesaikan transaksi Kakak dengan aman. Kami melindungi data Anda dengan enkripsi end-to-end.
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
