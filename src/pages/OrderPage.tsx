@@ -7,6 +7,7 @@ import { db } from '../lib/firebase';
 import { useSearchParams } from 'react-router-dom';
 import { NeuralCore } from '../services/NeuralCore';
 import { PRICING, getTierName } from '../config/pricing';
+import { CustomCheckout } from '../components/CustomCheckout';
 
 declare global {
   interface Window {
@@ -100,6 +101,7 @@ export default function OrderPage() {
   const [orderSaved, setOrderSaved] = useState(false);
   const [orderSnap, setOrderSnap] = useState<OrderSnapshot | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showCustomCheckout, setShowCustomCheckout] = useState(false);
   const [isSetupMode, setIsSetupMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -244,53 +246,8 @@ export default function OrderPage() {
         setOrderSnap(snap);
         
         try {
-          // 1. Dapatkan Token dari Midtrans
-          const orderId = `FN-ORDER-${Date.now()}`;
-          const response = await fetch('/api/midtrans', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              transaction_details: {
-                order_id: orderId,
-                gross_amount: snap.price
-              },
-              customer_details: { first_name: snap.name, phone: snap.phone }
-            })
-          });
-
-          let token = '';
-          if (response.ok) {
-            const data = await response.json();
-            token = data.token;
-          } else {
-            console.warn('Gagal mendapat token Midtrans, menggunakan simulasi pembayaran untuk development.');
-          }
-
-          // 2. Tampilkan Popup Snap
-          if (token && window.snap) {
-            window.snap.pay(token, {
-              onSuccess: async function () {
-                await handlePaymentSuccess(snap);
-              },
-              onPending: function (result: any) {
-                console.log('Pending:', result);
-                alert('Menunggu pembayaran...');
-              },
-              onError: function (result: any) {
-                console.error('Error:', result);
-                alert('Pembayaran gagal.');
-                setIsProcessingPayment(false);
-              },
-              onClose: function () {
-                setIsProcessingPayment(false);
-                isProcessingPaymentRef.current = false;
-              }
-            });
-          } else {
-            // Simulasi sukses jika tidak ada token (di local Vite tanpa proxy)
-            await handlePaymentSuccess(snap);
-          }
-
+          // Instead of Snap, show custom checkout
+          setShowCustomCheckout(true);
         } catch (e) {
           console.error('Payment processing error:', e);
           setIsProcessingPayment(false);
@@ -574,32 +531,27 @@ export default function OrderPage() {
       </div>
       </div>
 
-      {/* Premium Payment Overlay (Behind Midtrans) */}
+      {/* Futuristic Custom Checkout Overlay */}
       <AnimatePresence>
-        {isProcessingPayment && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-fn-navy/80 backdrop-blur-md"
-          >
-            {/* Animated Grid Background */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20"></div>
-
-            <motion.div
-              animate={{ scale: [0.98, 1.02, 0.98] }}
-              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-              className="relative z-10 flex flex-col items-center px-6"
-            >
-              <div className="w-24 h-24 bg-fn-emerald/10 border border-fn-emerald/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(20,184,166,0.2)]">
-                <ShieldCheck size={48} className="text-fn-emerald" />
-              </div>
-              <h2 className="text-3xl font-black text-white tracking-tight mb-3 text-center">Secure Payment Gateway</h2>
-              <p className="text-slate-300 text-center max-w-md leading-relaxed text-sm">
-                Jendela pembayaran Midtrans telah terbuka. Silakan selesaikan transaksi Kakak dengan aman. Kami melindungi data Anda dengan enkripsi end-to-end.
-              </p>
-            </motion.div>
-          </motion.div>
+        {showCustomCheckout && orderSnap && (
+          <CustomCheckout 
+            orderData={{
+              orderId: `FN-ORDER-${Date.now()}`,
+              amount: orderSnap.price,
+              name: orderSnap.name,
+              phone: orderSnap.phone,
+              tier: orderSnap.tier
+            }}
+            onSuccess={() => {
+              setShowCustomCheckout(false);
+              handlePaymentSuccess(orderSnap);
+            }}
+            onCancel={() => {
+              setShowCustomCheckout(false);
+              setIsProcessingPayment(false);
+              isProcessingPaymentRef.current = false;
+            }}
+          />
         )}
       </AnimatePresence>
     </div>
