@@ -13,7 +13,7 @@ export default async function handler(req: Request) {
   try {
     const payload = await req.json();
 
-    const serverKey = process.env.MIDTRANS_SERVER_KEY || 'Mid-server-nxtDQ6itJWk1hZ4FvxH4M9-I';
+    const serverKey = process.env.MIDTRANS_SERVER_KEY || 'Mid-server-umbvOlGiXz0anZS1FkQBIbKQ';
     const encodedKey = btoa(serverKey + ':');
 
     const isProduction = serverKey.includes('Mid-server-'); 
