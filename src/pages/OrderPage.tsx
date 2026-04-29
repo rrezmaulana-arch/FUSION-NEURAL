@@ -529,8 +529,6 @@ export default function OrderPage() {
           AI ini hanya melayani konsultasi &amp; pemesanan FusionNeural
         </p>
       </div>
-      </div>
-
       {/* Futuristic Custom Checkout Overlay */}
       <AnimatePresence>
         {showCustomCheckout && orderSnap && (

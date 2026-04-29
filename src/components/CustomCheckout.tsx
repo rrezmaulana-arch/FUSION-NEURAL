@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, QrCode, Copy, CheckCircle2, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
+import { CreditCard, QrCode, Copy, CheckCircle2, ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface CustomCheckoutProps {
   orderData: {
