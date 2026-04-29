@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Proxy endpoint for Groq API to prevent exposing the API key on the frontend

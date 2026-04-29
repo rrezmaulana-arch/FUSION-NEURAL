@@ -136,6 +136,50 @@ export default defineConfig(({ mode }) => {
               });
             }
           });
+          // Neural API Middleware
+          server.middlewares.use('/api/neural', (req, res) => {
+            if (req.method === 'POST') {
+              let body = '';
+              req.on('data', chunk => { body += chunk.toString(); });
+              req.on('end', async () => {
+                try {
+                  const payload = JSON.parse(body);
+                  const apiKey = env.GROQ_API_KEY || env.VITE_GROQ_API_KEY;
+                  
+                  if (!apiKey) {
+                    res.statusCode = 500;
+                    res.end(JSON.stringify({ error: 'Internal Server Error: API Key missing' }));
+                    return;
+                  }
+
+                  const groqPayload: any = {
+                    model: payload.model || 'llama-3.3-70b-versatile',
+                    messages: payload.messages,
+                    temperature: payload.temperature ?? 0.7,
+                  };
+
+                  if (payload.max_tokens) groqPayload.max_tokens = payload.max_tokens;
+
+                  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${apiKey}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(groqPayload),
+                  });
+
+                  const data = await response.json();
+                  res.setHeader('Content-Type', 'application/json');
+                  res.statusCode = response.status;
+                  res.end(JSON.stringify(data));
+                } catch (e) {
+                  res.statusCode = 500;
+                  res.end(JSON.stringify({ error: 'Internal server error' }));
+                }
+              });
+            }
+          });
         }
       }
     ],
