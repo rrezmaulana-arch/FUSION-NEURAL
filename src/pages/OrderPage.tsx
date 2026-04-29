@@ -292,6 +292,15 @@ export default function OrderPage() {
       } else {
         isProcessingPaymentRef.current = false;
         setIsProcessingPayment(false);
+        // Fallback jika AI lupa nanya nama/WA tapi keburu minta konfirmasi
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            sender: 'bot',
+            text: 'Mohon maaf Kak, sebelum kita bisa memproses sinkronisasi pembayaran, boleh saya tahu Nama Lengkap dan Nomor WhatsApp Kakak untuk data klien?',
+          },
+        ]);
       }
     }
   };
