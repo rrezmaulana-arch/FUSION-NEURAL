@@ -16,10 +16,8 @@ export default async function handler(req: Request) {
     const serverKey = process.env.MIDTRANS_SERVER_KEY || 'Mid-server-umbvOlGiXz0anZS1FkQBIbKQ';
     const encodedKey = btoa(serverKey + ':');
 
-    const isProduction = serverKey.includes('Mid-server-'); 
-    const apiUrl = isProduction 
-      ? 'https://app.midtrans.com/snap/v1/transactions' 
-      : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
+    // Miftah verified this key only works on sandbox despite not having the SB prefix
+    const apiUrl = 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
     const response = await fetch(apiUrl, {
       method: 'POST',
