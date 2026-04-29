@@ -329,8 +329,8 @@ export default function OrderPage() {
     }
   };
 
-  const handleSend = async () => {
-    const text = input.trim();
+  const handleSend = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || isTyping || !systemPrompt) return;
     setInput('');
 
@@ -499,6 +499,29 @@ export default function OrderPage() {
         </div>
       </main>
 
+      {/* Quick Reply Chips */}
+      {!orderSaved && !isProcessingPayment && messages.length < 6 && (
+        <div className="px-4 sm:px-6 pb-2 fixed bottom-24 w-full">
+          <div className="max-w-3xl mx-auto flex flex-wrap gap-2 justify-end">
+            {[
+              { label: '🚀 Saya mau pesan paket', msg: 'Saya tertarik ingin memesan paket FusionNeural' },
+              { label: '💰 Info harga', msg: 'Boleh kasih tau harga lengkap semua paket?' },
+              { label: '🤖 Apa itu Dual Synergy?', msg: 'Bisa jelaskan paket Dual Synergy?' },
+              { label: '⚡ Full Otonom itu apa?', msg: 'Apa bedanya 50% Sinergi Hybrid vs 100% Full Otonom AI?' },
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                onClick={() => handleSend(chip.msg)}
+                disabled={isTyping || !systemPrompt || isProcessingPayment}
+                className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-fn-emerald/30 text-fn-emerald hover:bg-fn-emerald hover:text-white transition-all disabled:opacity-40 shadow-sm"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Input Footer */}
       <div className="p-4 sm:p-6 bg-gradient-to-t from-[#f7f8fa] via-[#f7f8fa]/95 to-transparent fixed bottom-0 w-full">
         <div className="max-w-3xl mx-auto relative">
@@ -519,7 +542,7 @@ export default function OrderPage() {
             className="w-full bg-white border border-slate-200 text-fn-navy rounded-2xl pl-5 pr-14 py-4 outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10 transition-all disabled:opacity-50 text-sm shadow-sm"
           />
           <button
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={!input.trim() || isTyping || !systemPrompt || isProcessingPayment}
             className="absolute right-2 top-2 p-2.5 bg-fn-navy text-white rounded-xl hover:bg-fn-navy-light transition-colors disabled:opacity-40"
           >

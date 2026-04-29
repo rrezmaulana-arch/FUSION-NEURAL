@@ -509,24 +509,14 @@ export class NeuralCore {
 
   /**
    * Send a direct notification via Telegram Neural Link
+   * Routes through secure serverless API — token never exposed to browser
    */
   static async sendTelegramNotification(chatId: number, text: string, parseMode: string = 'Markdown'): Promise<void> {
     try {
-      const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN as string | undefined;
-        
-      if (!token) {
-        console.warn('Telegram Bot Token not found in environment.');
-        return;
-      }
-
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          parse_mode: parseMode,
-        }),
+        body: JSON.stringify({ chatId, text, parseMode }),
       });
     } catch (error) {
       console.error('Failed to send Telegram Notification via Neural Core:', error);
