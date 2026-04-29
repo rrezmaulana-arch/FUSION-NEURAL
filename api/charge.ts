@@ -31,6 +31,11 @@ export default async function handler(req: Request) {
       chargePayload.bank_transfer = {
         bank: payload.bank || 'bca'
       };
+    } else if (payload.payment_type === 'echannel') {
+      chargePayload.echannel = {
+        bill_info1: 'Payment For',
+        bill_info2: 'FusionNeural'
+      };
     }
 
     const response = await fetch(apiUrl, {
@@ -61,10 +66,14 @@ export default async function handler(req: Request) {
     if (payload.payment_type === 'bank_transfer') {
       result.va_number = data.va_numbers[0].va_number;
       result.bank = data.va_numbers[0].bank;
-    } else if (payload.payment_type === 'qris') {
-      // Find the QR URL in actions
-      const qrAction = data.actions.find((action: any) => action.name === 'generate-qr-code');
+    } else if (payload.payment_type === 'echannel') {
+      result.biller_code = data.biller_code;
+      result.bill_key = data.bill_key;
+      result.bank = 'mandiri';
+    } else if (payload.payment_type === 'qris' || payload.payment_type === 'gopay') {
+      const qrAction = data.actions?.find((action: any) => action.name === 'generate-qr-code');
       result.qr_url = qrAction ? qrAction.url : '';
+      result.actions = data.actions;
     }
 
     return new Response(JSON.stringify(result), {

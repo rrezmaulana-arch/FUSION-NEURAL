@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, QrCode, Copy, CheckCircle2, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Copy, CheckCircle2, ShieldCheck, ArrowRight, Wallet, Building2, Clock, Info } from 'lucide-react';
 
 interface CustomCheckoutProps {
   orderData: {
@@ -14,22 +14,39 @@ interface CustomCheckoutProps {
   onCancel: () => void;
 }
 
-type PaymentMethod = 'va_bca' | 'va_mandiri' | 'va_bni' | 'qris' | null;
+type PaymentMethod = 'bca' | 'mandiri' | 'bni' | 'bri' | 'gopay' | 'qris' | null;
 
 export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuccess, onCancel }) => {
   const [method, setMethod] = useState<PaymentMethod>(null);
-  const [isCharging, setIsCharging] = useState(false);
+  const [step, setStep] = useState<'select' | 'process' | 'result'>('select');
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [copied, setCopied] = useState(false);
-  const [simulatedSuccess, setSimulatedSuccess] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(24 * 60 * 60); // 24 hours in seconds
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return { h: h.toString().padStart(2, '0'), m: m.toString().padStart(2, '0'), s: s.toString().padStart(2, '0') };
+  };
+
+  const time = formatTime(timeLeft);
+  const isDangerTime = timeLeft < 300; // Less than 5 mins
 
   const handleProcessPayment = async () => {
     if (!method) return;
-    setIsCharging(true);
+    setStep('process');
 
-    const isQris = method === 'qris';
-    const paymentType = isQris ? 'qris' : 'bank_transfer';
-    const bank = isQris ? null : method.replace('va_', '');
+    const isEwallet = method === 'gopay' || method === 'qris';
+    const paymentType = method === 'qris' ? 'qris' : method === 'gopay' ? 'gopay' : method === 'mandiri' ? 'echannel' : 'bank_transfer';
+    const bank = isEwallet ? null : method;
 
     try {
       const response = await fetch('/api/charge', {
@@ -48,15 +65,16 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
       const data = await response.json();
       if (response.ok) {
         setPaymentResult(data);
+        setStep('result');
       } else {
         console.error('Charge error:', data);
-        alert('Gagal memproses pembayaran. Silakan coba lagi.');
+        alert('Gagal memproses pembayaran. Mungkin akun Sandbox belum siap atau salah tipe.');
+        setStep('select');
       }
     } catch (e) {
       console.error(e);
-      alert('Terjadi kesalahan jaringan.');
-    } finally {
-      setIsCharging(false);
+      alert('Terjadi kesalahan jaringan saat memproses pembayaran.');
+      setStep('select');
     }
   };
 
@@ -66,200 +84,270 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSimulatePaymentCompletion = () => {
-    setSimulatedSuccess(true);
-    setTimeout(() => {
-      onSuccess();
-    }, 2000);
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex overflow-y-auto bg-slate-50 font-inter text-slate-800"
     >
-      {/* Premium Glassmorphism Background */}
-      <div className="absolute inset-0 bg-[#070b14]/90 backdrop-blur-xl">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)] opacity-30"></div>
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fn-emerald/10 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-      </div>
-
-      <motion.div
-        initial={{ y: 50, opacity: 0, scale: 0.95 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        className="relative w-full max-w-md bg-[#0d1323]/80 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]"
-      >
-        {/* Header */}
-        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-          <div>
-            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <ShieldCheck className="text-fn-emerald" size={20} />
-              Secure Checkout
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">{orderData.tier} Package</p>
+      <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col lg:flex-row gap-8 lg:gap-12 min-h-screen">
+        
+        {/* Left Column: Payment Methods / Result */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="mb-8 flex justify-between items-end">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">
+                {step === 'select' ? 'Select Payment Method' : 'Detail Pembayaran'}
+              </h1>
+              <p className="text-slate-500 text-sm mt-1">
+                {step === 'select' ? 'Pilih opsi pembayaran yang paling nyaman untuk Anda.' : 'Selesaikan pembayaran sebelum batas waktu berakhir.'}
+              </p>
+            </div>
+            {step === 'select' && (
+              <div className="bg-slate-200/50 text-slate-600 px-3 py-1 rounded-full text-xs font-semibold tracking-wider">
+                Order ID: #{orderData.orderId.split('-').pop()}
+              </div>
+            )}
           </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Total Pembayaran</p>
-            <p className="text-lg font-black text-fn-emerald">Rp {orderData.amount.toLocaleString('id-ID')}</p>
-          </div>
-        </div>
 
-        {/* Content Area */}
-        <div className="p-6 min-h-[400px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
-            {!paymentResult && !isCharging && (
+            {step === 'select' && (
               <motion.div
-                key="select-method"
+                key="select"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="space-y-4"
+                className="space-y-8"
               >
-                <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Pilih Metode Pembayaran</h3>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  <MethodCard id="va_bca" title="BCA Virtual Account" icon={<CreditCard size={18} />} selected={method} onSelect={setMethod} />
-                  <MethodCard id="va_mandiri" title="Mandiri Virtual Account" icon={<CreditCard size={18} />} selected={method} onSelect={setMethod} />
-                  <MethodCard id="va_bni" title="BNI Virtual Account" icon={<CreditCard size={18} />} selected={method} onSelect={setMethod} />
-                  <MethodCard id="qris" title="QRIS (GoPay, OVO, Dana)" icon={<QrCode size={18} />} selected={method} onSelect={setMethod} />
+                {/* Virtual Account Section */}
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-500 mb-4 flex items-center gap-2">
+                    <Building2 size={16} /> Bank Transfer (Virtual Account)
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <MethodCard id="bca" title="BCA Virtual Account" label="BCA" selected={method} onSelect={setMethod} />
+                    <MethodCard id="mandiri" title="Mandiri Virtual Account" label="MDR" selected={method} onSelect={setMethod} />
+                    <MethodCard id="bni" title="BNI Virtual Account" label="BNI" selected={method} onSelect={setMethod} />
+                    <MethodCard id="bri" title="BRI Virtual Account" label="BRI" selected={method} onSelect={setMethod} />
+                  </div>
                 </div>
 
-                <div className="pt-6 flex gap-3">
+                {/* E-Wallet Section */}
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-500 mb-4 flex items-center gap-2">
+                    <Wallet size={16} /> E-Wallet & QRIS
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <MethodSquare id="gopay" title="GoPay" icon="https://upload.wikimedia.org/wikipedia/commons/8/86/Gopay_logo.svg" selected={method} onSelect={setMethod} />
+                    <MethodSquare id="qris" title="QRIS" icon="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_QRIS.svg" selected={method} onSelect={setMethod} />
+                  </div>
+                </div>
+
+                <div className="pt-8">
                   <button
                     onClick={onCancel}
-                    className="flex-1 py-3.5 rounded-xl border border-white/10 text-slate-300 font-semibold hover:bg-white/5 transition-all"
+                    className="mr-4 px-6 py-3 rounded-xl text-slate-500 font-semibold hover:bg-slate-200/50 transition-colors"
                   >
                     Batal
                   </button>
                   <button
                     onClick={handleProcessPayment}
                     disabled={!method}
-                    className="flex-1 py-3.5 rounded-xl bg-fn-emerald text-white font-bold hover:bg-emerald-400 transition-all disabled:opacity-30 disabled:hover:bg-fn-emerald shadow-[0_0_20px_rgba(20,184,166,0.3)] flex items-center justify-center gap-2"
+                    className="px-8 py-3 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-all disabled:opacity-30 shadow-[0_10px_20px_rgba(0,0,0,0.1)]"
                   >
-                    Lanjutkan <ArrowRight size={18} />
+                    Lanjutkan Pembayaran
                   </button>
                 </div>
               </motion.div>
             )}
 
-            {isCharging && (
+            {step === 'process' && (
               <motion.div
-                key="loading"
-                initial={{ opacity: 0, scale: 0.9 }}
+                key="process"
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="flex flex-col items-center justify-center py-10"
+                className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-100 shadow-[0_20px_50px_rgba(100,150,200,0.05)]"
               >
-                <div className="relative">
-                  <div className="w-20 h-20 border-4 border-slate-700 rounded-full"></div>
-                  <div className="w-20 h-20 border-4 border-fn-emerald rounded-full border-t-transparent animate-spin absolute inset-0"></div>
-                </div>
-                <h3 className="text-lg font-bold text-white mt-6 tracking-wide">Menghasilkan Kredensial...</h3>
-                <p className="text-slate-400 text-sm mt-2 text-center">Menghubungkan ke secure gateway Midtrans</p>
+                <div className="w-12 h-12 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin mb-6"></div>
+                <h3 className="text-xl font-bold text-slate-800">Memproses Kredensial...</h3>
+                <p className="text-slate-500 mt-2">Menyiapkan jalur pembayaran aman untuk Anda.</p>
               </motion.div>
             )}
 
-            {paymentResult && !simulatedSuccess && (
+            {step === 'result' && paymentResult && (
               <motion.div
                 key="result"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center"
+                className="bg-white rounded-3xl border border-slate-100 shadow-[0_20px_50px_rgba(100,150,200,0.05)] overflow-hidden"
               >
-                {paymentResult.payment_type === 'bank_transfer' ? (
-                  <div className="w-full">
-                    <p className="text-slate-400 text-sm text-center mb-2">Virtual Account {paymentResult.bank.toUpperCase()}</p>
-                    <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-6 relative group overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                      <h1 className="text-3xl font-black text-white text-center tracking-widest font-mono">
-                        {paymentResult.va_number}
-                      </h1>
-                      <button
-                        onClick={() => handleCopy(paymentResult.va_number)}
-                        className="mt-4 w-full py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-fn-emerald font-semibold flex items-center justify-center gap-2 border border-white/5 transition-all"
-                      >
-                        {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                        {copied ? 'Berhasil Disalin!' : 'Salin Nomor VA'}
-                      </button>
+                <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center text-sky-500 font-bold border border-sky-100">
+                      {paymentResult.bank ? paymentResult.bank.toUpperCase() : 'QR'}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">
+                        {paymentResult.bank ? `${paymentResult.bank.toUpperCase()} Virtual Account` : 'QRIS / E-Wallet'}
+                      </h3>
+                      <p className="text-xs text-slate-500 uppercase tracking-widest flex items-center gap-1 mt-1">
+                        <ShieldCheck size={12} className="text-emerald-500" /> Automatic Verification
+                      </p>
                     </div>
                   </div>
-                ) : (
-                  <div className="w-full flex flex-col items-center">
-                    <p className="text-slate-400 text-sm text-center mb-4">Scan QRIS menggunakan M-Banking / E-Wallet</p>
-                    {/* Tech Interface Decorator Frame */}
-                    <div className="relative p-2 bg-gradient-to-br from-fn-emerald/40 to-blue-500/40 rounded-3xl mb-6 shadow-[0_0_40px_rgba(20,184,166,0.2)]">
-                      <div className="absolute -inset-1 border border-fn-emerald/30 rounded-[28px] animate-pulse"></div>
-                      <div className="bg-white p-4 rounded-2xl relative z-10">
-                        <img src={paymentResult.qr_url} alt="QRIS Code" className="w-48 h-48 object-contain" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-4 rounded-xl text-sm text-center w-full mb-6">
-                  Setelah melakukan pembayaran, sistem akan otomatis melakukan verifikasi.
                 </div>
 
-                <button
-                  onClick={handleSimulatePaymentCompletion}
-                  className="w-full py-3.5 rounded-xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-white/10 transition-all"
-                >
-                  Simulasikan Pembayaran Sukses (Dev)
-                </button>
-              </motion.div>
-            )}
+                <div className="p-8 bg-slate-50/50">
+                  {paymentResult.va_number || paymentResult.biller_code ? (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nomor Virtual Account</p>
+                      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                        <span className="text-3xl font-mono text-slate-800 tracking-[0.2em] font-semibold">
+                          {paymentResult.va_number || `${paymentResult.biller_code}${paymentResult.bill_key}`}
+                        </span>
+                        <button
+                          onClick={() => handleCopy(paymentResult.va_number || `${paymentResult.biller_code}${paymentResult.bill_key}`)}
+                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
+                        >
+                          {copied ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                          {copied ? 'Tersalin' : 'Salin'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : paymentResult.qr_url ? (
+                    <div className="flex flex-col items-center">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Scan QR Code</p>
+                      <div className="bg-white p-4 rounded-3xl border border-sky-100 shadow-[0_0_40px_rgba(56,189,248,0.15)] relative">
+                        <div className="absolute -inset-2 border border-sky-200/50 rounded-[32px] animate-pulse pointer-events-none"></div>
+                        <img src={paymentResult.qr_url} alt="QR Code" className="w-56 h-56 object-contain relative z-10" />
+                      </div>
+                    </div>
+                  ) : paymentResult.actions ? (
+                    <div className="flex flex-col items-center">
+                       <a href={paymentResult.actions[1]?.url || paymentResult.actions[0]?.url} target="_blank" rel="noreferrer" className="px-8 py-3 bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/30 hover:bg-sky-600 transition-colors">
+                         Buka Aplikasi Pembayaran
+                       </a>
+                    </div>
+                  ) : (
+                    <p className="text-center text-slate-500">Kredensial tidak ditemukan. Harap hubungi support.</p>
+                  )}
 
-            {simulatedSuccess && (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center py-8"
-              >
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", bounce: 0.5 }}
-                  className="w-24 h-24 bg-fn-emerald rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(20,184,166,0.5)]"
-                >
-                  <CheckCircle2 size={48} className="text-white" />
-                </motion.div>
-                <h2 className="text-2xl font-black text-white mb-2">Pembayaran Berhasil!</h2>
-                <p className="text-slate-400 text-center">Mengarahkan ke AI Setup Architect...</p>
+                  <div className="mt-8 pt-6 border-t border-slate-200/60">
+                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Total Pembayaran</p>
+                     <p className="text-3xl font-bold text-slate-800">Rp {parseInt(paymentResult.gross_amount).toLocaleString('id-ID')}</p>
+                  </div>
+                </div>
+
+                <div className="p-8 bg-white border-t border-slate-100">
+                  <button
+                    onClick={onSuccess}
+                    className="w-full py-4 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-all shadow-[0_10px_20px_rgba(0,0,0,0.1)]"
+                  >
+                    Simulasikan Sukses (Dev)
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-      </motion.div>
+
+        {/* Right Column: Order Summary & Countdown */}
+        <div className="w-full lg:w-[380px] shrink-0 space-y-6">
+          {/* Countdown Card */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-[0_20px_50px_rgba(100,150,200,0.05)]">
+            <h3 className="text-sm font-semibold text-slate-500 flex items-center gap-2 mb-4">
+              <Clock size={16} /> Complete payment in
+            </h3>
+            <div className="flex items-center justify-center gap-2">
+              <TimeUnit value={time.h} label="HOURS" isDanger={isDangerTime} />
+              <span className="text-xl font-bold text-slate-300 pb-5">:</span>
+              <TimeUnit value={time.m} label="MINS" isDanger={isDangerTime} />
+              <span className="text-xl font-bold text-slate-300 pb-5">:</span>
+              <TimeUnit value={time.s} label="SECS" isDanger={isDangerTime} />
+            </div>
+          </div>
+
+          {/* Order Summary Card */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-[0_20px_50px_rgba(100,150,200,0.05)]">
+            <h3 className="text-base font-bold text-slate-800 mb-6">Order Summary</h3>
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Package Tier</span>
+                <span className="text-slate-800 font-semibold">{orderData.tier}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Subtotal</span>
+                <span className="text-slate-800 font-semibold">Rp {orderData.amount.toLocaleString('id-ID')}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Service Fee</span>
+                <span className="text-emerald-500 font-semibold">Free</span>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+              <span className="font-bold text-slate-800">Total Amount</span>
+              <span className="text-xl font-bold text-slate-800">Rp {orderData.amount.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-3 text-xs text-slate-400 items-start p-2">
+            <ShieldCheck size={16} className="shrink-0 text-emerald-500 mt-0.5" />
+            <p>PCI DSS Compliant. Your transaction is encrypted and secure via Midtrans Gateway.</p>
+          </div>
+        </div>
+
+      </div>
     </motion.div>
   );
 };
 
-const MethodCard = ({ id, title, icon, selected, onSelect }: { id: PaymentMethod, title: string, icon: React.ReactNode, selected: PaymentMethod, onSelect: (v: PaymentMethod) => void }) => {
+const MethodCard = ({ id, title, label, selected, onSelect }: { id: PaymentMethod, title: string, label: string, selected: PaymentMethod, onSelect: (v: PaymentMethod) => void }) => {
   const isSelected = selected === id;
   return (
     <button
       onClick={() => onSelect(id)}
-      className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 ${
+      className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 hover:scale-[0.98] ${
         isSelected 
-          ? 'bg-fn-emerald/10 border-fn-emerald shadow-[0_0_20px_rgba(20,184,166,0.15)]' 
-          : 'bg-white/5 border-white/5 hover:bg-white/10'
+          ? 'bg-sky-50/50 border-sky-400 shadow-[0_10px_20px_rgba(56,189,248,0.1)]' 
+          : 'bg-white border-slate-100 hover:shadow-[0_10px_20px_rgba(100,150,200,0.05)]'
       }`}
     >
-      <div className={`p-2.5 rounded-xl ${isSelected ? 'bg-fn-emerald text-white' : 'bg-white/10 text-slate-300'}`}>
-        {icon}
+      <div className={`w-12 h-10 rounded-lg flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-sky-100 text-sky-600' : 'bg-slate-50 text-slate-400'}`}>
+        {label}
       </div>
-      <span className={`font-semibold text-left ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+      <span className={`font-semibold text-sm text-left ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>
         {title}
       </span>
-      {isSelected && (
-        <motion.div layoutId="check" className="ml-auto text-fn-emerald">
-          <CheckCircle2 size={20} />
-        </motion.div>
-      )}
     </button>
   );
 };
+
+const MethodSquare = ({ id, title, icon, selected, onSelect }: { id: PaymentMethod, title: string, icon: string, selected: PaymentMethod, onSelect: (v: PaymentMethod) => void }) => {
+  const isSelected = selected === id;
+  return (
+    <button
+      onClick={() => onSelect(id)}
+      className={`w-full flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border transition-all duration-300 hover:scale-[0.98] ${
+        isSelected 
+          ? 'bg-sky-50/50 border-sky-400 shadow-[0_10px_20px_rgba(56,189,248,0.1)]' 
+          : 'bg-white border-slate-100 hover:shadow-[0_10px_20px_rgba(100,150,200,0.05)]'
+      }`}
+    >
+      <img src={icon} alt={title} className="h-8 object-contain" />
+      <span className={`font-semibold text-xs ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>
+        {title}
+      </span>
+    </button>
+  );
+};
+
+const TimeUnit = ({ value, label, isDanger }: { value: string, label: string, isDanger: boolean }) => (
+  <div className="flex flex-col items-center">
+    <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-mono font-light shadow-sm ${isDanger ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'bg-slate-800 text-white'}`}>
+      {value}
+    </div>
+    <span className="text-[10px] font-bold text-slate-400 mt-2">{label}</span>
+  </div>
+);
