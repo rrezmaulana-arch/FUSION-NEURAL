@@ -189,20 +189,25 @@ export default function OrderPage() {
       });
 
       const data = await response.json();
+      
+      if (!response.ok || data.error) {
+        throw new Error(data.error?.message || data.error || 'Failed to communicate with AI provider');
+      }
+
       const reply = data.choices?.[0]?.message?.content ?? 'Sinkronisasi sedang berlangsung, Kak. Mohon tunggu sebentar.';
 
       setMessages((prev) => [
         ...prev,
         { id: Date.now().toString(), sender: 'bot', text: reply },
       ]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Frontline Sales AI Error:', err);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           sender: 'bot',
-          text: 'Sistem Neural sedang melakukan refinasi ulang. Mohon coba kembali sebentar lagi, Kak.',
+          text: `[Sistem Neural Error]: ${err.message || 'Gagal terhubung ke server AI'}. Mohon periksa API Key atau koneksi Anda.`,
         },
       ]);
     } finally {
