@@ -207,7 +207,7 @@ export default function OrderPage() {
         {
           id: Date.now().toString(),
           sender: 'bot',
-          text: `[Sistem Neural Error]: ${err.message || 'Gagal terhubung ke server AI'}. Mohon periksa API Key atau koneksi Anda.`,
+          text: 'Sistem sedang melakukan optimasi jaringan sesaat. Mohon ketik ulang pesan Kakak, atau coba beberapa saat lagi ya.',
         },
       ]);
     } finally {
