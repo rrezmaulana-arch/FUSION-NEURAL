@@ -29,7 +29,7 @@ export default defineConfig({
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req) => {
             if (req.method === 'POST') {
-              proxyReq.setHeader('Authorization', 'Basic ' + Buffer.from('Mid-server-nxtDQ6itJWk1hZ4FvxH4M9-I:').toString('base64'));
+              proxyReq.setHeader('Authorization', 'Basic ' + Buffer.from('Mid-server-umbvOlGiXz0anZS1FkQBIbKQ:').toString('base64'));
             }
           });
         }

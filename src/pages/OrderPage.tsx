@@ -330,7 +330,7 @@ export default function OrderPage() {
         { 
           id: Date.now().toString(), 
           sender: 'bot', 
-          text: `🎉 Pembayaran berhasil diverifikasi, Kak ${snap.name}! \n\nSekarang mari kita mulai perancangan sistem Kakak. Sistem aplikasi apa yang ingin Kakak buat? (Misal: Sistem HRD, CRM, ERP, atau yang lainnya). Lalu, tema warnanya mau seperti apa? Kita bebas berkreasi di sini!` 
+          text: `Pembayaran berhasil diverifikasi, Kak ${snap.name}! \n\nSekarang mari kita mulai perancangan sistem Kakak. Sistem aplikasi apa yang ingin Kakak buat? (Misal: Sistem HRD, CRM, ERP, atau yang lainnya). Lalu, tema warnanya mau seperti apa? Kita bebas berkreasi di sini!` 
         },
       ]);
     } catch (e) {
@@ -513,14 +513,17 @@ export default function OrderPage() {
         <div className="px-4 sm:px-6 pb-2 fixed bottom-24 w-full">
           <div className="max-w-3xl mx-auto flex flex-wrap gap-2 justify-end">
             {[
-              { label: '🚀 Saya mau pesan paket', msg: 'Saya tertarik ingin memesan paket FusionNeural' },
-              { label: '💰 Info harga', msg: 'Boleh kasih tau harga lengkap semua paket?' },
-              { label: '🤖 Apa itu Dual Synergy?', msg: 'Bisa jelaskan paket Dual Synergy?' },
-              { label: '⚡ Full Otonom itu apa?', msg: 'Apa bedanya 50% Sinergi Hybrid vs 100% Full Otonom AI?' },
+              { label: 'Saya mau pesan paket', msg: 'Saya tertarik ingin memesan paket FusionNeural' },
+              { label: 'Info harga', msg: 'Boleh kasih tau harga lengkap semua paket?' },
+              { label: 'Apa itu Dual Synergy?', msg: 'Bisa jelaskan paket Dual Synergy?' },
+              { label: 'Full Otonom itu apa?', msg: 'Apa bedanya 50% Sinergi Hybrid vs 100% Full Otonom AI?' },
             ].map((chip) => (
               <button
                 key={chip.label}
-                onClick={() => handleSend(chip.msg)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSend(chip.msg);
+                }}
                 disabled={isTyping || !systemPrompt || isProcessingPayment}
                 className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-fn-emerald/30 text-fn-emerald hover:bg-fn-emerald hover:text-white transition-all disabled:opacity-40 shadow-sm"
               >
