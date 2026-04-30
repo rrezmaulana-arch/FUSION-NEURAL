@@ -1,272 +1,264 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, query, orderBy, limit, onSnapshot, onSnapshot as fsOnSnapshot } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
-import { Brain, Zap, CheckCircle2, Clock, AlertTriangle, FileText, Palette, DollarSign, RefreshCw, Activity } from 'lucide-react';
+import {
+  Brain, Zap, Activity, AlertTriangle, RefreshCw,
+  CheckCircle2, Clock, XCircle, Trash2, Wifi, WifiOff,
+  FileText, DollarSign, Palette, Search, Image, Bot,
+} from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 
-interface ActivityLog {
-  id: string;
-  agent: string;
-  action: string;
-  details: string;
-  timestamp: any;
+// ── Agent & AI Provider Definitions ────────────────────────────────────────
+interface ProviderMeta {
+  key:   string;          // Redis key suffix, e.g. "groq"
+  label: string;          // Display name
+  model: string;          // Model shortname
+  role:  string;          // Which agent uses this
+  icon:  React.ReactNode;
+  color: string;          // Tailwind bg+text
 }
 
-interface AgentHealth {
-  agentId: string;
-  label: string;
-  color: string;
-  icon: React.ReactNode;
-  logCount: number;
-  lastSeen: string;
-  status: 'Online' | 'Idle' | 'Offline';
-  promptVersion: string;
+const PROVIDERS: ProviderMeta[] = [
+  { key: 'groq',        label: 'Groq',         model: 'llama-3.3-70b',        role: 'Frontliner (Primary)',         icon: <Zap size={16} />,       color: 'bg-orange-50 text-orange-600 border-orange-200' },
+  { key: 'cerebras',    label: 'Cerebras',      model: 'llama-3.3-70b',        role: 'Frontliner (Backup)',          icon: <Bot size={16} />,       color: 'bg-amber-50 text-amber-600 border-amber-200' },
+  { key: 'gemini',      label: 'Gemini',        model: '2.5-flash-preview',    role: 'Manager (Primary)',            icon: <Brain size={16} />,     color: 'bg-blue-50 text-blue-600 border-blue-200' },
+  { key: 'mistral',     label: 'Mistral',       model: 'large-latest',         role: 'Manager (Backup)',             icon: <Bot size={16} />,       color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
+  { key: 'deepseek',    label: 'DeepSeek',      model: 'deepseek-reasoner',    role: 'Finance (Primary)',            icon: <DollarSign size={16} />, color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+  { key: 'cohere',      label: 'Cohere',        model: 'command-r-plus',       role: 'Admin JSON (Primary)',         icon: <FileText size={16} />,  color: 'bg-teal-50 text-teal-600 border-teal-200' },
+  { key: 'openrouter',  label: 'OpenRouter',    model: 'gpt-4o-mini:free',     role: 'Admin + Universal Fallback',  icon: <Activity size={16} />,  color: 'bg-violet-50 text-violet-600 border-violet-200' },
+  { key: 'hf_text',     label: 'HuggingFace',   model: 'Mistral-7B-Instruct',  role: 'Marketing Text (Primary)',     icon: <Palette size={16} />,   color: 'bg-purple-50 text-purple-600 border-purple-200' },
+  { key: 'gemini_image',label: 'Gemini Imagen', model: '2.0-flash-image',      role: 'Marketing Image (Premium)',   icon: <Image size={16} />,     color: 'bg-sky-50 text-sky-600 border-sky-200' },
+  { key: 'hf_image',    label: 'FLUX.1-schnell','model': 'schnell',            role: 'Marketing Image (Fast Backup)',icon: <Image size={16} />,    color: 'bg-pink-50 text-pink-600 border-pink-200' },
+  { key: 'serper',      label: 'Serper.dev',    model: 'Google Search',        role: 'Search Tool (Real-time)',      icon: <Search size={16} />,    color: 'bg-slate-50 text-slate-600 border-slate-200' },
+];
+
+const THRESHOLD = 50;
+
+interface ErrorEntry { apiName: string; errorMsg: string; agentRole: string; ts: string; }
+interface TelemetryData {
+  counts:    Record<string, number>;
+  warnings:  string[];
+  threshold: number;
+  errors:    ErrorEntry[];
 }
 
-const AGENT_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  Admin: { label: 'Admin Agent', color: 'text-blue-600 bg-blue-50', icon: <FileText size={20} /> },
-  Marketing: { label: 'Marketing Agent', color: 'text-purple-600 bg-purple-50', icon: <Palette size={20} /> },
-  Finance: { label: 'Finance Agent', color: 'text-emerald-600 bg-emerald-50', icon: <DollarSign size={20} /> },
-  Manager: { label: 'Manager AI', color: 'text-teal-600 bg-teal-50', icon: <Brain size={20} /> },
-};
-
-function getLastSeenLabel(timestamp: any): { label: string; minutesAgo: number } {
-  if (!timestamp?.toDate) return { label: 'Tidak diketahui', minutesAgo: 999 };
-  const now = new Date();
-  const then = timestamp.toDate();
-  const diffMs = now.getTime() - then.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return { label: 'Baru saja', minutesAgo: 0 };
-  if (diffMin < 60) return { label: `${diffMin} menit lalu`, minutesAgo: diffMin };
-  return { label: `${Math.floor(diffMin / 60)} jam lalu`, minutesAgo: diffMin };
-}
-
-function getStatus(minutesAgo: number): 'Online' | 'Idle' | 'Offline' {
-  if (minutesAgo <= 5) return 'Online';
-  if (minutesAgo <= 30) return 'Idle';
-  return 'Offline';
-}
-
+// ── Main Component ─────────────────────────────────────────────────────────
 export default function AgentHealthPage() {
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [promptVersions, setPromptVersions] = useState<Record<string, string>>({});
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState('');
-  const [agents, setAgents] = useState<AgentHealth[]>([]);
+  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
+  const [loading,   setLoading]   = useState(false);
+  const [lastSync,  setLastSync]  = useState<string>('—');
+  const [redisOk,   setRedisOk]   = useState<boolean | null>(null);
+  const [syncing,   setSyncing]   = useState(false);
+  const [syncMsg,   setSyncMsg]   = useState('');
+  const [resetting, setResetting] = useState(false);
 
-  // Baca activity_logs real-time dari Firestore
-  useEffect(() => {
-    const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(100));
-    const unsub = onSnapshot(q, (snap) => {
-      const fetchedLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }) as ActivityLog);
-      setLogs(fetchedLogs);
-
-      // Hitung stats per agen dari log nyata
-      const agentNames = ['Admin', 'Marketing', 'Finance', 'Manager'];
-      const agentData: AgentHealth[] = agentNames.map(name => {
-        const agentLogs = fetchedLogs.filter(l => l.agent === name);
-        const logCount = agentLogs.length;
-        const latestLog = agentLogs[0];
-        const { label: lastSeen, minutesAgo } = getLastSeenLabel(latestLog?.timestamp);
-        const status = logCount === 0 ? 'Offline' : getStatus(minutesAgo);
-        const meta = AGENT_META[name];
-        return {
-          agentId: name.toLowerCase() + '_brain',
-          label: meta.label,
-          color: meta.color,
-          icon: meta.icon,
-          logCount,
-          lastSeen,
-          status,
-          promptVersion: promptVersions[name.toLowerCase() + '_brain'] || '–',
-        };
+  const fetchTelemetry = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res  = await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_telemetry' }),
       });
-      setAgents(agentData);
-    });
-    return () => unsub();
-  }, [promptVersions]);
-
-  // Baca neural_configs untuk prompt versions live
-  useEffect(() => {
-    const unsub = fsOnSnapshot(collection(db, 'neural_configs'), (snap) => {
-      const versions: Record<string, string> = {};
-      snap.docs.forEach(d => {
-        const data = d.data();
-        if (data.updated_at) {
-          versions[d.id] = `v${new Date(data.updated_at).getDate()}.${d.id.length}`;
-        } else {
-          versions[d.id] = data.prompt ? `v${(data.prompt.length % 9) + 1}.${d.id.length}` : 'v1.0';
-        }
-      });
-      setPromptVersions(versions);
-    });
-    return () => unsub();
+      const data = await res.json();
+      if (data.ok) {
+        setTelemetry(data);
+        setRedisOk(true);
+        setLastSync(new Date().toLocaleTimeString('id-ID'));
+      } else {
+        setRedisOk(false);
+      }
+    } catch {
+      setRedisOk(false);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Total token estimate dari log count
-  const totalTokenEstimate = logs.length * 280; // rata-rata ~280 token per aksi AI
-  const tokenLimit = 80000;
+  // Poll every 30 seconds
+  useEffect(() => {
+    fetchTelemetry();
+    const id = setInterval(fetchTelemetry, 30_000);
+    return () => clearInterval(id);
+  }, [fetchTelemetry]);
 
   const handleForceSync = async () => {
-    setIsSyncing(true);
-    setSyncMsg('');
+    setSyncing(true); setSyncMsg('');
     try {
       await NeuralCore.initCorePrompts();
-      await FirebaseLogger.logAgentAction('Manager', 'FORCE_SYNC', 'Semua prompt agen telah disinkronisasi ulang ke Firestore');
-      setSyncMsg('✅ Semua prompt agen berhasil disinkronisasi ulang ke Firestore.');
-      setTimeout(() => setSyncMsg(''), 5000);
-    } catch (e) {
-      setSyncMsg('❌ Gagal sync. Periksa koneksi Firestore.');
-    } finally {
-      setIsSyncing(false);
-    }
+      await FirebaseLogger.logAgentAction('Manager', 'FORCE_SYNC', 'Semua prompt agen disinkronisasi ke Firestore');
+      setSyncMsg('✅ Semua SOP agen berhasil disinkronisasi ke Firestore.');
+    } catch { setSyncMsg('❌ Gagal sync. Periksa koneksi Firestore.'); }
+    finally { setSyncing(false); setTimeout(() => setSyncMsg(''), 5000); }
   };
 
-  const statusColor = (status: string) => {
-    if (status === 'Online') return 'text-emerald-600 bg-emerald-100';
-    if (status === 'Idle') return 'text-amber-600 bg-amber-100';
-    return 'text-slate-500 bg-slate-100';
+  const handleResetUsage = async () => {
+    setResetting(true);
+    try {
+      await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_usage' }),
+      });
+      await fetchTelemetry();
+    } finally { setResetting(false); }
   };
 
-  const statusIcon = (status: string) => {
-    if (status === 'Online') return <CheckCircle2 size={12} />;
-    if (status === 'Idle') return <Clock size={12} />;
-    return <AlertTriangle size={12} />;
-  };
-
-  const onlineCount = agents.filter(a => a.status === 'Online').length;
-  const totalActions = logs.length;
+  const totalCalls = telemetry ? Object.values(telemetry.counts).reduce((a, b) => a + b, 0) : 0;
+  const activeWarnings = telemetry?.warnings.length || 0;
 
   return (
     <div className="space-y-6 pb-10">
+
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+      <div className="flex flex-wrap items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Agent Health Monitor</h1>
-          <p className="text-slate-500 text-sm mt-1">Status real berdasarkan aktivitas log Firestore — bukan data statis</p>
+          <p className="text-slate-500 text-sm mt-1">Telemetri real-time dari Upstash Redis · SOP dari Firestore</p>
         </div>
-        <button
-          onClick={handleForceSync}
-          disabled={isSyncing}
-          className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-500 transition-colors disabled:opacity-50 shadow-md"
-        >
-          <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
-          {isSyncing ? 'Menyinkronkan...' : 'Force Sync All Prompts'}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleResetUsage} disabled={resetting}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-rose-200 text-rose-600 text-sm font-bold rounded-xl hover:bg-rose-50 transition-colors disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+            {resetting ? 'Mereset...' : 'Reset Usage'}
+          </button>
+          <button
+            onClick={handleForceSync} disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-500 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Menyinkronkan...' : 'Force Sync SOP'}
+          </button>
+        </div>
       </div>
 
       {/* Sync Message */}
       <AnimatePresence>
         {syncMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className={`flex items-center gap-3 rounded-2xl p-4 border ${syncMsg.startsWith('✅') ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={`flex items-center gap-3 rounded-2xl p-4 border ${syncMsg.startsWith('✅') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}
           >
-            <p className={`text-sm font-bold ${syncMsg.startsWith('✅') ? 'text-emerald-700' : 'text-rose-700'}`}>{syncMsg}</p>
+            <p className="text-sm font-bold">{syncMsg}</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Global Summary */}
+      {/* Summary Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="col-span-2 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl text-white"
+        {/* Redis Status */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          className={`bg-white rounded-2xl p-5 border shadow-sm flex flex-col gap-2 ${redisOk === false ? 'border-rose-200' : 'border-slate-100'}`}
         >
-          <div className="flex items-center gap-2 mb-3">
-            <Zap size={16} className="text-teal-400" />
-            <span className="text-teal-400 text-xs font-bold uppercase tracking-widest">Estimasi Token Terpakai (Session)</span>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+            {redisOk === null ? <Clock size={12} /> : redisOk ? <Wifi size={12} className="text-emerald-500" /> : <WifiOff size={12} className="text-rose-500" />}
+            Redis Status
           </div>
-          <div className="text-4xl font-black mb-2">{totalTokenEstimate.toLocaleString()}</div>
-          <div className="w-full bg-white/10 rounded-full h-2">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min((totalTokenEstimate / tokenLimit) * 100, 100)}%` }}
-              transition={{ duration: 1.5, ease: 'easeOut' }}
-              className={`h-2 rounded-full ${totalTokenEstimate > tokenLimit * 0.8 ? 'bg-rose-400' : 'bg-gradient-to-r from-teal-400 to-emerald-400'}`}
-            />
+          <div className={`text-lg font-black ${redisOk === null ? 'text-slate-400' : redisOk ? 'text-emerald-600' : 'text-rose-600'}`}>
+            {redisOk === null ? 'Checking...' : redisOk ? 'Connected' : 'Offline'}
           </div>
-          <p className="text-white/40 text-xs mt-1">~{totalActions} aksi log · {totalTokenEstimate.toLocaleString()} / {tokenLimit.toLocaleString()} est. token</p>
+          <div className="text-[10px] text-slate-400">Sync: {lastSync}</div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-          <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2 flex items-center gap-1"><Activity size={12} />Active Agents</div>
-          <div className="text-3xl font-black text-slate-800">{onlineCount}</div>
-          <div className="text-xs text-emerald-600 font-semibold mt-1">dari {agents.length} agen</div>
+        {/* Total Calls */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+          className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm"
+        >
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Activity size={12} />Total Calls</div>
+          <div className="text-3xl font-black text-slate-800">{totalCalls.toLocaleString()}</div>
+          <div className="text-[10px] text-slate-400 mt-1">sesi ini</div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-          <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2 flex items-center gap-1"><Brain size={12} />Total Actions</div>
-          <div className="text-3xl font-black text-slate-800">{totalActions}</div>
-          <div className="text-xs text-blue-600 font-semibold mt-1">di activity_logs</div>
+        {/* Active Warnings */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className={`rounded-2xl p-5 border shadow-sm ${activeWarnings > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'}`}
+        >
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><AlertTriangle size={12} />Threshold Warnings</div>
+          <div className={`text-3xl font-black ${activeWarnings > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{activeWarnings}</div>
+          <div className="text-[10px] text-slate-400 mt-1">≥ {THRESHOLD} panggilan</div>
+        </motion.div>
+
+        {/* Errors Today */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className={`rounded-2xl p-5 border shadow-sm ${(telemetry?.errors.length || 0) > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-100'}`}
+        >
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><XCircle size={12} />Error Log</div>
+          <div className={`text-3xl font-black ${(telemetry?.errors.length || 0) > 0 ? 'text-rose-600' : 'text-slate-800'}`}>{telemetry?.errors.length || 0}</div>
+          <div className="text-[10px] text-slate-400 mt-1">entri terbaru</div>
         </motion.div>
       </div>
 
-      {/* Agent Heartbeat Cards */}
+      {/* Global Usage Warning Banner */}
+      <AnimatePresence>
+        {activeWarnings > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4"
+          >
+            <AlertTriangle size={18} className="text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700 font-medium">
+              <strong>Peringatan Penggunaan:</strong>{' '}
+              {telemetry!.warnings.map(w => {
+                const p = PROVIDERS.find(x => x.key === w);
+                return p ? `${p.label} (${p.role})` : w;
+              }).join(', ')}{' '}
+              sudah mencapai ≥{THRESHOLD} panggilan. Pertimbangkan untuk mereset atau memantau lebih lanjut.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Provider Cards Grid */}
       <div>
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Heartbeat Monitor — Data Real Firestore</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {agents.map((agent, i) => {
-            const tokenPct = Math.min((agent.logCount / 30) * 100, 100);
-            const liveVersion = agent.promptVersion;
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+          AI Provider Usage — {loading ? 'Memuat...' : `Update: ${lastSync}`}
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {PROVIDERS.map((p, i) => {
+            const count   = telemetry?.counts[p.key] ?? 0;
+            const pct     = Math.min((count / THRESHOLD) * 100, 100);
+            const warned  = (telemetry?.warnings || []).includes(p.key);
             return (
               <motion.div
-                key={agent.agentId}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.07 }}
-                className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm"
+                key={p.key}
+                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className={`bg-white rounded-2xl p-5 border shadow-sm ${warned ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-100'}`}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${agent.color}`}>
-                      {agent.icon}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${p.color}`}>
+                      {p.icon}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-800 text-sm">{agent.label}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{agent.agentId}</p>
+                      <p className="text-sm font-bold text-slate-800">{p.label}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">{p.model}</p>
                     </div>
                   </div>
-                  <span className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full ${statusColor(agent.status)}`}>
-                    {statusIcon(agent.status)} {agent.status}
-                  </span>
+                  {warned
+                    ? <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-amber-100 text-amber-700"><AlertTriangle size={10} />HIGH</span>
+                    : count > 0
+                      ? <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 size={10} />OK</span>
+                      : <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-slate-100 text-slate-500"><Clock size={10} />IDLE</span>
+                  }
                 </div>
 
-                {/* Activity Bar (berdasarkan log count nyata) */}
-                <div className="space-y-1 mb-3">
+                {/* Role badge */}
+                <p className="text-[10px] text-slate-400 mb-2">{p.role}</p>
+
+                {/* Usage bar */}
+                <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>Activity (log terakhir)</span>
-                    <span>{agent.logCount} aksi tercatat</span>
+                    <span>API Calls</span>
+                    <span className={`font-bold ${warned ? 'text-amber-600' : 'text-slate-600'}`}>{count} / {THRESHOLD}</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5">
+                  <div className="w-full bg-slate-100 rounded-full h-2">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${tokenPct}%` }}
-                      transition={{ duration: 1.2, delay: i * 0.07 }}
-                      className={`h-1.5 rounded-full ${tokenPct > 80 ? 'bg-rose-400' : tokenPct > 50 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 1, delay: i * 0.04 }}
+                      className={`h-2 rounded-full ${warned ? 'bg-amber-400' : pct > 60 ? 'bg-orange-400' : 'bg-emerald-400'}`}
                     />
-                  </div>
-                </div>
-
-                {/* Last Seen + Prompt Version */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-slate-50 rounded-xl p-2.5">
-                    <p className="text-[9px] text-slate-400 uppercase font-bold">Last Seen</p>
-                    <p className="text-xs font-bold text-slate-700 mt-0.5">{agent.lastSeen}</p>
-                  </div>
-                  <div className="bg-slate-50 rounded-xl p-2.5">
-                    <p className="text-[9px] text-slate-400 uppercase font-bold">Logic Version</p>
-                    <p className={`text-xs font-mono font-bold mt-0.5 ${liveVersion !== '–' ? 'text-teal-700' : 'text-slate-400'}`}>
-                      {liveVersion}
-                      {liveVersion !== '–' && <span className="ml-1 text-[8px] text-teal-500">● LIVE</span>}
-                    </p>
                   </div>
                 </div>
               </motion.div>
@@ -275,19 +267,39 @@ export default function AgentHealthPage() {
         </div>
       </div>
 
-      {/* Token Warning */}
-      {totalTokenEstimate > tokenLimit * 0.75 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4"
-        >
-          <AlertTriangle size={16} className="text-amber-500 shrink-0" />
-          <p className="text-sm text-amber-700 font-medium">
-            Estimasi token mendekati batas sesi. Pertimbangkan untuk mengurangi frekuensi panggilan AI Marketing atau menjalankan <strong>Force Sync</strong> untuk mereset konteks.
-          </p>
-        </motion.div>
+      {/* Error Log */}
+      {(telemetry?.errors.length || 0) > 0 && (
+        <div>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <XCircle size={12} className="text-rose-400" /> Error Log Terbaru (Redis)
+          </h2>
+          <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-700">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
+              <div className="w-3 h-3 rounded-full bg-rose-500" />
+              <div className="w-3 h-3 rounded-full bg-amber-400" />
+              <div className="w-3 h-3 rounded-full bg-emerald-400" />
+              <span className="ml-2 text-slate-400 text-xs font-mono">error_log:system</span>
+            </div>
+            <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
+              {telemetry!.errors.map((err, i) => {
+                const p   = PROVIDERS.find(x => x.key === err.apiName);
+                const ts  = err.ts ? new Date(err.ts).toLocaleTimeString('id-ID') : '—';
+                return (
+                  <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+                    className="flex items-start gap-3 text-xs font-mono"
+                  >
+                    <span className="text-slate-500 shrink-0">{ts}</span>
+                    <span className="text-rose-400 shrink-0">[{err.agentRole || '?'}]</span>
+                    <span className="text-amber-400 shrink-0">{p?.label || err.apiName}:</span>
+                    <span className="text-slate-300 break-all">{err.errorMsg?.slice(0, 150)}</span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
+
     </div>
   );
 }
