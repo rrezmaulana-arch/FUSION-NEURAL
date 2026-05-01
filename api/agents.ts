@@ -373,8 +373,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method Not Allowed' });
 
   const body = req.body as AgentRequest;
-  const { agent, messages, temperature, max_tokens, response_format, task,
-          useMemory, useOrchestrator, targetAgentId, previousOutput, sessionId } = body;
+  const { agent, messages, temperature, max_tokens, response_format, task, sessionId } = body;
 
   if (!agent)    return res.status(400).json({ error: 'Missing: agent', valid: ['frontliner','manager','admin','finance'] });
   if (!messages?.length) return res.status(400).json({ error: 'Missing: messages' });

@@ -13,6 +13,17 @@
 /// <reference types="node" />
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// Define the Task structure for the queue
+export interface BackgroundTask {
+  id: string;
+  agent: 'admin' | 'finance' | 'marketing' | 'manager';
+  task: string;
+  payload: any;
+  status: 'pending' | 'working' | 'completed' | 'failed';
+  createdAt: string;
+}
+
+
 const REDIS_URL   = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 export const USAGE_THRESHOLD = 50;
@@ -173,6 +184,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true, counts, warnings, threshold: USAGE_THRESHOLD, errors });
     }
 
+    // ── BACKGROUND QUEUE & AGENT STATUS ────────────────────────────────────
+
+    if (action === 'push_queue') {
+      const { task } = body;
+      if (!task) return res.status(400).json({ error: 'Missing task object' });
+      await redis('RPUSH', 'queue:tasks', JSON.stringify(task));
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === 'pop_queue') {
+      const item = await redis('LPOP', 'queue:tasks') as string | null;
+      if (!item) return res.status(200).json({ ok: true, task: null });
+      try {
+        return res.status(200).json({ ok: true, task: JSON.parse(item) });
+      } catch {
+        return res.status(200).json({ ok: true, task: { raw: item } });
+      }
+    }
+
+    if (action === 'get_queue_length') {
+      const len = await redis('LLEN', 'queue:tasks') as number;
+      return res.status(200).json({ ok: true, length: len || 0 });
+    }
+
+    if (action === 'set_agent_status') {
+      const { agentId, status } = body; // status: IDLE, WORKING
+      if (!agentId || !status) return res.status(400).json({ error: 'Missing agentId or status' });
+      await redis('SET', `agent_status:${agentId}`, status);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === 'get_agent_status') {
+      const { agentId } = body;
+      if (!agentId) return res.status(400).json({ error: 'Missing agentId' });
+      const status = await redis('GET', `agent_status:${agentId}`) as string | null;
+      return res.status(200).json({ ok: true, agentId, status: status || 'IDLE' });
+    }
+
+    if (action === 'get_all_agent_status') {
+      const agents = ['manager', 'frontliner', 'admin', 'finance', 'marketing'];
+      const keys = agents.map(a => `agent_status:${a}`);
+      const values = await redis('MGET', ...keys) as (string | null)[];
+      const result: Record<string, string> = {};
+      agents.forEach((a, i) => {
+        result[a] = values[i] || 'IDLE';
+      });
+      return res.status(200).json({ ok: true, statuses: result });
+    }
+
     // ── RESET USAGE (manual reset from health dashboard) ───────────────────
 
     if (action === 'reset_usage') {
@@ -186,7 +246,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: 'Invalid action',
       valid: ['store','retrieve','store_feedback','get_feedback','push_history','get_history',
               'track_usage','get_usage','set_eval','get_eval','log_error','get_error_log',
-              'get_telemetry','reset_usage'],
+              'get_telemetry','reset_usage', 'push_queue', 'pop_queue', 'get_queue_length', 
+              'set_agent_status', 'get_agent_status', 'get_all_agent_status'],
     });
 
   } catch (error: any) {

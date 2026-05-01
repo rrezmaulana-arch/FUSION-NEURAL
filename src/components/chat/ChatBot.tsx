@@ -42,8 +42,29 @@ const ChatBot: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [agentStatuses, setAgentStatuses] = useState<Record<string, string>>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Poll Agent Status
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/memory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get_all_agent_status' }),
+        });
+        const data = await res.json();
+        if (data.statuses) setAgentStatuses(data.statuses);
+      } catch (e) {}
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 2500);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
 
   // Only auto-scroll when user is already at bottom OR a new message is added
   const scrollToBottom = useCallback((force = false) => {
@@ -97,6 +118,13 @@ const ChatBot: React.FC = () => {
         }),
       });
 
+      // Trigger background manager task autonomously
+      fetch('/api/cron/worker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'trigger', input }),
+      }).catch(console.warn);
+
       const data = await response.json();
       const botReply = data.choices?.[0]?.message?.content || 'Maaf, terjadi kesalahan.';
       setMessages([...newMessages, { role: 'bot', text: botReply }]);
@@ -136,8 +164,19 @@ const ChatBot: React.FC = () => {
                 <div>
                   <h3 className="text-slate-800 font-bold tracking-tight leading-tight">FusionNeural <span className="text-slate-500 text-[10px] tracking-widest uppercase ml-1">v2.0</span></h3>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <Activity className="w-3 h-3 text-emerald-600" />
-                    <span className="text-emerald-600/90 text-[11px] font-semibold uppercase tracking-wider">Sistem Otonom Aktif</span>
+                    {Object.values(agentStatuses).includes('WORKING') ? (
+                      <>
+                        <Activity className="w-3 h-3 text-emerald-600 animate-pulse" />
+                        <span className="text-emerald-600/90 text-[11px] font-semibold uppercase tracking-wider">
+                          Agen Aktif: {Object.entries(agentStatuses).filter(([_, s]) => s === 'WORKING').map(([a]) => a).join(', ')}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="w-3 h-3 text-slate-400" />
+                        <span className="text-slate-500 text-[11px] font-semibold uppercase tracking-wider">Sistem Otonom Siap</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
