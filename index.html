@@ -34,10 +34,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
-    <!-- Midtrans Snap -->
+    <!-- Midtrans Snap — FIX #5: Gunakan VITE_MIDTRANS_ENV untuk switch mode -->
+    <!-- Set VITE_MIDTRANS_ENV=production & VITE_MIDTRANS_CLIENT_KEY=Mid-client-xxx di .env untuk live -->
     <script type="text/javascript"
-            src="https://app.sandbox.midtrans.com/snap/snap.js"
-            data-client-key="Mid-client-BCH8_jCEDMoRbr2a"></script>
+            src="%VITE_MIDTRANS_SNAP_URL%"
+            data-client-key="%VITE_MIDTRANS_CLIENT_KEY%"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, User, ArrowLeft, ShieldCheck, Zap, Cpu, Sparkles, Lock } from 'lucide-react';
+import { Send, User, ArrowLeft, ShieldCheck, Zap, Cpu, Sparkles, Lock, CheckCircle2, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -31,64 +31,16 @@ interface OrderSnapshot {
   confirmed: boolean;
 }
 
-// ── AI LLM extractor: parse AI-confirmed order from conversation ──
-async function extractOrderFromHistory(history: Message[]): Promise<OrderSnapshot | null> {
-  const fullText = history.map((m) => `${m.sender}: ${m.text}`).join('\n');
-
-  try {
-    const response = await fetch('/api/neural', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { 
-            role: 'system', 
-            content: `Kamu adalah asisten parser JSON. Analisis log chat antara 'bot' (Frontline Architect AI) dan 'user' (calon klien).
-Ekstrak detail pesanan HANYA JIKA AI sudah meminta konfirmasi (contoh: "Apakah Kakak mengonfirmasi sinkronisasi pesanan ini sekarang?") DAN user sudah membalas dengan SETUJU (contoh: "ya", "oke", "lanjut").
-Jika belum dikonfirmasi atau user menolak, kembalikan JSON kosong {}.
-Jika terkonfirmasi, ekstrak ke JSON persis dengan format berikut:
-{
-  "name": "Nama Klien",
-  "phone": "Nomor WhatsApp/HP Klien",
-  "tierKey": "tier1" | "tier2" | "tier3",
-  "autonomy": "100% Full Otonom AI" | "50% Sinergi Hybrid"
-}
-Catatan Tier:
-- Starter Agent = tier1
-- Dual Synergy = tier2
-- Full One Man Company = tier3
-`
-          },
-          { role: 'user', content: fullText }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        response_format: { type: 'json_object' }
-      })
-    });
-
-    const data = await response.json();
-    const resultString = data.choices?.[0]?.message?.content;
-    if (!resultString) return null;
-    
-    const parsed = JSON.parse(resultString);
-    if (!parsed.name || !parsed.phone || !parsed.tierKey) return null;
-
-    const isFullAuto = parsed.autonomy.includes('100');
-    const price = isFullAuto ? PRICING[parsed.tierKey].p100 : PRICING[parsed.tierKey].p50;
-
-    return { 
-      name: parsed.name, 
-      phone: parsed.phone, 
-      tier: getTierName(parsed.tierKey), 
-      tierKey: parsed.tierKey, 
-      autonomy: parsed.autonomy, 
-      price, 
-      confirmed: true 
-    };
-  } catch (error) {
-    console.error("Order Extraction Error:", error);
-    return null;
-  }
+// ── FIX #3: Parse tier HANYA dari URL params, BUKAN dari scan teks chat ──
+// Scanning teks chat berbahaya: jika klien menyebut tier lain dalam percakapan,
+// harga yang ditagihkan bisa salah. URL params diset secara eksplisit saat klien
+// mengklik tombol "Mulai Sekarang" di PricingSection.
+function parseTierFromParams(searchParams: URLSearchParams): { tierKey: string; autonomy: string } {
+  const tierKey = searchParams.get('tier') || 'tier1';
+  const autonomyParam = searchParams.get('autonomy');
+  // autonomy param = '100' atau '50', default ke 50 jika tidak ada
+  const autonomy = autonomyParam === '100' ? '100% Full Otonom AI' : '50% Sinergi Hybrid';
+  return { tierKey, autonomy };
 }
 
 export default function OrderPage() {
@@ -101,6 +53,13 @@ export default function OrderPage() {
   const [orderSnap, setOrderSnap] = useState<OrderSnapshot | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isSetupMode, setIsSetupMode] = useState(false);
+  // ── Confirmation form state ──
+  const [showConfirmForm, setShowConfirmForm] = useState(false);
+  const [confirmName, setConfirmName] = useState('');
+  const [confirmPhone, setConfirmPhone] = useState('');
+  const [confirmFormError, setConfirmFormError] = useState('');
+  // ── FIX #2: Recovery code setelah pembayaran sukses ──
+  const [recoveryCode, setRecoveryCode] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isProcessingPaymentRef = useRef(false);
@@ -215,13 +174,12 @@ export default function OrderPage() {
     }
   };
 
-  // ── Detect if AI just asked for order confirmation & user said yes ──
-  const checkAndSaveOrder = async (allMessages: Message[]) => {
-    if (orderSaved || isProcessingPaymentRef.current || isProcessingPayment) return;
+  // ── FIX: Detect confirmation trigger → tampilkan form, BUKAN parsing AI ──
+  const checkAndSaveOrder = (allMessages: Message[]) => {
+    if (orderSaved || isProcessingPaymentRef.current || showConfirmForm) return;
 
     const lastBot = [...allMessages].reverse().find((m) => m.sender === 'bot');
     const lastUser = [...allMessages].reverse().find((m) => m.sender === 'user');
-
     if (!lastBot || !lastUser) return;
 
     const botText = lastBot.text.toLowerCase();
@@ -233,91 +191,82 @@ export default function OrderPage() {
       botText.includes('mengonfirmasi');
 
     const userConfirmed =
-      userText.includes('ya') ||
-      userText.includes('iya') ||
-      userText.includes('konfirmasi') ||
-      userText.includes('setuju') ||
-      userText.includes('ok') ||
-      userText.includes('lanjut');
+      userText.includes('ya') || userText.includes('iya') ||
+      userText.includes('konfirmasi') || userText.includes('setuju') ||
+      userText.includes('ok') || userText.includes('lanjut');
 
     if (botAskedConfirm && userConfirmed) {
-      isProcessingPaymentRef.current = true;
-      setIsProcessingPayment(true);
-      
-      const snap = await extractOrderFromHistory(allMessages);
-      if (snap && snap.name && snap.phone && !orderSaved) {
-        setOrderSnap(snap);
-        
-        try {
-          // 1. Dapatkan Token dari Midtrans
-          const orderId = `FN-ORDER-${Date.now()}`;
-          const response = await fetch('/api/midtrans', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              transaction_details: {
-                order_id: orderId,
-                gross_amount: snap.price
-              },
-              customer_details: { first_name: snap.name, phone: snap.phone }
-            })
-          });
+      // Tampilkan form konfirmasi data — validasi manual, bukan AI parsing
+      setShowConfirmForm(true);
+    }
+  };
 
-          let token = '';
-          if (response.ok) {
-            const data = await response.json();
-            token = data.token;
-          } else {
-            console.warn('Gagal mendapat token Midtrans, pastikan API Key benar.');
-          }
+  // ── FIX: Submit form konfirmasi → proses Midtrans dengan data yang valid ──
+  const handleConfirmFormSubmit = async () => {
+    const name = confirmName.trim();
+    const phone = confirmPhone.trim().replace(/\D/g, '');
 
-          // 2. Tampilkan Popup Snap
-          if (token && window.snap) {
-            window.snap.pay(token, {
-              onSuccess: async function () {
-                await handlePaymentSuccess(snap);
-              },
-              onPending: function (result: any) {
-                console.log('Pending:', result);
-              },
-              onError: function (result: any) {
-                console.error('Error:', result);
-                setIsProcessingPayment(false);
-                isProcessingPaymentRef.current = false;
-              },
-              onClose: function () {
-                setIsProcessingPayment(false);
-                isProcessingPaymentRef.current = false;
-              }
-            });
-          } else {
-            // Simulasi sukses jika tidak ada token (di local Vite tanpa proxy)
-            await handlePaymentSuccess(snap);
-          }
-        } catch (e) {
-          console.error('Payment processing error:', e);
-          setIsProcessingPayment(false);
-          isProcessingPaymentRef.current = false;
-        }
+    if (!name || name.length < 2) {
+      setConfirmFormError('Nama lengkap harus diisi minimal 2 karakter.');
+      return;
+    }
+    if (!phone || phone.length < 9 || phone.length > 15) {
+      setConfirmFormError('Nomor WhatsApp tidak valid (9–15 digit).');
+      return;
+    }
+
+    setConfirmFormError('');
+    setShowConfirmForm(false);
+    isProcessingPaymentRef.current = true;
+    setIsProcessingPayment(true);
+
+    // FIX #3: Ambil tier dari URL params (bukan scan teks chat)
+    const { tierKey, autonomy } = parseTierFromParams(searchParams);
+    const isFullAuto = autonomy.includes('100');
+    const price = isFullAuto ? PRICING[tierKey].p100 : PRICING[tierKey].p50;
+    const snap: OrderSnapshot = {
+      name, phone, tierKey,
+      tier: getTierName(tierKey),
+      autonomy, price, confirmed: true,
+    };
+    setOrderSnap(snap);
+
+    try {
+      const orderId = `FN-ORDER-${Date.now()}`;
+      const mtRes = await fetch('/api/midtrans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transaction_details: { order_id: orderId, gross_amount: snap.price },
+          customer_details: { first_name: snap.name, phone: snap.phone }
+        })
+      });
+
+      let token = '';
+      if (mtRes.ok) { const d = await mtRes.json(); token = d.token; }
+
+      if (token && window.snap) {
+        window.snap.pay(token, {
+          onSuccess: async () => { await handlePaymentSuccess(snap); },
+          onPending: (r: any) => { console.log('Pending:', r); },
+          onError: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; },
+          onClose: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; },
+        });
       } else {
-        isProcessingPaymentRef.current = false;
-        setIsProcessingPayment(false);
-        // Fallback jika AI lupa nanya nama/WA tapi keburu minta konfirmasi
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            sender: 'bot',
-            text: 'Mohon maaf Kak, sebelum kita bisa memproses sinkronisasi pembayaran, boleh saya tahu Nama Lengkap dan Nomor WhatsApp Kakak untuk data klien?',
-          },
-        ]);
+        await handlePaymentSuccess(snap);
       }
+    } catch (e) {
+      console.error('Payment error:', e);
+      setIsProcessingPayment(false);
+      isProcessingPaymentRef.current = false;
     }
   };
 
   const handlePaymentSuccess = async (snap: OrderSnapshot) => {
     try {
       const clientApiKey = `fn_${Math.random().toString(36).substr(2, 9)}_${Date.now().toString(36)}`;
+      // FIX #2: Buat recovery code yang bisa dibookmark klien
+      const recovery = `FN-${snap.phone.slice(-4)}-${clientApiKey.slice(-6).toUpperCase()}`;
       await addDoc(collection(db, 'order_leads'), {
         tier: snap.tier,
         tierKey: snap.tierKey,
@@ -327,8 +276,10 @@ export default function OrderPage() {
         phone: snap.phone,
         status: 'Lunas - Persiapan Setup',
         clientApiKey,
+        recoveryCode: recovery,
         createdAt: serverTimestamp(),
       });
+      setRecoveryCode(recovery);
       setOrderSaved(true);
       setIsProcessingPayment(false);
       isProcessingPaymentRef.current = false;
@@ -357,7 +308,7 @@ export default function OrderPage() {
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
 
-    // Check order save in background
+    // Check order confirmation trigger
     setTimeout(() => checkAndSaveOrder(updatedMessages), 300);
 
     await sendBotMessage(text);
@@ -490,23 +441,95 @@ export default function OrderPage() {
             )}
           </AnimatePresence>
 
-          {/* Order saved & Transition to Setup */}
+          {/* FIX: Confirmation Form (replaces AI extraction) */}
           <AnimatePresence>
-            {orderSaved && orderSnap && !isSetupMode && (
+            {showConfirmForm && !orderSaved && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-fn-emerald/10 to-teal-50 border border-fn-emerald/25 rounded-2xl p-5 shadow-sm"
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                className="bg-white border border-fn-emerald/30 rounded-2xl p-6 shadow-lg"
               >
-                <p className="text-xs font-bold text-fn-emerald uppercase tracking-widest mb-1">✦ Pesanan Berhasil & Lunas</p>
-                <p className="text-fn-navy font-bold text-base">{orderSnap.name}</p>
-                <p className="text-slate-500 text-sm">{orderSnap.tier} · {orderSnap.autonomy}</p>
-                <p className="text-fn-navy font-black text-lg mt-1">
-                  Rp {orderSnap.price.toLocaleString('id-ID')} <span className="text-slate-400 text-sm font-normal">setup</span>
-                </p>
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle2 size={18} className="text-fn-emerald" />
+                  <p className="text-sm font-bold text-fn-navy">Konfirmasi Data Pesanan</p>
+                </div>
+                <p className="text-xs text-slate-500 mb-4">Isi data berikut untuk memproses pembayaran. Data ini digunakan untuk registrasi sistem Kakak.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Nama Lengkap</label>
+                    <input
+                      type="text" value={confirmName} onChange={e => setConfirmName(e.target.value)}
+                      placeholder="Contoh: Budi Santoso"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-fn-navy outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1">
+                      <Phone size={11} /> Nomor WhatsApp
+                    </label>
+                    <input
+                      type="tel" value={confirmPhone} onChange={e => setConfirmPhone(e.target.value)}
+                      placeholder="Contoh: 08123456789"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-fn-navy outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10"
+                    />
+                  </div>
+                  {confirmFormError && <p className="text-xs text-red-500 font-medium">{confirmFormError}</p>}
+                  <div className="flex gap-3 pt-1">
+                    <button onClick={() => setShowConfirmForm(false)}
+                      className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-500 text-sm font-semibold hover:bg-slate-50 transition-colors">
+                      Batal
+                    </button>
+                    <button onClick={handleConfirmFormSubmit}
+                      className="flex-1 py-3 rounded-xl bg-fn-navy text-white text-sm font-bold hover:bg-fn-navy-light transition-colors">
+                      Lanjut ke Pembayaran
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             )}
-            
+          </AnimatePresence>
+
+          {/* FIX #2 — Recovery Code Card (tampil setelah bayar, anti-refresh-loss) */}
+          <AnimatePresence>
+            {orderSaved && orderSnap && recoveryCode && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                className="border-2 border-fn-emerald rounded-2xl overflow-hidden shadow-lg"
+              >
+                {/* Header */}
+                <div className="bg-fn-emerald px-5 py-3 flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-white" />
+                  <p className="text-white text-xs font-black uppercase tracking-widest">✦ Pembayaran Berhasil</p>
+                </div>
+                {/* Body */}
+                <div className="bg-white p-5">
+                  <p className="text-fn-navy font-bold text-base">{orderSnap.name}</p>
+                  <p className="text-slate-500 text-sm">{orderSnap.tier} · {orderSnap.autonomy}</p>
+                  <p className="text-fn-navy font-black text-lg mt-1 mb-4">
+                    Rp {orderSnap.price.toLocaleString('id-ID')} <span className="text-slate-400 text-sm font-normal">setup</span>
+                  </p>
+                  {/* Recovery Code */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-2">⚠ Simpan Kode Akses Setup Ini</p>
+                    <p className="text-xs text-amber-600 mb-3">
+                      Jika Anda menutup/me-refresh halaman ini, gunakan kode ini untuk menghubungi tim FusionNeural dan melanjutkan proses setup Anda.
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <code className="flex-1 bg-white border border-amber-300 rounded-lg px-4 py-2.5 font-mono text-base font-black text-fn-navy tracking-widest select-all">
+                        {recoveryCode}
+                      </code>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(recoveryCode); }}
+                        className="px-4 py-2.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold transition-colors whitespace-nowrap"
+                      >
+                        Salin
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
             {isSetupMode && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center py-4">
                 <span className="text-xs font-bold bg-purple-100 text-purple-700 px-4 py-1.5 rounded-full uppercase tracking-widest">Memasuki Mode AI Setup Architect</span>

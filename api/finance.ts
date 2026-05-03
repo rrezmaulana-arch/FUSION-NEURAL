@@ -1,5 +1,5 @@
-// api/agents.ts — Thin proxy ke Python FastAPI backend
-// Semua logika AI ada di backend/main.py
+// api/finance.ts — Thin proxy ke Python FastAPI backend
+// Finance agent dengan retry otomatis ada di backend/main.py
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const PYTHON_BACKEND = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
@@ -12,16 +12,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    // Pastikan agent = finance
+    const payload = { ...req.body, agent: 'finance' };
+
     const response = await fetch(`${PYTHON_BACKEND}/trigger-agent`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
+      body:    JSON.stringify(payload),
     });
 
     const data = await response.json();
     return res.status(response.ok ? 200 : response.status).json(data);
   } catch (err: any) {
-    console.error('[agents proxy] Error:', err.message);
+    console.error('[finance proxy] Error:', err.message);
     return res.status(500).json({ error: 'Python backend tidak dapat dihubungi.', detail: err.message });
   }
 }

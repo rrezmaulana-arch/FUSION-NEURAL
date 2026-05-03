@@ -7,8 +7,9 @@ import {
   ChevronLeft, ChevronRight, Bell, Cloud,
   TrendingUp, Flame, Package, Network, BookOpen,
   Activity, Shield, Sparkles, Radio, CalendarDays, BarChart2, Fingerprint,
-  ShoppingCart, Building2, Gamepad2, Rocket, Users, Calculator
+  ShoppingCart, Building2, Gamepad2, Rocket, Users, Calculator, Image
 } from 'lucide-react';
+
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
 
 import ManagerDashboard from './dashboards/manager/ManagerDashboard';
@@ -33,6 +34,7 @@ import AgentHealthPage from './dashboards/manager/AgentHealthPage';
 import StrategicAuditPage from './dashboards/manager/StrategicAuditPage';
 import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
 import LaunchSimulatorPage from './dashboards/marketing/LaunchSimulatorPage';
+import ImageStudioPage from './dashboards/marketing/ImageStudioPage';
 import OrderLeadsPage from './dashboards/owner/OrderLeadsPage';
 
 // --- TYPESCRIPT INTERFACES ---
@@ -84,6 +86,7 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     menus: [
       { path: '/dashboard', label: 'Campaign Forge', icon: Sparkles },
       { path: '/dashboard/signals', label: 'Market Signals', icon: Radio },
+      { path: '/dashboard/image-studio', label: 'Image Studio', icon: Image },
       { path: '/dashboard/launchpad', label: 'Content Launchpad', icon: CalendarDays },
       { path: '/dashboard/conversion', label: 'Conversion Feedback', icon: BarChart2 },
       { path: '/dashboard/brand-dna', label: 'Brand DNA', icon: Fingerprint },
@@ -158,6 +161,7 @@ export default function DashboardPage() {
 
       // Marketing Routes
       case '/dashboard/signals': return <MarketSignalsPage />;
+      case '/dashboard/image-studio': return <ImageStudioPage />;
       case '/dashboard/launchpad': return <ContentLaunchpadPage />;
       case '/dashboard/conversion': return <ConversionFeedbackPage />;
       case '/dashboard/brand-dna': return <BrandDNAPage />;
