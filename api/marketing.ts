@@ -9,6 +9,23 @@
 /// <reference types="node" />
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// ── Redis agent status helper ─────────────────────────────────────────────
+const R_URL   = process.env.UPSTASH_REDIS_REST_URL;
+const R_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+async function setAgentStatus(status: 'WORKING' | 'IDLE'): Promise<void> {
+  if (!R_URL || !R_TOKEN) return;
+  try {
+    await fetch(`${R_URL}/${encodeURIComponent('SET')}/${encodeURIComponent('agent_status:marketing')}/${encodeURIComponent(status)}`, {
+      headers: { Authorization: `Bearer ${R_TOKEN}` },
+    });
+    if (status === 'WORKING') {
+      await fetch(`${R_URL}/${encodeURIComponent('EXPIRE')}/${encodeURIComponent('agent_status:marketing')}/30`, {
+        headers: { Authorization: `Bearer ${R_TOKEN}` },
+      });
+    }
+  } catch { /* non-blocking */ }
+}
+
 // ─────────────────────────────────────────────
 // HELPER: Call Hugging Face Inference API (Text)
 // ─────────────────────────────────────────────
@@ -172,8 +189,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing required field: prompt' });
   }
 
-  // ── TEXT GENERATION ──────────────────────────────────────────────────────
+  // ── TEXT GENERATION ──────────────────────────────────────────────────────────────
   if (type === 'text') {
+    await setAgentStatus('WORKING');
     let result: string;
     let provider = 'HuggingFace/Mistral-7B';
 
@@ -185,6 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         result = await callOpenRouter(prompt);
       } catch (fallbackErr: any) {
+        await setAgentStatus('IDLE');
         return res.status(502).json({
           error: 'All text providers failed',
           primary_error: primaryErr.message,
@@ -193,11 +212,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    await setAgentStatus('IDLE');
     return res.status(200).json({ type: 'text', provider, result });
   }
 
-  // ── IMAGE GENERATION ─────────────────────────────────────────────────────
+  // ── IMAGE GENERATION ──────────────────────────────────────────────────────────────
   if (type === 'image') {
+    await setAgentStatus('WORKING');
     let imageBase64: string;
     let provider: string;
 
@@ -240,6 +261,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    await setAgentStatus('IDLE');
     return res.status(200).json({ type: 'image', provider, imageBase64: imageBase64! });
   }
 

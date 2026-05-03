@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -27,6 +27,7 @@ export default function SupplierHubPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [generatingPO, setGeneratingPO] = useState<string | null>(null);
   const [poResult, setPoResult] = useState<Record<string, string>>({});
+  const isScoutedByAIRef = useRef(false);
 
   // AI Scout States
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,6 +89,7 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
   };
 
   const handleAddFromAI = (rec: any) => {
+    isScoutedByAIRef.current = true;
     setForm({
       name: rec.name || '',
       contact: rec.contact || '',
@@ -98,8 +100,6 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
       address: rec.address || '',
     });
     setIsAdding(true);
-    // Kita tambahkan tanda scoutedByAI saat form disave
-    (form as any)._scoutedByAI = true; 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -107,16 +107,15 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
     if (!form.name) return;
     setIsSaving(true);
     try {
-      const isScouted = (form as any)._scoutedByAI === true;
-      const dataToSave = { ...form };
-      delete (dataToSave as any)._scoutedByAI;
+      const isScouted = isScoutedByAIRef.current;
+      isScoutedByAIRef.current = false; // reset after use
 
       await addDoc(collection(db, 'suppliers'), { 
-        ...dataToSave, 
+        ...form, 
         scoutedByAI: isScouted,
         createdAt: serverTimestamp() 
       });
-      await FirebaseLogger.logAgentAction('Admin', 'SUPPLIER_ADDED', `Supplier "${form.name}" ditambahkan`);
+      await FirebaseLogger.logAgentAction('Admin', 'SUPPLIER_ADDED', `Supplier "${form.name}" ditambahkan${isScouted ? ' via AI Scout' : ''}`);
       setForm({ name: '', contact: '', product_category: '', last_price: 0, lead_time_days: 3, performance_score: 5, address: '' });
       setIsAdding(false);
     } catch (e) { console.error(e); }

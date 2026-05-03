@@ -506,8 +506,30 @@ PERINTAH DARI ADMIN: ${cmd}`;
                 {['Produk kritis?', 'Saran restok', 'Laporan stok hari ini', 'Produk overstock?', 'Rekomendasi PO'].map(cmd => (
                   <button
                     key={cmd}
-                    onClick={() => setChatInput(cmd)}
-                    className="shrink-0 px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-bold transition-colors whitespace-nowrap"
+                    onClick={async () => {
+                      setChatInput(cmd);
+                      // Auto-send: langsung kirim perintah tanpa perlu tekan Enter
+                      const userMsg: ChatMessage = { role: 'user', content: cmd, timestamp: new Date() };
+                      setChatMessages(p => [...p, userMsg]);
+                      setIsProcessing(true);
+                      try {
+                        const inventorySummary = products.length > 0
+                          ? products.map(p => { const q = getQty(p); return `- ${p.name} (${p.sku}): stok ${q}/${p.max_stock || 100} [min:${p.min_stock || 5}] — ${statusConfig(q, p.min_stock || 5).label}`; }).join('\n')
+                          : 'Inventory masih kosong.';
+                        const stats2 = { total: products.length, kritis: products.filter(p => getQty(p) <= (p.min_stock || 5)).length, menipis: products.filter(p => getQty(p) > (p.min_stock || 5) && getQty(p) <= (p.min_stock || 5) * 2).length, aman: products.filter(p => getQty(p) > (p.min_stock || 5) * 2).length };
+                        const context = `Kamu adalah AI Admin Terminal dari FusionNeural — asisten logistik presisi yang berbicara ringkas dan tegas dalam Bahasa Indonesia.\n\nDATA INVENTORY SAAT INI (${new Date().toLocaleString('id-ID')}):\n${inventorySummary}\n\nRINGKASAN STOK:\n- Total SKU: ${stats2.total}\n- Stok Aman: ${stats2.aman}\n- Menipis: ${stats2.menipis}\n- Kritis/Habis: ${stats2.kritis}\n\nATURAN RESPONS:\n1. Jawab dalam Bahasa Indonesia yang singkat dan actionable\n2. Gunakan emoji secukupnya untuk keterbacaan\n3. Jika ada produk kritis, selalu sebutkan nama produknya\n4. Berikan rekomendasi konkret, bukan teori\n5. Format dengan bullet points jika ada list\n\nPERINTAH DARI ADMIN: ${cmd}`;
+                        const response = await NeuralCore.generateMarketingCampaign(cmd, context);
+                        await FirebaseLogger.logAgentAction('Admin', 'AI_COMMAND', `Quick Command: "${cmd}"`);
+                        setChatMessages(p => [...p, { role: 'ai', content: response, timestamp: new Date() }]);
+                      } catch {
+                        setChatMessages(p => [...p, { role: 'ai', content: 'Gagal terhubung ke AI. Periksa koneksi API Groq.', timestamp: new Date() }]);
+                      } finally {
+                        setIsProcessing(false);
+                        setChatInput('');
+                      }
+                    }}
+                    disabled={isProcessing}
+                    className="shrink-0 px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-300 text-[10px] font-bold transition-colors whitespace-nowrap"
                   >
                     {cmd}
                   </button>

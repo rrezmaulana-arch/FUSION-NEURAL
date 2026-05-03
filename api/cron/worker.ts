@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { action, input, sessionId } = req.body || req.query || {};
 
-    // ── TRIGGER / PLAN PHASE ──
+    // ── TRIGGER & EXECUTE PHASE ──
     if (action === 'trigger') {
       if (!input) return res.status(400).json({ error: 'Missing input for trigger' });
       await setAgentStatus('manager', 'WORKING');
@@ -97,94 +97,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }`;
       
       const rawPlan = await callGemini(managerSystem, input);
-      const plan = JSON.parse(rawPlan.replace(/```json/g, '').replace(/```/g, '').trim());
+      let plan: any = { tasks: [] };
+      try {
+        plan = JSON.parse(rawPlan.replace(/```json/g, '').replace(/```/g, '').trim());
+      } catch (e) {
+        console.error("Failed to parse plan", rawPlan);
+      }
 
       const tasksToQueue = plan.tasks || [];
       const session = sessionId || `sess_${Date.now()}`;
       
+      await setAgentStatus('manager', 'IDLE');
+
+      // Execute tasks sequentially to maintain context, avoid race conditions, and create sequential UI
+      let contextHistory = '';
+      const results = [];
+      
       for (const t of tasksToQueue) {
-        const bgTask = {
-          id: `task_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        const agent = t.agent;
+        const task = t.task;
+        const payload = t.payload || {};
+
+        await setAgentStatus(agent, 'WORKING');
+
+        let result = '';
+        const messages = [
+          { role: 'system', content: `Kamu adalah spesialis ${agent}. Selesaikan tugas: ${task}. \nKonteks sebelumnya: ${contextHistory}` },
+          { role: 'user', content: JSON.stringify(payload) }
+        ];
+
+        try {
+          if (agent === 'admin') {
+            result = await callOpenRouter(messages);
+          } else if (agent === 'finance') {
+            result = await callDeepSeek(messages);
+          } else if (agent === 'marketing') {
+            result = await callOpenRouter(messages); 
+          } else {
+            result = "Agent not found";
+          }
+        } catch (err: any) {
+          result = `Error: ${err.message}`;
+        }
+
+        await setAgentStatus(agent, 'IDLE');
+
+        // Manager Evaluate (Quality Control)
+        await setAgentStatus('manager', 'WORKING');
+        const evalSystem = `Evaluasi hasil agen ${agent}. Tugas: "${task}".
+        Balas dengan JSON: {"status": "ok" | "revision", "finalResult": "..."}`;
+        
+        const evalResultRaw = await callGemini(evalSystem, result);
+        let evalObj: any = {};
+        try {
+          evalObj = JSON.parse(evalResultRaw.replace(/```json/g, '').replace(/```/g, '').trim());
+        } catch {
+          evalObj = { status: 'ok', finalResult: result };
+        }
+
+        const finalData = evalObj.finalResult || result;
+        
+        // Simpan hasil yang sudah dievaluasi
+        await addDoc(collection(db, 'task_results'), {
           sessionId: session,
-          agent: t.agent,
-          task: t.task,
-          payload: t.payload || {},
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        };
-        await redis('RPUSH', 'queue:tasks', JSON.stringify(bgTask));
+          agent,
+          task,
+          result: finalData,
+          completedAt: serverTimestamp()
+        });
+
+        // Tambahkan ke context untuk agen selanjutnya
+        contextHistory += `\nHasil ${agent}: ${finalData}\n`;
+
+        await setAgentStatus('manager', 'IDLE');
+        results.push({ agent, status: evalObj.status, result: finalData });
       }
 
-      await setAgentStatus('manager', 'IDLE');
-      return res.status(200).json({ ok: true, msg: 'Tasks planned and queued', count: tasksToQueue.length });
+      return res.status(200).json({ ok: true, msg: 'Tasks executed sequentially', count: tasksToQueue.length, results });
     }
 
-    // ── EXECUTE PHASE ──
-    // This is called by cron or polling to process 1 task from queue
-    const rawTask = await redis('LPOP', 'queue:tasks');
-    if (!rawTask) {
-      return res.status(200).json({ ok: true, msg: 'Queue is empty' });
-    }
-
-    const taskData = JSON.parse(rawTask);
-    const { agent, task, payload, sessionId: taskSession } = taskData;
-    
-    // Check if agent is busy (optional, but good for real autonomy)
-    // Actually, setting it to working now.
-    await setAgentStatus(agent, 'WORKING');
-
-    let result = '';
-    const messages = [
-      { role: 'system', content: `Kamu adalah spesialis ${agent}. Selesaikan tugas: ${task}` },
-      { role: 'user', content: JSON.stringify(payload || {}) }
-    ];
-
-    if (agent === 'admin') {
-      result = await callOpenRouter(messages);
-    } else if (agent === 'finance') {
-      result = await callDeepSeek(messages);
-    } else if (agent === 'marketing') {
-      result = await callOpenRouter(messages); // fallback marketing
-    } else {
-      result = "Agent not found";
-    }
-
-    await setAgentStatus(agent, 'IDLE');
-
-    // ── EVALUATE PHASE (Manager reflection) ──
-    await setAgentStatus('manager', 'WORKING');
-    const evalSystem = `Evaluasi hasil dari agen ${agent}. Apakah memenuhi tugas: "${task}"?
-    Balas dengan JSON: {"status": "ok" | "revision", "feedback": "...", "finalResult": "..."}`;
-    
-    const evalResultRaw = await callGemini(evalSystem, result);
-    let evalObj: any = {};
-    try {
-      evalObj = JSON.parse(evalResultRaw.replace(/```json/g, '').replace(/```/g, '').trim());
-    } catch {
-      evalObj = { status: 'ok', finalResult: result };
-    }
-
-    if (evalObj.status === 'revision') {
-      // Re-queue
-      taskData.payload.feedback = evalObj.feedback;
-      await redis('RPUSH', 'queue:tasks', JSON.stringify(taskData));
-    } else {
-      // Save final to Firestore
-      await addDoc(collection(db, 'task_results'), {
-        sessionId: taskSession,
-        agent,
-        task,
-        result: evalObj.finalResult || result,
-        completedAt: serverTimestamp()
-      });
-    }
-    
-    await setAgentStatus('manager', 'IDLE');
-
-    return res.status(200).json({ ok: true, msg: `Processed task for ${agent}`, evaluation: evalObj });
+    return res.status(200).json({ ok: true, msg: 'No action specified' });
 
   } catch (error: any) {
     console.error('[Worker Error]:', error);
+    // Ensure manager is reset
+    await setAgentStatus('manager', 'IDLE');
     return res.status(500).json({ error: error?.message });
   }
 }

@@ -79,6 +79,15 @@ async function setManagerEval(sessionId: string, text: string): Promise<void> {
   await redis('SET', `manager_eval:${sessionId}`, text, 'EX', 3600);
 }
 
+// ── Agent Status for Orchestrator page ─────────────────────────────────────
+async function setAgentStatus(agentId: string, status: 'WORKING' | 'IDLE'): Promise<void> {
+  await redis('SET', `agent_status:${agentId}`, status);
+  // Auto-reset to IDLE after 30 seconds (safeguard against stuck WORKING state)
+  if (status === 'WORKING') {
+    await redis('EXPIRE', `agent_status:${agentId}`, 30);
+  }
+}
+
 // ── Firestore SOP reader ───────────────────────────────────────────────────
 const SOP_FALLBACK: Record<string, string> = {
   manager_brain:  'Kamu adalah AI Manager FusionNeural. Koordinasikan agen, evaluasi strategi, dan buat keputusan bisnis yang tepat. Bahasa Indonesia.',
@@ -224,10 +233,12 @@ async function withFallback(
 
 // ── AGENT: FRONTLINER (Groq → Cerebras → OpenRouter) ─────────────────────
 async function routeFrontliner(msgs: ChatMessage[], opts: Partial<AgentRequest>, usageWarnings: string[]) {
+  await setAgentStatus('frontliner', 'WORKING');
   try {
     const result = await callGroq(msgs, opts.model || 'llama-3.3-70b-versatile', opts.temperature ?? 0.7, opts.max_tokens, opts.response_format);
     const { warning } = await trackUsage('groq');
     if (warning) usageWarnings.push('groq');
+    await setAgentStatus('frontliner', 'IDLE');
     return { result, provider: 'Groq/llama-3.3-70b-versatile' };
   } catch (e1: any) {
     await logError('groq', 'Frontliner', e1.message);
@@ -236,11 +247,13 @@ async function routeFrontliner(msgs: ChatMessage[], opts: Partial<AgentRequest>,
       const result = await callCerebras(msgs, opts.temperature ?? 0.7);
       const { warning } = await trackUsage('cerebras');
       if (warning) usageWarnings.push('cerebras');
+      await setAgentStatus('frontliner', 'IDLE');
       return { result, provider: `Cerebras/llama-3.3-70b (backup — ${uxError('Frontliner','Groq',e1.message).slice(0,50)}...)` };
     } catch (e2: any) {
       await logError('cerebras', 'Frontliner', e2.message);
       const result = await callOpenRouter(msgs, 'openai/gpt-4o-mini:free');
       await trackUsage('openrouter');
+      await setAgentStatus('frontliner', 'IDLE');
       return { result, provider: 'OpenRouter/gpt-4o-mini (last resort)' };
     }
   }
@@ -288,6 +301,8 @@ async function routeManager(msgs: ChatMessage[], opts: AgentRequest, usageWarnin
   let result = '';
   let provider = '';
 
+  await setAgentStatus('manager', 'WORKING');
+
   try {
     result   = await callGemini(enriched, 'gemini-2.5-flash-preview-05-20', opts.temperature ?? 0.7);
     const { warning } = await trackUsage('gemini');
@@ -308,6 +323,8 @@ async function routeManager(msgs: ChatMessage[], opts: AgentRequest, usageWarnin
       provider = 'OpenRouter (last resort)';
     }
   }
+
+  await setAgentStatus('manager', 'IDLE');
 
   // ── STEP 5: Conclude — build brief summary ─────────────────────────────
   const conclusion = `[${new Date().toISOString()}] Respons diberikan oleh ${provider}. Input: "${(msgs.at(-1)?.content || '').slice(0,100)}". Output ringkasan: "${result.slice(0,200)}"`;
@@ -352,16 +369,24 @@ async function routeManager(msgs: ChatMessage[], opts: AgentRequest, usageWarnin
 
 // ── AGENT: ADMIN ───────────────────────────────────────────────────────────
 async function routeAdmin(msgs: ChatMessage[], task: AgentRequest['task'], opts: Partial<AgentRequest>, usageWarnings: string[]) {
+  await setAgentStatus('admin', 'WORKING');
+  let result;
   if (task === 'format_json') {
-    return withFallback(() => callCohere(msgs, opts.temperature ?? 0.2), msgs, 'cohere/command-r-plus', 'Admin', usageWarnings);
+    result = await withFallback(() => callCohere(msgs, opts.temperature ?? 0.2), msgs, 'cohere/command-r-plus', 'Admin', usageWarnings);
+  } else {
+    // supplier_search + general: OpenRouter
+    result = await withFallback(() => callOpenRouter(msgs, 'openai/gpt-4o-mini:free', opts.temperature ?? 0.5), msgs, 'openrouter/gpt-4o-mini', 'Admin', usageWarnings);
   }
-  // supplier_search + general: OpenRouter
-  return withFallback(() => callOpenRouter(msgs, 'openai/gpt-4o-mini:free', opts.temperature ?? 0.5), msgs, 'openrouter/gpt-4o-mini', 'Admin', usageWarnings);
+  await setAgentStatus('admin', 'IDLE');
+  return result;
 }
 
 // ── AGENT: FINANCE ─────────────────────────────────────────────────────────
 async function routeFinance(msgs: ChatMessage[], opts: Partial<AgentRequest>, usageWarnings: string[]) {
-  return withFallback(() => callDeepSeek(msgs, opts.temperature ?? 0.2, opts.response_format), msgs, 'deepseek/deepseek-reasoner', 'Finance', usageWarnings);
+  await setAgentStatus('finance', 'WORKING');
+  const result = await withFallback(() => callDeepSeek(msgs, opts.temperature ?? 0.2, opts.response_format), msgs, 'deepseek/deepseek-reasoner', 'Finance', usageWarnings);
+  await setAgentStatus('finance', 'IDLE');
+  return result;
 }
 
 // ── MAIN HANDLER ───────────────────────────────────────────────────────────
