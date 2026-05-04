@@ -303,7 +303,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/agents/search.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/agents/search.json",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -430,7 +430,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/agents/marketing.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/agents/marketing.json",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -569,7 +569,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/agents/marketing.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/agents/marketing.json",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -790,7 +790,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/agents/finance.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/agents/finance.json",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -929,7 +929,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/agents/admin.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/agents/admin.json",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -1068,7 +1068,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/agents/manager.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/agents/manager.json",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -1207,7 +1207,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/agents/frontliner.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/agents/frontliner.json",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -1291,7 +1291,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/inventory.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/inventory",
         "sendHeaders": false,
         "headerParameters": {
           "parameters": []
@@ -1463,7 +1463,7 @@
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "https://fusion-neural-default-rtdb.firebaseio.com/finance_metrics/remaining_budget.json?auth=AIzaSyCmI02tN-czvSp16wA4ik8aSwZhOxQxLmg",
+        "url": "http://localhost:8000/finance_metrics/remaining_budget",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "keypair",
@@ -2141,3 +2141,5 @@
   },
   "pinData": {}
 }
+
+

@@ -28,18 +28,33 @@ from dotenv import load_dotenv
 from google.oauth2 import service_account
 import google.auth.transport.requests
 
+# ── Firebase Admin SDK (Firestore) ────────────────────────────────────────────
+import firebase_admin
+from firebase_admin import credentials, firestore
+
 # ── Load environment variables ────────────────────────────────────────────────
 load_dotenv()
 
-# ── Service Account untuk Google Sheets ───────────────────────────────────────
+# ── Service Account untuk Google Sheets & Firestore ───────────────────────────
 _CRED_PATH = os.path.join(os.path.dirname(__file__), "firebase-credentials.json")
 GCP_CREDS = None
+db = None
+
 if os.path.exists(_CRED_PATH):
     GCP_CREDS = service_account.Credentials.from_service_account_file(
         _CRED_PATH,
-        scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/firebase.database", "https://www.googleapis.com/auth/userinfo.email"]
+        scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/userinfo.email"]
     )
     print("[gcp] ✅ Service Account JSON loaded")
+    
+    try:
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(_CRED_PATH)
+            firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        print("[firebase] ✅ Firestore initialized")
+    except Exception as e:
+        print(f"[firebase] ❌ Firestore init error: {e}")
 else:
     print("[gcp] ⚠️  firebase-credentials.json tidak ditemukan")
 
@@ -59,8 +74,6 @@ app.add_middleware(
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 N8N_WEBHOOK   = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/fusionneural-core")
-FIREBASE_URL  = "https://fusion-neural-default-rtdb.firebaseio.com"
-FIREBASE_AUTH = os.getenv("VITE_FIREBASE_API_KEY", "")
 UPSTASH_URL   = os.getenv("UPSTASH_REDIS_REST_URL", "")
 UPSTASH_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
 HF_TOKEN      = os.getenv("HF_TOKEN", "")
@@ -410,23 +423,22 @@ async def call_finance_agent(
 # ═══════════════════════════════════════════════════════════════════
 
 async def update_firebase(agent: str, output: str):
-    """Update Firebase Realtime DB dengan hasil agen."""
-    if not FIREBASE_AUTH:
+    """Update Firestore activity_logs dengan hasil agen."""
+    if not db:
         return
     try:
-        payload = {
-            "result":    output[:500],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "status":    "ok",
-        }
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.patch(
-                f"{FIREBASE_URL}/agents/{agent}.json?auth={FIREBASE_AUTH}",
-                json=payload,
-            )
-        print(f"[firebase] ✅ {agent} updated via REST")
+        def _write():
+            payload = {
+                "agent":     agent,
+                "action":    "AGENT_RESPONSE",
+                "details":   output[:500],
+                "timestamp": firestore.SERVER_TIMESTAMP,
+            }
+            db.collection("activity_logs").add(payload)
+        await asyncio.to_thread(_write)
+        print(f"[firestore] ✅ {agent} logged to activity_logs")
     except Exception as e:
-        print(f"[firebase] ⚠️  {agent}: {e}")
+        print(f"[firestore] ⚠️  {agent}: {e}")
 
 
 def _refresh_gcp_token() -> Optional[str]:
@@ -720,38 +732,47 @@ async def admin_action(req: AdminActionRequest):
     - batch_update_stock: kurangi stok dari simulasi penjualan
     - smart_restock: tambah stok item yang stoknya <= 5
     """
+    if not db:
+        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
+        
     try:
         if req.action == "batch_update_stock":
             items = json.loads(req.payload)
             updated = []
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            
+            def _batch_update():
+                batch = db.batch()
                 for item in items:
                     item_id = item.get("id", "")
                     new_stok = item.get("newStok", 0)
                     status   = item.get("status", "OK")
                     if item_id:
-                        await client.patch(
-                            f"{FIREBASE_URL}/inventory/{item_id}.json?auth={FIREBASE_AUTH}",
-                            json={"stok": new_stok, "status": status, "lastUpdated": datetime.now(timezone.utc).isoformat()}
-                        )
+                        ref = db.collection("inventory").document(item_id)
+                        batch.set(ref, {"stok": new_stok, "status": status, "lastUpdated": firestore.SERVER_TIMESTAMP}, merge=True)
                         updated.append(item_id)
+                batch.commit()
+                
+            await asyncio.to_thread(_batch_update)
             asyncio.create_task(log_to_sheets("autopilot_admin", f"batch_update: {len(updated)} items updated", req.sessionId))
             return {"status": "ok", "action": "batch_update_stock", "updated": len(updated)}
 
         elif req.action == "smart_restock":
             low_items = json.loads(req.lowItems)
             restocked = []
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            
+            def _smart_restock():
+                batch = db.batch()
                 for item in low_items:
                     item_id = item.get("id", "")
                     cur_stok = item.get("newStok", 0)
                     if item_id:
                         new_stok = cur_stok + req.addQty
-                        await client.patch(
-                            f"{FIREBASE_URL}/inventory/{item_id}.json?auth={FIREBASE_AUTH}",
-                            json={"stok": new_stok, "status": "IN STOCK", "lastRestocked": datetime.now(timezone.utc).isoformat()}
-                        )
+                        ref = db.collection("inventory").document(item_id)
+                        batch.set(ref, {"stok": new_stok, "status": "IN STOCK", "lastRestocked": firestore.SERVER_TIMESTAMP}, merge=True)
                         restocked.append({"id": item_id, "new_stok": new_stok})
+                batch.commit()
+                
+            await asyncio.to_thread(_smart_restock)
             asyncio.create_task(log_to_sheets("autopilot_admin", f"smart_restock: {len(restocked)} items restocked +{req.addQty} units each", req.sessionId))
             return {"status": "ok", "action": "smart_restock", "restocked": len(restocked), "items": restocked}
 
@@ -763,6 +784,46 @@ async def admin_action(req: AdminActionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Proxy Get Data dari Firestore (Dipanggil n8n) ─────────────────────────────
+
+@app.get("/inventory")
+async def get_inventory():
+    """Proxy untuk n8n: Baca inventaris dari Firestore."""
+    if not db:
+        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
+    
+    try:
+        def _read():
+            docs = db.collection("inventory").stream()
+            return {doc.id: doc.to_dict() for doc in docs}
+        return await asyncio.to_thread(_read)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class BudgetUpdate(BaseModel):
+    last_expense: int
+    updatedAt: str
+
+@app.patch("/finance_metrics/remaining_budget")
+async def patch_budget(req: BudgetUpdate):
+    """Proxy untuk n8n: Update remaining_budget di Firestore."""
+    if not db:
+        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
+        
+    try:
+        def _update():
+            ref = db.collection("finance_metrics").document("remaining_budget")
+            ref.set({"last_expense": req.last_expense, "updatedAt": req.updatedAt}, merge=True)
+        await asyncio.to_thread(_update)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/agents/{agent}.json")
+async def dummy_patch_agent(agent: str):
+    """Dummy endpoint to gracefully swallow n8n agent status updates (since we use Firestore onSnapshot now)"""
+    return {"status": "ok", "ignored": True}
 
 # ── Agent Signal (cross-agent communication untuk n8n) ────────────────────────
 
@@ -778,27 +839,33 @@ async def agent_signal(req: SignalRequest):
     """
     Jalur komunikasi cross-agent via n8n.
     Contoh: Admin Sidebar 3 kirim sinyal penjualan ke Finance.
-    Sinyal disimpan di Firebase RTDB agar agent lain bisa baca.
+    Sinyal disimpan di Firestore agar agent lain bisa baca.
     """
+    if not db:
+        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
+        
     try:
         signal_payload = {
             "from":      req.from_agent,
             "type":      req.signal_type,
             "data":      req.data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": firestore.SERVER_TIMESTAMP,
             "sessionId": req.sessionId,
         }
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.put(
-                f"{FIREBASE_URL}/signals/{req.to_agent}/latest.json?auth={FIREBASE_AUTH}",
-                json=signal_payload,
-            )
+        
+        def _write_signal():
+            ref = db.collection("signals").document(req.to_agent)
+            ref.set(signal_payload)
+            
+        await asyncio.to_thread(_write_signal)
+        
         asyncio.create_task(log_to_sheets(
             f"signal:{req.from_agent}→{req.to_agent}",
             f"type={req.signal_type} | {req.data[:200]}",
             req.sessionId
         ))
-        return {"status": "signal_sent", "from": req.from_agent, "to": req.to_agent, "type": req.signal_type}
+        
+        return {"status": "signal_sent"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
