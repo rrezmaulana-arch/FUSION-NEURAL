@@ -1,59 +1,57 @@
-// api/marketing.ts — Thin proxy ke Python FastAPI backend
-// Teks → /trigger-agent (agent: marketing)
-// Gambar → /generate-image (HuggingFace FLUX.1-schnell)
+// api/marketing.ts — Single Entry: n8n Facade → Python Backend
+// ═══════════════════════════════════════════════════════════════════════════
+// n8n dan Python HARUS dua-duanya hidup.
+// Jika n8n mati → 503. Jika Python mati → n8n gagal → 502.
+// Tidak ada fallback. Input 1, Output 1.
+// ═══════════════════════════════════════════════════════════════════════════
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const PYTHON_BACKEND = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+const N8N_WEBHOOK = process.env.N8N_CORE_WEBHOOK
+  || 'https://confined-simple-handiwork.ngrok-free.dev/webhook/fusionneural-core';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-  const { type = 'text', prompt, tone, format, sessionId } = req.body || {};
+  // Tambahkan penanda action agar n8n tahu ini dari marketing
+  const body = { ...(req.body || {}), action: 'marketing', agent: 'marketing' };
+  if (!body.prompt) return res.status(400).json({ error: 'Missing prompt' });
 
-  if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
-
+  let n8nRes: Response;
   try {
-    let endpoint: string;
-    let payload: object;
-
-    if (type === 'image_gen') {
-      // Gambar: delegasikan ke /generate-image di Python
-      endpoint = `${PYTHON_BACKEND}/generate-image`;
-      payload  = { prompt };
-    } else {
-      // Teks marketing: delegasikan ke /trigger-agent dengan agent=marketing
-      endpoint = `${PYTHON_BACKEND}/trigger-agent`;
-      payload  = {
-        agent:     'marketing',
-        message:   `Buat ${format || 'Caption Instagram'} dengan tone ${tone || 'premium'}: ${prompt}`,
-        sessionId: sessionId || '',
-      };
-    }
-
-    const response = await fetch(endpoint, {
+    n8nRes = await fetch(N8N_WEBHOOK, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
+      body:    JSON.stringify(body),
     });
-
-    const data = await response.json();
-
-    // Normalisasi respons agar kompatibel dengan frontend
-    if (type === 'image_gen') {
-      return res.status(response.ok ? 200 : response.status).json(data);
-    } else {
-      return res.status(response.ok ? 200 : response.status).json({
-        type:     'text',
-        provider: data.provider || 'mistral',
-        result:   data.result   || data.output || '',
-      });
-    }
   } catch (err: any) {
-    console.error('[marketing proxy] Error:', err.message);
-    return res.status(500).json({ error: 'Python backend tidak dapat dihubungi.', detail: err.message });
+    return res.status(503).json({
+      error:  'n8n tidak dapat dihubungi.',
+      detail: err.message,
+      hint:   'Pastikan ngrok aktif dan n8n berjalan di port 5678.',
+    });
   }
+
+  if (!n8nRes.ok) {
+    const errBody = await n8nRes.json().catch(() => ({ raw: n8nRes.statusText }));
+    return res.status(502).json({
+      error:  'n8n gagal memproses request (kemungkinan Python backend mati).',
+      status: n8nRes.status,
+      detail: errBody,
+      hint:   'Pastikan Python FastAPI berjalan di port 8000.',
+    });
+  }
+
+  const data = await n8nRes.json();
+  const p    = Array.isArray(data) ? (data[0]?.json ?? data[0]) : data;
+
+  return res.status(200).json({
+    type:     p?.type     || (body.type === 'image_gen' ? 'image' : 'text'),
+    provider: p?.provider || 'n8n→python',
+    result:   p?.result   || p?.output || '',
+    ...(p?.imageBase64 ? { imageBase64: p.imageBase64 } : {}),
+  });
 }

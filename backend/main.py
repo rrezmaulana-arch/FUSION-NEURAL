@@ -449,7 +449,7 @@ async def log_to_sheets(agent: str, output: str, session_id: str):
         if not token:
             return
 
-        sheet_id = "1sfPnZ7PJK49iRe_xq71DmeE4Pel7q3wuGW32ddwJMFc"
+        sheet_id = "1Sm8fSB8Fa6X5kugX4I9tZBoCJ2-nBe-qtklyPdeRCiA"
         range_name = "Sheet1!A:D"
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range_name}:append?valueInputOption=USER_ENTERED"
         
@@ -503,10 +503,11 @@ async def set_agent_redis_status(agent: str, status: str):
 # ═══════════════════════════════════════════════════════════════════
 
 class AgentRequest(BaseModel):
-    message:   str
+    message:   str = ""
     agent:     str = Field(default="frontliner")
     sessionId: str = Field(default="")
     role:      str = Field(default="")  # alias untuk agent
+    task:      str = Field(default="")  # task/sidebar identifier (copywriting, inventory_chatbot, dll)
 
 class AgentResponse(BaseModel):
     agent:     str
@@ -567,6 +568,24 @@ async def trigger_agent(req: AgentRequest):
         # 3. Susun system prompt
         base_prompt = SYSTEM_PROMPTS.get(agent, "Kamu AI asisten FusionNeural. Balas Bahasa Indonesia.")
         system_prompt = base_prompt
+        # Inject task-specific context jika ada
+        if req.task:
+            TASK_CONTEXT = {
+                "copywriting":         "FOKUS: Hasilkan teks pemasaran (caption, script, email, tagline) yang kreatif dan persuasif.",
+                "signal_synthesis":    "FOKUS: Analisis sinyal dari Finance dan Admin. Hasilkan ringkasan strategi pemasaran berbasis data.",
+                "visual_creator":      "FOKUS: Buat instruksi prompt detail untuk API image generation. Format: [style], [subject], [mood], [colors].",
+                "campaign_launcher":   "FOKUS: Susun jadwal peluncuran konten berdasarkan data timestamp. Output dalam format terstruktur.",
+                "simulator_analysis":  "FOKUS: Analisis data simulasi marketing. Berikan prediksi dan evaluasi strategi berdasarkan data.",
+                "inventory_chatbot":   "FOKUS: Mode Terminal Gudang. Baca dan manipulasi data inventaris. Format output: CLI/log terminal.",
+                "sales_analyst":       "FOKUS: Analisis data penjualan. Ubah menjadi sinyal bisnis untuk Finance dan Marketing.",
+                "supplier_research":   "FOKUS: Analisis data supplier dari search results. Bandingkan harga, rekomendasikan vendor terbaik.",
+                "allocation_strategy": "FOKUS: Analisis arus kas dan susun strategi alokasi anggaran untuk operasional dan marketing.",
+                "master_calculator":   "FOKUS: Hitung profit, rugi, margin, ROI secara presisi. Sertakan PPN 12% dan PPh UMKM 0.5%.",
+                "executive_overview":  "FOKUS: Buat ringkasan eksekutif dari semua laporan agen. Jangan ubah data mentah — hanya analisis dan rekomendasi.",
+            }
+            task_ctx = TASK_CONTEXT.get(req.task, "")
+            if task_ctx:
+                system_prompt += f"\n\n{task_ctx}"
         if global_ctx:
             system_prompt += f"\n\nKonteks Global Sesi:\n{global_ctx[-1500:]}"
 
@@ -594,9 +613,10 @@ async def trigger_agent(req: AgentRequest):
         await redis_set_simple(global_key, new_global[-3000:])
 
         # 8. Side effects — fire and forget (tidak memblok response)
+        # ping_n8n DIHAPUS: n8n sekarang upstream caller, bukan visual logger.
+        # Python → n8n ping akan membuat loop (n8n tunggu Python, Python panggil n8n).
         asyncio.create_task(update_firebase(agent, result))
         asyncio.create_task(log_to_sheets(agent, result, session_id))
-        asyncio.create_task(ping_n8n(agent, result, session_id))
 
         # 9. Set IDLE di Redis
         await set_agent_redis_status(agent, "IDLE")
@@ -665,6 +685,122 @@ async def generate_image(req: ImageRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation error: {e}")
+
+
+# ── Activity Logger (dipanggil oleh n8n setelah agen selesai) ───────────────
+
+class LogRequest(BaseModel):
+    agent:     str
+    result:    str
+    sessionId: str = ""
+
+@app.post("/log-activity")
+async def log_activity(req: LogRequest):
+    """
+    Endpoint ringan untuk n8n: terima hasil agen → log ke Google Sheets.
+    n8n tidak perlu OAuth — Python yang handle semuanya.
+    """
+    asyncio.create_task(log_to_sheets(req.agent, req.result, req.sessionId))
+    return {"status": "logged", "agent": req.agent}
+
+
+# ── Admin Action (dipanggil n8n Autopilot: Restock, Update Stok) ──────────────
+
+class AdminActionRequest(BaseModel):
+    action:    str  # 'batch_update_stock' | 'smart_restock'
+    payload:   str = "[]"
+    lowItems:  str = "[]"
+    addQty:    int = 50
+    sessionId: str = ""
+
+@app.post("/admin-action")
+async def admin_action(req: AdminActionRequest):
+    """
+    Dipanggil oleh n8n Autopilot untuk aksi massal inventaris:
+    - batch_update_stock: kurangi stok dari simulasi penjualan
+    - smart_restock: tambah stok item yang stoknya <= 5
+    """
+    try:
+        if req.action == "batch_update_stock":
+            items = json.loads(req.payload)
+            updated = []
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                for item in items:
+                    item_id = item.get("id", "")
+                    new_stok = item.get("newStok", 0)
+                    status   = item.get("status", "OK")
+                    if item_id:
+                        await client.patch(
+                            f"{FIREBASE_URL}/inventory/{item_id}.json?auth={FIREBASE_AUTH}",
+                            json={"stok": new_stok, "status": status, "lastUpdated": datetime.now(timezone.utc).isoformat()}
+                        )
+                        updated.append(item_id)
+            asyncio.create_task(log_to_sheets("autopilot_admin", f"batch_update: {len(updated)} items updated", req.sessionId))
+            return {"status": "ok", "action": "batch_update_stock", "updated": len(updated)}
+
+        elif req.action == "smart_restock":
+            low_items = json.loads(req.lowItems)
+            restocked = []
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                for item in low_items:
+                    item_id = item.get("id", "")
+                    cur_stok = item.get("newStok", 0)
+                    if item_id:
+                        new_stok = cur_stok + req.addQty
+                        await client.patch(
+                            f"{FIREBASE_URL}/inventory/{item_id}.json?auth={FIREBASE_AUTH}",
+                            json={"stok": new_stok, "status": "IN STOCK", "lastRestocked": datetime.now(timezone.utc).isoformat()}
+                        )
+                        restocked.append({"id": item_id, "new_stok": new_stok})
+            asyncio.create_task(log_to_sheets("autopilot_admin", f"smart_restock: {len(restocked)} items restocked +{req.addQty} units each", req.sessionId))
+            return {"status": "ok", "action": "smart_restock", "restocked": len(restocked), "items": restocked}
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {req.action}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Agent Signal (cross-agent communication untuk n8n) ────────────────────────
+
+class SignalRequest(BaseModel):
+    from_agent:  str
+    to_agent:    str
+    signal_type: str  # 'sales_data' | 'budget_alert' | 'restock_expense' | dll
+    data:        str  # JSON string
+    sessionId:   str = ""
+
+@app.post("/signal")
+async def agent_signal(req: SignalRequest):
+    """
+    Jalur komunikasi cross-agent via n8n.
+    Contoh: Admin Sidebar 3 kirim sinyal penjualan ke Finance.
+    Sinyal disimpan di Firebase RTDB agar agent lain bisa baca.
+    """
+    try:
+        signal_payload = {
+            "from":      req.from_agent,
+            "type":      req.signal_type,
+            "data":      req.data,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "sessionId": req.sessionId,
+        }
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.put(
+                f"{FIREBASE_URL}/signals/{req.to_agent}/latest.json?auth={FIREBASE_AUTH}",
+                json=signal_payload,
+            )
+        asyncio.create_task(log_to_sheets(
+            f"signal:{req.from_agent}→{req.to_agent}",
+            f"type={req.signal_type} | {req.data[:200]}",
+            req.sessionId
+        ))
+        return {"status": "signal_sent", "from": req.from_agent, "to": req.to_agent, "type": req.signal_type}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Supplier Search (Serper) ──────────────────────────────────────────────────

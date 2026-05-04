@@ -23,7 +23,7 @@ import MarketSignalsPage from './dashboards/marketing/MarketSignalsPage';
 import ContentLaunchpadPage from './dashboards/marketing/ContentLaunchpadPage';
 import ConversionFeedbackPage from './dashboards/marketing/ConversionFeedbackPage';
 import BrandDNAPage from './dashboards/marketing/BrandDNAPage';
-import TaxCalculatorPage from './dashboards/admin/TaxCalculatorPage';
+import TaxCalculatorPage from './dashboards/finance/TaxCalculatorPage';
 import InventoryTrackerPage from './dashboards/admin/InventoryTrackerPage';
 import OrderStreamPage from './dashboards/admin/OrderStreamPage';
 import SupplySignalsPage from './dashboards/admin/SupplySignalsPage';
@@ -67,7 +67,6 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
       { path: '/dashboard/supply-signals', label: 'Supply Signals', icon: Radio },
       { path: '/dashboard/suppliers', label: 'Supplier Hub', icon: Building2 },
       { path: '/dashboard/marketplace-sim', label: 'Marketplace Simulator', icon: Gamepad2 },
-      { path: '/dashboard/tax-calc', label: 'Tax Calculator', icon: Calculator },
     ]
   },
   finance: {
@@ -78,6 +77,7 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
       { path: '/dashboard/burn', label: 'Operational Burn', icon: Flame },
       { path: '/dashboard/roi-intel', label: 'ROI Intelligence', icon: TrendingUp },
       { path: '/dashboard/policy', label: 'Financial Policy', icon: Shield },
+      { path: '/dashboard/tax-calc', label: 'Tax Calculator', icon: Calculator },
     ]
   },
   marketing: {
@@ -165,11 +165,13 @@ export default function DashboardPage() {
       case '/dashboard/launchpad': return <ContentLaunchpadPage />;
       case '/dashboard/conversion': return <ConversionFeedbackPage />;
       case '/dashboard/brand-dna': return <BrandDNAPage />;
+      // Finance Routes (extended)
+      case '/dashboard/tax-calc': return <TaxCalculatorPage />;
+
       // Admin Routes
       case '/dashboard/orders': return <OrderStreamPage />;
       case '/dashboard/supply-signals': return <SupplySignalsPage />;
       case '/dashboard/suppliers': return <SupplierHubPage />;
-      case '/dashboard/tax-calc': return <TaxCalculatorPage />;
       case '/dashboard/marketplace-sim': return <MarketplaceSimulatorPage />;
 
       // Marketing Simulator

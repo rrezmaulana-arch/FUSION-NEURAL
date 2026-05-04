@@ -230,48 +230,20 @@ export class NeuralCore {
 
   /**
    * The Manager AI evaluates and rewrites agents' logic
+   * Routes via n8n → Python backend (manager agent, task: executive_overview)
    */
   static async evaluateAndRealignAgents(logs: string[]): Promise<{ target_agent: string; new_prompt: string }> {
     try {
-      const managerPrompt = await this.getAgentPrompt('manager_brain');
-      
-      const context = `
-        Ini log kerja timmu hari ini:
-        ${JSON.stringify(logs)}
-        
-        Analisis apakah ada agen yang bekerja tidak efisien atau ada error.
-        Kembalikan respons STRICTLY dalam format JSON murni:
-        {
-          "target_agent": "admin_brain | marketing_brain | finance_brain | none",
-          "new_prompt": "instruksi sistem baru jika ada, atau string kosong jika none"
-        }
-        Jika semua agen baik-baik saja, kembalikan target_agent: 'none'.
-      `;
+      const context = `Analisis log kerja tim hari ini:\n${JSON.stringify(logs)}\n\nTentukan agen mana yang perlu diperbaiki. Kembalikan JSON: {"target_agent": "admin_brain|marketing_brain|finance_brain|none", "new_prompt": "instruksi baru atau string kosong"}`;
 
-      const response = await fetch('/api/neural', {
+      const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: managerPrompt },
-            { role: 'user', content: context }
-          ],
-          model: 'llama-3.3-70b-versatile',
-          response_format: { type: 'json_object' }
-        })
+        body: JSON.stringify({ agent: 'manager', task: 'executive_overview', message: context }),
       });
-
-      const data = await response.json();
-      const responseString = data.choices?.[0]?.message?.content;
-      if (!responseString) throw new Error("No response from Groq");
-
-      const aiResponse = JSON.parse(responseString);
-      
-      return {
-        target_agent: aiResponse.target_agent || 'none',
-        new_prompt: aiResponse.new_prompt || ''
-      };
-
+      const data = await res.json();
+      const text = data.result || data.choices?.[0]?.message?.content || '{"target_agent":"none","new_prompt":""}';
+      try { return JSON.parse(text); } catch { return { target_agent: 'none', new_prompt: text }; }
     } catch (error) {
       console.error("Evaluation Error:", error);
       throw error;
@@ -279,40 +251,20 @@ export class NeuralCore {
   }
 
   /**
-   * AI Admin automatically processes new orders to deduct stock.
+   * AI Admin processes new orders to deduct stock.
+   * Routes via n8n → Python backend (admin agent, task: inventory_chatbot)
    */
   static async processAdminOrder(order: any, currentInventory: any[]) {
     try {
-      const prompt = await this.getAgentPrompt('admin_brain');
-      
-      const context = `
-        Ada pesanan masuk: ${order.qty} ${order.product}.
-        Data stok saat ini: ${JSON.stringify(currentInventory)}
-        
-        Kurangi stoknya dan kembalikan format JSON murni.
-        Contoh: {"action": "update", "item": "nama item", "new_stock": angka}
-        Pastikan nama item (sku atau name) cocok dengan stok. Jika barang tidak ada, kembalikan new_stock sesuai yang kamu asumsikan.
-      `;
-
-      const response = await fetch('/api/neural', {
+      const context = `Pesanan masuk: ${order.qty} ${order.product}. Stok saat ini: ${JSON.stringify(currentInventory)}. Kurangi stok dan kembalikan JSON: {"action":"update","item":"nama","new_stock":angka}`;
+      const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: prompt },
-            { role: 'user', content: context }
-          ],
-          model: 'llama-3.3-70b-versatile',
-          response_format: { type: 'json_object' }
-        })
+        body: JSON.stringify({ agent: 'admin', task: 'inventory_chatbot', message: context }),
       });
-
-      const data = await response.json();
-      const responseString = data.choices?.[0]?.message?.content;
-      if (!responseString) throw new Error("No response from Groq");
-
-      const aiResponse = JSON.parse(responseString);
-      return aiResponse;
+      const data = await res.json();
+      const text = data.result || '{}';
+      try { return JSON.parse(text); } catch { return { action: 'update', raw: text }; }
     } catch (error) {
       console.error("AI Admin Error:", error);
       throw error;
@@ -320,30 +272,23 @@ export class NeuralCore {
   }
 
   /**
-   * AI Marketing automatically generates campaigns based on overstock.
+   * AI Marketing generates campaigns.
+   * Routes via n8n → Python backend (marketing agent, task: copywriting)
+   * NOTE: Kept as-is for broad usage across pages — task is inferred by caller context.
    */
   static async generateMarketingCampaign(brief: string, context?: string): Promise<string> {
     try {
-      const systemPrompt = await this.getAgentPrompt('marketing_brain');
-      
       const userMessage = context
         ? `${context}\n\nBrief kampanye: ${brief}\n\nBuat konten langsung tanpa penjelasan tambahan.`
         : `Produk/Kampanye: ${brief}\nBuatkan caption promosi premium. Langsung tulis kontennya saja.`;
 
-      const response = await fetch('/api/neural', {
+      const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage }
-          ],
-          model: 'llama-3.3-70b-versatile'
-        })
+        body: JSON.stringify({ agent: 'marketing', task: 'copywriting', message: userMessage }),
       });
-
-      const data = await response.json();
-      return data.choices?.[0]?.message?.content || 'Konten berhasil dibuat.';
+      const data = await res.json();
+      return data.result || 'Konten berhasil dibuat.';
     } catch (error) {
       console.error('AI Marketing Error:', error);
       throw error;
@@ -351,41 +296,20 @@ export class NeuralCore {
   }
 
   /**
-   * AI Finance automatically calculates net profit and ROI.
+   * AI Finance calculates net profit and ROI.
+   * Routes via n8n → Python backend (finance agent, task: master_calculator)
    */
   static async calculateFinanceReport(revenue: number, cost: number, apiUsageCost: number) {
     try {
-      const prompt = await this.getAgentPrompt('finance_brain');
-      
-      const context = `
-        Pemasukan hari ini: Rp ${revenue}.
-        Biaya operasional (termasuk server): Rp ${cost}.
-        Biaya token API hari ini: Rp ${apiUsageCost}.
-        
-        Hitung Net Profit dan ROI-nya.
-        Kembalikan respons dalam bentuk JSON murni:
-        { "net_profit": angka, "roi_percentage": angka, "analysis_text": "analisis singkat" }
-      `;
-
-      const response = await fetch('/api/neural', {
+      const context = `Pemasukan: Rp ${revenue}. Biaya ops: Rp ${cost}. Biaya API: Rp ${apiUsageCost}. Hitung Net Profit & ROI. Kembalikan JSON: {"net_profit":angka,"roi_percentage":angka,"analysis_text":"analisis"}`;
+      const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: prompt },
-            { role: 'user', content: context }
-          ],
-          model: 'llama-3.3-70b-versatile',
-          response_format: { type: 'json_object' }
-        })
+        body: JSON.stringify({ agent: 'finance', task: 'master_calculator', message: context }),
       });
-
-      const data = await response.json();
-      const responseString = data.choices?.[0]?.message?.content;
-      if (!responseString) throw new Error("No response from Groq");
-
-      const aiResponse = JSON.parse(responseString);
-      return aiResponse;
+      const data = await res.json();
+      const text = data.result || '{}';
+      try { return JSON.parse(text); } catch { return { net_profit: 0, roi_percentage: 0, analysis_text: text }; }
     } catch (error) {
       console.error("AI Finance Error:", error);
       throw error;
