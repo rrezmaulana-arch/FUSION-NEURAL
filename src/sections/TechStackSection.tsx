@@ -103,7 +103,7 @@ export default function TechStackSection() {
             </div>
           </motion.div>
 
-          {/* Center: n8n Engine — highlighted */}
+          {/* Center: AI Engine — highlighted */}
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={inView ? { opacity: 1, scale: 1 } : {}}

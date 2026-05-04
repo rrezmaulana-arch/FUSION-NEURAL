@@ -180,6 +180,44 @@ export default defineConfig(({ mode }) => {
               });
             }
           });
+
+          // Agents API Middleware (Local Proxy for Python Backend)
+          server.middlewares.use('/api/agents', (req, res) => {
+            if (req.method === 'POST') {
+              let body = '';
+              req.on('data', chunk => { body += chunk.toString(); });
+              req.on('end', async () => {
+                try {
+                  const payload = JSON.parse(body);
+                  const agentId = payload.agent || 'frontliner';
+                  const pythonBackend = env.PYTHON_BACKEND_URL || 'https://confined-simple-handiwork.ngrok-free.dev';
+                  
+                  const n8nPayload = { ...payload, action: 'chat', agent: agentId };
+                  
+                  const response = await fetch(`${pythonBackend}/trigger-agent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(n8nPayload)
+                  });
+                  
+                  const data = await response.json();
+                  res.setHeader('Content-Type', 'application/json');
+                  
+                  if (!response.ok) {
+                    res.statusCode = response.status;
+                    res.end(JSON.stringify({ error: 'Python error', status: response.status, detail: data }));
+                    return;
+                  }
+                  
+                  res.statusCode = 200;
+                  res.end(JSON.stringify(data));
+                } catch (e: any) {
+                  res.statusCode = 503;
+                  res.end(JSON.stringify({ error: 'Python Backend tidak dapat dihubungi', detail: e.message }));
+                }
+              });
+            }
+          });
         }
       }
     ],

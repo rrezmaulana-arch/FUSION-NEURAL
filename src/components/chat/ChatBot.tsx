@@ -19,7 +19,7 @@ const ChatBot: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Generate sessionId sekali saat komponen mount — digunakan oleh n8n/Python untuk memory
+  // Generate sessionId sekali saat komponen mount — digunakan oleh Python Backend untuk memory
   const sessionId = useRef<string>(
     `chatbot_${Math.random().toString(36).substr(2, 9)}_${Date.now().toString(36)}`
   );
@@ -77,7 +77,7 @@ const ChatBot: React.FC = () => {
     if (isLoading) scrollToBottom(false);
   }, [isLoading]);
 
-  // ── Core: kirim pesan ke /api/agents (n8n → Python) ──────────────────────
+  // ── Core: kirim pesan ke /api/agents (Direct → Python) ──────────────────────
   const handleSend = async () => {
     if (!input.trim()) return;
 

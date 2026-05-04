@@ -48,7 +48,7 @@ export default function OrderPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  // systemPrompt hanya digunakan untuk opening greeting — prompt utama dikelola oleh n8n/Python
+  // systemPrompt hanya digunakan untuk opening greeting — prompt utama dikelola oleh Python Backend
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
   const [orderSaved, setOrderSaved] = useState(false);
   const [orderSnap, setOrderSnap] = useState<OrderSnapshot | null>(null);
@@ -65,7 +65,7 @@ export default function OrderPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const isProcessingPaymentRef = useRef(false);
 
-  // sessionId unik per sesi halaman — digunakan n8n/Python untuk memory management
+  // sessionId unik per sesi halaman — digunakan Python Backend untuk memory management
   const sessionId = useRef<string>(
     `frontliner_${Math.random().toString(36).substr(2, 9)}_${Date.now().toString(36)}`
   );
@@ -108,14 +108,14 @@ export default function OrderPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // ── Core: kirim pesan ke /api/agents (n8n → Python Backend) ──
+  // ── Core: kirim pesan ke /api/agents (Direct → Python Backend) ──
   // sessionId memungkinkan Python backend mengelola memory percakapan secara server-side.
   // Tidak perlu lagi mengirim seluruh array messages dari frontend.
   const sendBotMessage = useCallback(async (userContent?: string) => {
     if (!systemPrompt) return;
     setIsTyping(true);
 
-    // Tentukan pesan yang dikirim ke n8n
+    // Tentukan pesan yang dikirim ke backend
     let messageToSend = userContent || '';
 
     // Greeting awal saat tidak ada pesan user
@@ -143,7 +143,7 @@ export default function OrderPage() {
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        throw new Error(data.error?.message || data.error || 'Failed to communicate with n8n');
+        throw new Error(data.error?.message || data.error || 'Failed to communicate with Python Backend');
       }
 
       const reply =

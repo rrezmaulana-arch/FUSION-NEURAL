@@ -17,6 +17,7 @@ import re
 import json
 import base64
 import asyncio
+import random
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -61,8 +62,8 @@ else:
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="FusionNeural AI Backend",
-    version="3.0.0",
-    description="Multi-Agent AI Core — Admin · Finance · Marketing · Manager · Frontliner",
+    version="4.0.0",
+    description="Multi-Agent AI Core — Admin · Finance · Marketing · Manager · Frontliner (Full Code)",
 )
 
 app.add_middleware(
@@ -73,7 +74,6 @@ app.add_middleware(
 )
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-N8N_WEBHOOK   = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/fusionneural-core")
 UPSTASH_URL   = os.getenv("UPSTASH_REDIS_REST_URL", "")
 UPSTASH_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
 HF_TOKEN      = os.getenv("HF_TOKEN", "")
@@ -485,27 +485,6 @@ async def log_to_sheets(agent: str, output: str, session_id: str):
         print(f"[sheets] ❌ Error: {e}")
 
 
-async def ping_n8n(agent: str, output: str, session_id: str):
-    """
-    Kirim ping ke n8n agar node menyala hijau (visual logger untuk presentasi).
-    n8n tidak memproses logika apapun — hanya sebagai 'layar tancap'.
-    """
-    try:
-        payload = {
-            "password":  "FusionNeural-Olivia",
-            "agent":     agent,
-            "role":      agent,
-            "message":   output[:200],
-            "sessionId": session_id,
-            "_visual_ping": True,
-        }
-        async with httpx.AsyncClient(timeout=4.0) as client:
-            await client.post(N8N_WEBHOOK, json=payload)
-        print(f"[n8n] ✅ Ping {agent} — node menyala")
-    except Exception as e:
-        print(f"[n8n] ℹ️  Ping gagal (n8n mungkin tidak aktif): {e}")
-
-
 async def set_agent_redis_status(agent: str, status: str):
     """Update status agen di Redis untuk animasi Agent HQ di frontend."""
     await redis_set_simple(f"agent_status:{agent}", status, ttl=60)
@@ -716,158 +695,6 @@ async def log_activity(req: LogRequest):
     return {"status": "logged", "agent": req.agent}
 
 
-# ── Admin Action (dipanggil n8n Autopilot: Restock, Update Stok) ──────────────
-
-class AdminActionRequest(BaseModel):
-    action:    str  # 'batch_update_stock' | 'smart_restock'
-    payload:   str = "[]"
-    lowItems:  str = "[]"
-    addQty:    int = 50
-    sessionId: str = ""
-
-@app.post("/admin-action")
-async def admin_action(req: AdminActionRequest):
-    """
-    Dipanggil oleh n8n Autopilot untuk aksi massal inventaris:
-    - batch_update_stock: kurangi stok dari simulasi penjualan
-    - smart_restock: tambah stok item yang stoknya <= 5
-    """
-    if not db:
-        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
-        
-    try:
-        if req.action == "batch_update_stock":
-            items = json.loads(req.payload)
-            updated = []
-            
-            def _batch_update():
-                batch = db.batch()
-                for item in items:
-                    item_id = item.get("id", "")
-                    new_stok = item.get("newStok", 0)
-                    status   = item.get("status", "OK")
-                    if item_id:
-                        ref = db.collection("inventory").document(item_id)
-                        batch.set(ref, {"stok": new_stok, "status": status, "lastUpdated": firestore.SERVER_TIMESTAMP}, merge=True)
-                        updated.append(item_id)
-                batch.commit()
-                
-            await asyncio.to_thread(_batch_update)
-            asyncio.create_task(log_to_sheets("autopilot_admin", f"batch_update: {len(updated)} items updated", req.sessionId))
-            return {"status": "ok", "action": "batch_update_stock", "updated": len(updated)}
-
-        elif req.action == "smart_restock":
-            low_items = json.loads(req.lowItems)
-            restocked = []
-            
-            def _smart_restock():
-                batch = db.batch()
-                for item in low_items:
-                    item_id = item.get("id", "")
-                    cur_stok = item.get("newStok", 0)
-                    if item_id:
-                        new_stok = cur_stok + req.addQty
-                        ref = db.collection("inventory").document(item_id)
-                        batch.set(ref, {"stok": new_stok, "status": "IN STOCK", "lastRestocked": firestore.SERVER_TIMESTAMP}, merge=True)
-                        restocked.append({"id": item_id, "new_stok": new_stok})
-                batch.commit()
-                
-            await asyncio.to_thread(_smart_restock)
-            asyncio.create_task(log_to_sheets("autopilot_admin", f"smart_restock: {len(restocked)} items restocked +{req.addQty} units each", req.sessionId))
-            return {"status": "ok", "action": "smart_restock", "restocked": len(restocked), "items": restocked}
-
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown action: {req.action}")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ── Proxy Get Data dari Firestore (Dipanggil n8n) ─────────────────────────────
-
-@app.get("/inventory")
-async def get_inventory():
-    """Proxy untuk n8n: Baca inventaris dari Firestore."""
-    if not db:
-        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
-    
-    try:
-        def _read():
-            docs = db.collection("inventory").stream()
-            return {doc.id: doc.to_dict() for doc in docs}
-        return await asyncio.to_thread(_read)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-class BudgetUpdate(BaseModel):
-    last_expense: int
-    updatedAt: str
-
-@app.patch("/finance_metrics/remaining_budget")
-async def patch_budget(req: BudgetUpdate):
-    """Proxy untuk n8n: Update remaining_budget di Firestore."""
-    if not db:
-        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
-        
-    try:
-        def _update():
-            ref = db.collection("finance_metrics").document("remaining_budget")
-            ref.set({"last_expense": req.last_expense, "updatedAt": req.updatedAt}, merge=True)
-        await asyncio.to_thread(_update)
-        return {"status": "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.patch("/agents/{agent}.json")
-async def dummy_patch_agent(agent: str):
-    """Dummy endpoint to gracefully swallow n8n agent status updates (since we use Firestore onSnapshot now)"""
-    return {"status": "ok", "ignored": True}
-
-# ── Agent Signal (cross-agent communication untuk n8n) ────────────────────────
-
-class SignalRequest(BaseModel):
-    from_agent:  str
-    to_agent:    str
-    signal_type: str  # 'sales_data' | 'budget_alert' | 'restock_expense' | dll
-    data:        str  # JSON string
-    sessionId:   str = ""
-
-@app.post("/signal")
-async def agent_signal(req: SignalRequest):
-    """
-    Jalur komunikasi cross-agent via n8n.
-    Contoh: Admin Sidebar 3 kirim sinyal penjualan ke Finance.
-    Sinyal disimpan di Firestore agar agent lain bisa baca.
-    """
-    if not db:
-        raise HTTPException(status_code=500, detail="Firestore tidak terinisialisasi")
-        
-    try:
-        signal_payload = {
-            "from":      req.from_agent,
-            "type":      req.signal_type,
-            "data":      req.data,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "sessionId": req.sessionId,
-        }
-        
-        def _write_signal():
-            ref = db.collection("signals").document(req.to_agent)
-            ref.set(signal_payload)
-            
-        await asyncio.to_thread(_write_signal)
-        
-        asyncio.create_task(log_to_sheets(
-            f"signal:{req.from_agent}→{req.to_agent}",
-            f"type={req.signal_type} | {req.data[:200]}",
-            req.sessionId
-        ))
-        
-        return {"status": "signal_sent"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Supplier Search (Serper) ──────────────────────────────────────────────────

@@ -230,7 +230,7 @@ export class NeuralCore {
 
   /**
    * The Manager AI evaluates and rewrites agents' logic
-   * Routes via n8n → Python backend (manager agent, task: executive_overview)
+   * Routes via Python backend (manager agent, task: executive_overview)
    */
   static async evaluateAndRealignAgents(logs: string[]): Promise<{ target_agent: string; new_prompt: string }> {
     try {
@@ -252,7 +252,7 @@ export class NeuralCore {
 
   /**
    * AI Admin processes new orders to deduct stock.
-   * Routes via n8n → Python backend (admin agent, task: inventory_chatbot)
+   * Routes via Python backend (admin agent, task: inventory_chatbot)
    */
   static async processAdminOrder(order: any, currentInventory: any[]) {
     try {
@@ -273,7 +273,7 @@ export class NeuralCore {
 
   /**
    * AI Marketing generates campaigns.
-   * Routes via n8n → Python backend (marketing agent, task: copywriting)
+   * Routes via Python backend (marketing agent, task: copywriting)
    * NOTE: Kept as-is for broad usage across pages — task is inferred by caller context.
    */
   static async generateMarketingCampaign(brief: string, context?: string): Promise<string> {
@@ -297,7 +297,7 @@ export class NeuralCore {
 
   /**
    * AI Finance calculates net profit and ROI.
-   * Routes via n8n → Python backend (finance agent, task: master_calculator)
+   * Routes via Python backend (finance agent, task: master_calculator)
    */
   static async calculateFinanceReport(revenue: number, cost: number, apiUsageCost: number) {
     try {
