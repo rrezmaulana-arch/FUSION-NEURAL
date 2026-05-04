@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, User, ArrowLeft, ShieldCheck, Zap, Cpu, Sparkles, Lock, CheckCircle2, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -48,6 +48,7 @@ export default function OrderPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  // systemPrompt hanya digunakan untuk opening greeting — prompt utama dikelola oleh n8n/Python
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
   const [orderSaved, setOrderSaved] = useState(false);
   const [orderSnap, setOrderSnap] = useState<OrderSnapshot | null>(null);
@@ -63,6 +64,11 @@ export default function OrderPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isProcessingPaymentRef = useRef(false);
+
+  // sessionId unik per sesi halaman — digunakan n8n/Python untuk memory management
+  const sessionId = useRef<string>(
+    `frontliner_${Math.random().toString(36).substr(2, 9)}_${Date.now().toString(36)}`
+  );
 
   // ── Load system prompt from NeuralCore (Firestore → fallback default) ──
   useEffect(() => {
@@ -102,58 +108,48 @@ export default function OrderPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // ── Core: send message to Groq and get AI reply ──
-  const sendBotMessage = async (userContent?: string) => {
+  // ── Core: kirim pesan ke /api/agents (n8n → Python Backend) ──
+  // sessionId memungkinkan Python backend mengelola memory percakapan secara server-side.
+  // Tidak perlu lagi mengirim seluruh array messages dari frontend.
+  const sendBotMessage = useCallback(async (userContent?: string) => {
     if (!systemPrompt) return;
     setIsTyping(true);
 
+    // Tentukan pesan yang dikirim ke n8n
+    let messageToSend = userContent || '';
+
+    // Greeting awal saat tidak ada pesan user
+    if (messages.length === 0 && !userContent) {
+      messageToSend = 'Mulailah percakapan. Sambut calon klien dengan elegan sebagai Frontline Architect FusionNeural.';
+    }
+
+    // Jika setup mode, tambahkan konteks
+    if (isSetupMode && userContent) {
+      messageToSend = `[SETUP MODE] ${userContent}`;
+    }
+
     try {
-      const chatHistory = messages
-        .map((m) => ({
-          role: m.sender === 'user' ? ('user' as const) : ('assistant' as const),
-          content: m.text,
-        }));
-
-      const groqMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-        { role: 'system', content: systemPrompt },
-        ...chatHistory,
-        ...(userContent ? [{ role: 'user' as const, content: userContent }] : []),
-      ];
-
-      // If no prior messages, ask AI to open the conversation
-      if (messages.length === 0 && !userContent) {
-        groqMessages.push({
-          role: 'user',
-          content: 'Mulailah percakapan. Sambut calon klien dengan elegan sebagai Frontline Architect FusionNeural.',
-        });
-      }
-
-      // If in setup mode, inject different context
-      if (isSetupMode) {
-        groqMessages.push({
-          role: 'system',
-          content: 'Klien telah melakukan pembayaran. Sekarang kamu bertugas sebagai AI Setup Architect. Tanyakan aplikasi apa yang ingin mereka buat (misal: sistem HRD, sistem Finance, CRM), warna tema yang diinginkan, dan fitur utamanya. Biarkan mereka berkreasi bebas dan bantu mereka merancang idenya!'
-        });
-      }
-
-      const response = await fetch('/api/neural', {
+      const response = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: groqMessages,
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.72,
-          max_tokens: 600
-        })
+          agent: 'frontliner',
+          task: isSetupMode ? 'setup_architect' : 'sales_consultation',
+          message: messageToSend,
+          sessionId: sessionId.current,
+        }),
       });
 
       const data = await response.json();
-      
+
       if (!response.ok || data.error) {
-        throw new Error(data.error?.message || data.error || 'Failed to communicate with AI provider');
+        throw new Error(data.error?.message || data.error || 'Failed to communicate with n8n');
       }
 
-      const reply = data.choices?.[0]?.message?.content ?? 'Sinkronisasi sedang berlangsung, Kak. Mohon tunggu sebentar.';
+      const reply =
+        data.result ||
+        data.choices?.[0]?.message?.content ||
+        'Sinkronisasi sedang berlangsung, Kak. Mohon tunggu sebentar.';
 
       setMessages((prev) => [
         ...prev,
@@ -172,7 +168,7 @@ export default function OrderPage() {
     } finally {
       setIsTyping(false);
     }
-  };
+  }, [systemPrompt, messages.length, isSetupMode]);
 
   // ── FIX: Detect confirmation trigger → tampilkan form, BUKAN parsing AI ──
   const checkAndSaveOrder = (allMessages: Message[]) => {

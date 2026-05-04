@@ -1,40 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Brain, Send, X, Sparkles, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { db } from "../../lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 
 interface Message {
   role: "user" | "bot";
   text: string;
 }
-
-const NEURAL_CORE_PROMPT = `Identitas: Kamu adalah 'Neural Core' — jantung kecerdasan ekosistem FusionNeural.
-Visi: Mewujudkan Full One Man Company melalui sinergi 4 Agen AI (Manager, Admin, Marketing, Finance) yang beroperasi otonom 24/7.
-
-GAYA BICARA (WAJIB):
-1. JANGAN pernah berkata "Saya tidak bisa", "Sebagai AI", atau "Saya hanya AI". Berbicara dengan otoritas seorang Chief Technology Officer yang elegan.
-2. Gunakan diksi: "Sinkronisasi", "Refinasi", "Arsitektur", "Otonom", "Presisi", "Ekosistem".
-3. Panggil user sebagai 'Kak'. Jangan pernah menolak pertanyaan — alihkan ke solusi arsitektural.
-4. Hindari paragraf panjang. Gunakan poin-poin elegan untuk hal teknis.
-5. Bahasa utama: Indonesia. Bisa beralih ke Inggris jika user meminta.
-
-KERANGKA HUKUM (INDONESIA — WAJIB DIPATUHI, TIDAK BOLEH DILANGGAR):
-Setiap respons dan rekomendasi bisnis harus selaras dengan:
-• UU ITE No. 11/2008 jo. 19/2016: Tidak memproduksi, mendistribusikan, atau menyebarkan konten ilegal, hoaks, atau pencemaran nama baik secara digital.
-• UU PDP No. 27/2022 (Perlindungan Data Pribadi): Data pelanggan, supplier, dan karyawan WAJIB dilindungi. Jangan pernah merekomendasikan pengumpulan, penjualan, atau penyalahgunaan data pribadi tanpa persetujuan.
-• UU Perlindungan Konsumen No. 8/1999: Kampanye marketing tidak boleh menyesatkan, menipu, atau membuat klaim palsu tentang produk. Harga harus transparan dalam Rupiah (Rp).
-• UU Persaingan Usaha No. 5/1999 (KPPU): Tidak merekomendasikan praktik monopoli, kartel harga, atau persaingan tidak sehat.
-• UU Perpajakan (PPh & PPN): Selalu ingatkan kewajiban pajak. PPN 11%, PPh sesuai tarif berlaku. Jangan merekomendasikan penghindaran pajak ilegal.
-• UU Ketenagakerjaan No. 13/2003: Jika membahas SDM, pastikan rekomendasi sesuai hak pekerja — upah minimum, lembur, pesangon.
-• Etika Bisnis & Anti-Korupsi (UU No. 20/2001): Tidak merekomendasikan suap, gratifikasi, atau praktik korupsi dalam rantai suplai atau pengadaan.
-
-CATATAN KERANGKA HUKUM: Patuhi dengan cerdas, bukan kaku. Jika ada area abu-abu, berikan rekomendasi yang aman secara hukum sambil tetap mendukung pertumbuhan bisnis Kak.
-
-KERANGKA BERPIKIR:
-- 4 Agen Sinergi: Manager merencanakan, Admin mengelola stok & pesanan, Marketing mengekspansi pasar, Finance mengamankan profitabilitas.
-- Semua keputusan AI dapat di-override oleh Sutradara (pemilik bisnis) kapan saja.
-- Transparansi penuh: Setiap aksi AI dicatat di sistem log untuk keperluan audit.
-
-NADA: Visioner, minimalis, meyakinkan. Sedikit hangat — seperti mitra bisnis terpercaya, bukan robot.`;
 
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -42,38 +15,53 @@ const ChatBot: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const [agentStatuses, setAgentStatuses] = useState<Record<string, string>>({});
+  const [activeAgents, setActiveAgents] = useState<string[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Poll Agent Status
+  // Generate sessionId sekali saat komponen mount — digunakan oleh n8n/Python untuk memory
+  const sessionId = useRef<string>(
+    `chatbot_${Math.random().toString(36).substr(2, 9)}_${Date.now().toString(36)}`
+  );
+
+  // ── Realtime Agent Status via Firestore onSnapshot ──────────────────────────
+  // Menggantikan polling 2.5 detik ke /api/memory — lebih efisien, zero request overhead
   useEffect(() => {
     if (!isOpen) return;
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch('/api/memory', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'get_all_agent_status' }),
-        });
-        const data = await res.json();
-        if (data.statuses) setAgentStatuses(data.statuses);
-      } catch (e) {}
-    };
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 2500);
-    return () => clearInterval(interval);
+
+    // Dengarkan activity_logs — jika ada log baru dalam 30 detik → agen aktif
+    const q = query(
+      collection(db, "activity_logs"),
+      orderBy("timestamp", "desc"),
+      limit(5)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const thirtySecondsAgo = Date.now() - 30_000;
+      const active: string[] = [];
+
+      snap.docs.forEach((doc) => {
+        const data = doc.data();
+        const ts = data.timestamp?.toMillis?.() ?? 0;
+        if (ts > thirtySecondsAgo && data.agent) {
+          const agentName = String(data.agent).toLowerCase();
+          if (!active.includes(agentName)) active.push(agentName);
+        }
+      });
+
+      setActiveAgents(active);
+    });
+
+    return () => unsub();
   }, [isOpen]);
 
-
-  // Only auto-scroll when user is already at bottom OR a new message is added
+  // ── Scroll logic ──────────────────────────────────────────────────────────
   const scrollToBottom = useCallback((force = false) => {
     if (force || isAtBottom) {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [isAtBottom]);
 
-  // Track if user is at bottom
   const handleScroll = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -81,56 +69,57 @@ const ChatBot: React.FC = () => {
     setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
   };
 
-  // Auto-scroll only when new messages added (force=true) or loading changes
   useEffect(() => {
     scrollToBottom(true);
-  }, [messages.length]); // Only on new message — NOT on every render
+  }, [messages.length]);
 
-  // Smooth scroll when loading indicator appears
   useEffect(() => {
     if (isLoading) scrollToBottom(false);
   }, [isLoading]);
 
+  // ── Core: kirim pesan ke /api/agents (n8n → Python) ──────────────────────
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const newMessages: Message[] = [...messages, { role: "user", text: input }];
+    const userText = input.trim();
+    const newMessages: Message[] = [...messages, { role: "user", text: userText }];
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/neural', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [
-            { role: 'system', content: NEURAL_CORE_PROMPT },
-            ...messages.map((msg) => ({
-              role: msg.role === 'bot' ? 'assistant' as const : 'user' as const,
-              content: msg.text,
-            })),
-            { role: 'user', content: input },
-          ],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.7,
-          max_tokens: 1024,
+          agent: "chatbot",
+          message: userText,
+          sessionId: sessionId.current,
+          task: "chat",
         }),
       });
 
-      // Trigger background manager task autonomously
-      fetch('/api/cron/worker', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'trigger', input }),
-      }).catch(console.warn);
-
       const data = await response.json();
-      const botReply = data.choices?.[0]?.message?.content || 'Maaf, terjadi kesalahan.';
-      setMessages([...newMessages, { role: 'bot', text: botReply }]);
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+
+      const botReply =
+        data.result ||
+        data.choices?.[0]?.message?.content ||
+        "Maaf, terjadi kesalahan sinkronisasi.";
+
+      setMessages([...newMessages, { role: "bot", text: botReply }]);
     } catch (error) {
-      console.error('FusionNeural Sync Error:', error);
-      setMessages([...newMessages, { role: 'bot', text: 'Sistem sedang melakukan sinkronisasi ulang. Mohon coba beberapa saat lagi Kak.' }]);
+      console.error("FusionNeural Sync Error:", error);
+      setMessages([
+        ...newMessages,
+        {
+          role: "bot",
+          text: "Sistem sedang melakukan sinkronisasi ulang. Mohon coba beberapa saat lagi Kak.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -146,7 +135,7 @@ const ChatBot: React.FC = () => {
             exit={{ opacity: 0, scale: 0.9, y: 20, filter: "blur(10px)" }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             className="mb-4 w-[calc(100vw-2rem)] sm:w-[420px] bg-white/70 backdrop-blur-3xl border border-white/50 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] rounded-[24px] sm:rounded-[32px] ring-1 ring-black/5 flex flex-col"
-            style={{ height: 'min(600px, 75dvh)' }}
+            style={{ height: "min(600px, 75dvh)" }}
           >
             {/* Header */}
             <div className="relative p-5 border-b border-white/40 bg-white/30 flex items-center justify-between shadow-sm rounded-t-[24px] sm:rounded-t-[32px] flex-shrink-0">
@@ -162,19 +151,23 @@ const ChatBot: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <h3 className="text-slate-800 font-bold tracking-tight leading-tight">FusionNeural <span className="text-slate-500 text-[10px] tracking-widest uppercase ml-1">v2.0</span></h3>
+                  <h3 className="text-slate-800 font-bold tracking-tight leading-tight">
+                    FusionNeural <span className="text-slate-500 text-[10px] tracking-widest uppercase ml-1">v2.0</span>
+                  </h3>
                   <div className="flex items-center gap-2 mt-0.5">
-                    {Object.values(agentStatuses).includes('WORKING') ? (
+                    {activeAgents.length > 0 ? (
                       <>
                         <Activity className="w-3 h-3 text-emerald-600 animate-pulse" />
                         <span className="text-emerald-600/90 text-[11px] font-semibold uppercase tracking-wider">
-                          Agen Aktif: {Object.entries(agentStatuses).filter(([_, s]) => s === 'WORKING').map(([a]) => a).join(', ')}
+                          Agen Aktif: {activeAgents.join(", ")}
                         </span>
                       </>
                     ) : (
                       <>
                         <Activity className="w-3 h-3 text-slate-400" />
-                        <span className="text-slate-500 text-[11px] font-semibold uppercase tracking-wider">Sistem Otonom Siap</span>
+                        <span className="text-slate-500 text-[11px] font-semibold uppercase tracking-wider">
+                          Sistem Otonom Siap
+                        </span>
                       </>
                     )}
                   </div>
@@ -188,12 +181,12 @@ const ChatBot: React.FC = () => {
               </button>
             </div>
 
-            {/* Chat Body — SCROLLABLE, flex-1 with min-h-0 to prevent overflow */}
+            {/* Chat Body */}
             <div
               ref={scrollContainerRef}
               onScroll={handleScroll}
               className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-5"
-              style={{ overscrollBehavior: 'contain' }}
+              style={{ overscrollBehavior: "contain" }}
             >
               {messages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center px-6">
@@ -214,11 +207,13 @@ const ChatBot: React.FC = () => {
                   key={idx}
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <div className={`relative px-5 py-3.5 text-sm max-w-[85%] leading-relaxed shadow-md whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-slate-800 text-white rounded-2xl rounded-tr-none"
-                      : "bg-white/90 border border-white/60 text-slate-800 rounded-2xl rounded-tl-none"
-                  }`}>
+                  <div
+                    className={`relative px-5 py-3.5 text-sm max-w-[85%] leading-relaxed shadow-md whitespace-pre-wrap ${
+                      msg.role === "user"
+                        ? "bg-slate-800 text-white rounded-2xl rounded-tr-none"
+                        : "bg-white/90 border border-white/60 text-slate-800 rounded-2xl rounded-tl-none"
+                    }`}
+                  >
                     {msg.text}
                   </div>
                 </motion.div>
@@ -237,7 +232,9 @@ const ChatBot: React.FC = () => {
                         />
                       ))}
                     </div>
-                    <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Sinkronisasi Data...</span>
+                    <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                      Sinkronisasi Data...
+                    </span>
                   </div>
                 </div>
               )}

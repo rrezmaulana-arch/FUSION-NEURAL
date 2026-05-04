@@ -321,8 +321,6 @@ export class NeuralCore {
    */
   static async triggerMarketEvent(eventDesc: string, currentStats: any) {
     try {
-      const prompt = await this.getAgentPrompt('manager_brain');
-      
       const context = `
         Current Market Stats:
         Revenue: $${currentStats.revenue || 0}
@@ -341,22 +339,20 @@ export class NeuralCore {
         }
       `;
 
-      const response = await fetch('/api/neural', {
+      const response = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [
-            { role: 'system', content: prompt },
-            { role: 'user', content: context }
-          ],
-          model: 'llama-3.3-70b-versatile',
-          response_format: { type: 'json_object' }
-        })
+          agent: 'manager',
+          task: 'market_simulation',
+          message: context,
+          sessionId: `sim_${Date.now()}`,
+        }),
       });
 
       const data = await response.json();
-      const responseString = data.choices?.[0]?.message?.content;
-      if (!responseString) throw new Error("No response from Groq");
+      const responseString = data.result;
+      if (!responseString) throw new Error('No response from agent');
 
       const aiResponse = JSON.parse(responseString);
       
