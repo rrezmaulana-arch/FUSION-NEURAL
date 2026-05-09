@@ -1,22 +1,41 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSystemEngine } from '../../../context/SystemEngineContext';
+
 import { ArrowRightLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
+import PageHeader from '../../../components/ui/PageHeader';
 
 export default function LogsPage() {
-  const { adminLogs } = useSystemEngine();
+  const adminLogs: any[] = [];
 
   return (
     <div className="space-y-6 pb-10 font-sans text-slate-800">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Traffic Logs</h1>
-        <p className="text-sm text-slate-500 mt-1">Real-time connection and payload synchronization history.</p>
-      </div>
+      <PageHeader
+        title="Traffic Logs"
+        subtitle="Real-time connection and payload synchronization history."
+        accent="slate"
+      />
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-bold text-lg text-slate-800">System Logs</h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-200">Export CSV</span>
+            <button 
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/drive/upload`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: 'admin', filename: 'Traffic_Logs_Export', content: JSON.stringify(adminLogs, null, 2) || 'Empty Logs' })
+                  });
+                  if(res.ok) alert('Log disimpan ke Google Drive!');
+                  else alert('Gagal simpan ke Drive');
+                } catch (e) {
+                  alert('Network Error');
+                }
+              }}
+              className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-200"
+            >
+              Save to Drive
+            </button>
           </div>
         </div>
 

@@ -5,6 +5,7 @@ import { db } from '../../../lib/firebase';
 import { Radio, AlertTriangle, TrendingDown, TrendingUp, Package, Zap, ArrowRight } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface Signal {
   id: string;
@@ -58,6 +59,15 @@ export default function MarketSignalsPage() {
     return () => unsub();
   }, []);
 
+  // Marketing Autopilot Trigger
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetch('/api/simulator', { method: 'POST', body: JSON.stringify({ action: 'marketing' }) })
+        .catch(e => console.error("Marketing simulator error:", e));
+    }, 15000); // 15 detik setelah masuk halaman Marketing
+    return () => clearTimeout(timer);
+  }, []);
+
   // Listen to financial_reports for profit gap
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'financial_reports', 'latest'), (snap) => {
@@ -88,9 +98,10 @@ export default function MarketSignalsPage() {
     setIsAutoResponding(signal.id);
     try {
       if (signal.type === 'overstock' && signal.product) {
-        await NeuralCore.generateMarketingCampaign(
-          signal.product,
-          'Buat kampanye diskon menarik untuk produk yang kelebihan stok'
+        await NeuralCore.askAgent(
+          'marketing',
+          'copywriting',
+          `Produk: ${signal.product}\nInstruksi: Buat kampanye diskon menarik untuk produk yang kelebihan stok.`
         );
         await FirebaseLogger.logAgentAction('Marketing', 'AUTO_CAMPAIGN', `Overstock campaign triggered for ${signal.product}`);
         setSuccessMap(p => ({ ...p, [signal.id]: 'Kampanye berhasil disiapkan!' }));
@@ -113,16 +124,17 @@ export default function MarketSignalsPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Market Signals</h1>
-          <p className="text-slate-500 text-sm mt-1">Radar otonom — membaca sinyal dari Admin & Finance secara real-time</p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold text-emerald-700">Radar Aktif</span>
-        </div>
-      </div>
+      <PageHeader
+        title="Market Signals"
+        subtitle="Radar otonom — membaca sinyal dari Admin & Finance secara real-time"
+        accent="purple"
+        actions={
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-emerald-700">Radar Aktif</span>
+          </div>
+        }
+      />
 
       {/* Finance Overview */}
       {financeData && (

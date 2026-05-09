@@ -5,6 +5,8 @@ import { db } from '../../../lib/firebase';
 import { Brain, AlertTriangle, CheckCircle2, RefreshCw, Zap, Terminal, Shield } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import { triggerSimulator } from '../../../services/apiClient';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface ActivityLog {
   id: string;
@@ -34,6 +36,15 @@ export default function StrategicAuditPage() {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ActivityLog[]);
     });
     return () => unsub();
+  }, []);
+
+  // Manager Autopilot Trigger — via Python FastAPI
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      triggerSimulator({ action: 'manager' })
+        .catch(e => console.error("Manager simulator error:", e));
+    }, 20000); // 20 detik setelah masuk halaman Manager
+    return () => clearTimeout(timer);
   }, []);
 
   const resultRef = useRef<HTMLDivElement>(null);
@@ -96,11 +107,12 @@ export default function StrategicAuditPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Strategic Audit Hub</h1>
-        <p className="text-slate-500 text-sm mt-1">Evaluasi otonom & re-alignment otak agen secara real-time</p>
-      </div>
+      <PageHeader
+        title="Strategic Audit Hub"
+        subtitle="Evaluasi otonom & re-alignment otak agen secara real-time"
+        accent="teal"
+        icon={<Shield size={22} className="text-white" />}
+      />
 
       {/* THE BIG BUTTON */}
       <motion.div

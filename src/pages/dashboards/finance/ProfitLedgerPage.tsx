@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { collection, onSnapshot, doc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, BookOpen } from 'lucide-react';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface Order {
   id: string;
@@ -13,19 +14,16 @@ interface Order {
   timestamp?: any;
 }
 
-const MOCK_HISTORY = [
-  { label: '5 Apr', value: 8200000 },
-  { label: '10 Apr', value: 11500000 },
-  { label: '15 Apr', value: 9800000 },
-  { label: '20 Apr', value: 14200000 },
-  { label: '25 Apr', value: 12900000 },
-  { label: '30 Apr', value: 17500000 },
-];
+interface HistoryPoint {
+  label: string;
+  value: number;
+}
 
 export default function ProfitLedgerPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [finance, setFinance] = useState<any>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [chartHistory, setChartHistory] = useState<HistoryPoint[]>([]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'orders'), (snap) => {
@@ -50,18 +48,38 @@ export default function ProfitLedgerPage() {
     return () => unsub();
   }, []);
 
+  // Build chart from real finance_transactions
+  useEffect(() => {
+    const q = query(collection(db, 'finance_transactions'), orderBy('timestamp', 'desc'), limit(20));
+    const unsub = onSnapshot(q, (snap) => {
+      const byDay: Record<string, number> = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const date = data.time ? new Date(data.time) : (data.timestamp?.toDate ? data.timestamp.toDate() : new Date());
+        const label = `${date.getDate()} ${date.toLocaleString('id-ID', { month: 'short' })}`;
+        const amount = data.isPositive ? (data.amount || 0) : -(data.amount || 0);
+        byDay[label] = (byDay[label] || 0) + amount;
+      });
+      const points = Object.entries(byDay).slice(0, 6).reverse().map(([label, value]) => ({ label, value: Math.abs(value) }));
+      setChartHistory(points.length > 0 ? points : [{ label: 'Hari ini', value: 0 }]);
+    });
+    return () => unsub();
+  }, []);
+
   const grossRevenue = orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0);
   const netProfit = finance?.net_profit ?? null;
   const cogs = finance?.cost ?? 0;
   const roi = finance?.roi_percentage ?? null;
-  const maxHistory = Math.max(...MOCK_HISTORY.map(h => h.value));
+  const maxHistory = Math.max(...chartHistory.map(h => h.value), 1);
 
   return (
     <div className="space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Profit Ledger</h1>
-        <p className="text-slate-500 text-sm mt-1">Buku besar real-time — arus kas tersinkronisasi dari setiap transaksi</p>
-      </div>
+      <PageHeader
+        title="Profit Ledger"
+        subtitle="Buku besar real-time — arus kas tersinkronisasi dari setiap transaksi"
+        accent="emerald"
+        icon={<BookOpen size={22} className="text-white" />}
+      />
 
       {/* Top KPI */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -130,7 +148,11 @@ export default function ProfitLedgerPage() {
           <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded-lg font-bold">30 HARI TERAKHIR</span>
         </div>
         <div className="flex items-end gap-3 h-28">
-          {MOCK_HISTORY.map((h, i) => {
+          {chartHistory.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
+              Jalankan Autopilot untuk mengisi data chart...
+            </div>
+          ) : chartHistory.map((h, i) => {
             const pct = (h.value / maxHistory) * 100;
             return (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">

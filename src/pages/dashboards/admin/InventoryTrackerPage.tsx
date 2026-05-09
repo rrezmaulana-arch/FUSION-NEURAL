@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, increment } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import {
   Package, Plus, AlertTriangle, CheckCircle2, X, Tag, Warehouse,
-  ImageIcon, Terminal, Send, Bot, Loader2, ChevronDown, ChevronUp, Edit2, Trash2
+  ImageIcon, Terminal, Send, Bot, Loader2, ChevronDown, ChevronUp, Edit2, Trash2, Sparkles
 } from 'lucide-react';
-import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import { NeuralCore } from '../../../services/NeuralCore';
+import { triggerSimulator } from '../../../services/apiClient';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface Product {
   id: string;
@@ -71,6 +72,43 @@ export default function InventoryTrackerPage() {
     return () => unsub();
   }, []);
 
+  // Simulator Autopilot Triggers — langsung ke Python backend
+  useEffect(() => {
+    const timer1 = setTimeout(() => {
+      triggerSimulator({ action: 'trigger', orders: 20 })
+        .catch(e => console.error('Simulator API error:', e));
+    }, 1_200_000); // 20 menit
+
+    const timer2 = setTimeout(() => {
+      triggerSimulator({ action: 'trigger', orders: 20 })
+        .catch(e => console.error('Simulator API error:', e));
+    }, 3_600_000); // 1 jam
+
+    return () => { clearTimeout(timer1); clearTimeout(timer2); };
+  }, []);
+
+  // AI Pop-up Restock Alert
+  const hasTriggeredAlert = useRef(false);
+  useEffect(() => {
+    if (!products.length || hasTriggeredAlert.current) return;
+    
+    const outOfStock = products.filter(p => getQty(p) <= 0);
+    if (outOfStock.length > 0) {
+      hasTriggeredAlert.current = true;
+      setIsChatOpen(true);
+      
+      const itemsStr = outOfStock.map(p => p.name).join(', ');
+      
+      const aiAlertMsg: ChatMessage = {
+        role: 'ai',
+        content: `🚨 ALERT: Stok habis terdeteksi!\n\nBarang berikut stoknya 0: ${itemsStr}.\n\nApakah Kakak ingin saya melakukan restock sekarang otomatis menggunakan budget Finance? (Jawab: "Ya, restock produk [nama produk] sebanyak [jumlah]")`,
+        timestamp: new Date()
+      };
+      
+      setChatMessages(prev => [...prev, aiAlertMsg]);
+    }
+  }, [products]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
@@ -92,29 +130,45 @@ export default function InventoryTrackerPage() {
     reader.readAsDataURL(file);
   };
 
+  const BASE_API = import.meta.env.VITE_API_URL;
+  const API_SECRET: string = (import.meta.env.VITE_API_SECRET as string | undefined) ?? '';
+  const authHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+    ...(API_SECRET ? { 'X-API-Key': API_SECRET } : {}),
+  };
+
   const handleSave = async () => {
     if (!form.name || !form.sku) return;
     setIsSaving(true);
     try {
       if (isEditing) {
-        await updateDoc(doc(db, 'inventory', isEditing), { ...form, qty: form.quantity });
-        await FirebaseLogger.logAgentAction('Admin', 'PRODUCT_UPDATED', `Produk "${form.name}" diperbarui`);
+        const res = await fetch(`${BASE_API}/db/inventory/update`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ doc_id: isEditing, data: { ...form, qty: form.quantity } }),
+        });
+        if (!res.ok) console.error('[Inventory] Update gagal:', res.status, await res.text());
       } else {
-        await addDoc(collection(db, 'inventory'), { ...form, qty: form.quantity, createdAt: serverTimestamp() });
-        await FirebaseLogger.logAgentAction('Admin', 'PRODUCT_ADDED', `Produk "${form.name}" (${form.sku}) ditambahkan ke inventory`);
+        const res = await fetch(`${BASE_API}/db/inventory/add`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify(form),
+        });
+        if (!res.ok) console.error('[Inventory] Add gagal:', res.status, await res.text());
       }
       setForm({ name: '', sku: '', category: '', quantity: 0, min_stock: 5, max_stock: 100, warehouse: 'Gudang Utama', photo_url: '' });
       setPhotoPreview('');
       setIsAdding(false);
       setIsEditing(null);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('[Inventory] handleSave error:', e); }
     finally { setIsSaving(false); }
   };
 
   const handleEditClick = (p: Product) => {
     setForm({
-      name: p.name || '', sku: p.sku || '', category: p.category || '', 
-      quantity: getQty(p), min_stock: p.min_stock || 5, max_stock: p.max_stock || 100, 
+      name: p.name || '', sku: p.sku || '', category: p.category || '',
+      quantity: getQty(p), min_stock: p.min_stock || 5, max_stock: p.max_stock || 100,
       warehouse: p.warehouse || 'Gudang Utama', photo_url: getPhoto(p)
     });
     setPhotoPreview(getPhoto(p));
@@ -123,48 +177,45 @@ export default function InventoryTrackerPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Hapus produk ${name}?`)) return;
+    if (!window.confirm(`Hapus produk ${name}?`)) return;
     try {
-      await deleteDoc(doc(db, 'inventory', id));
-      await FirebaseLogger.logAgentAction('Admin', 'PRODUCT_DELETED', `Produk "${name}" dihapus`);
-    } catch (e) { console.error(e); }
+      const res = await fetch(`${BASE_API}/db/inventory/delete`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ doc_id: id, name }),
+      });
+      if (!res.ok) console.error('[Inventory] Delete gagal:', res.status, await res.text());
+    } catch (e) { console.error('[Inventory] handleDelete error:', e); }
   };
 
-  // AI Command Handler
-  const handleSendCommand = async () => {
-    const cmd = chatInput.trim();
-    if (!cmd || isProcessing) return;
-
+  // ── Shared AI command executor (used by handleSendCommand + chip buttons) ──
+  const sendAICommand = async (cmd: string) => {
     const userMsg: ChatMessage = { role: 'user', content: cmd, timestamp: new Date() };
     setChatMessages(p => [...p, userMsg]);
-    setChatInput('');
     setIsProcessing(true);
 
-    // AI Intent Interception for Stock Management
+    // AI Intent Interception: tambah stok via natural language
     const matchTambah = cmd.match(/tambah(?:kan)? stok (.*) (\d+)/i) || cmd.match(/masukin stok (.*) (\d+)/i);
     if (matchTambah) {
       const queryName = matchTambah[1].trim().toLowerCase();
       const addedQty = parseInt(matchTambah[2], 10);
-      
       const targetProduct = products.find(p => p.name?.toLowerCase().includes(queryName) || p.sku?.toLowerCase().includes(queryName));
       if (targetProduct) {
         try {
-          await updateDoc(doc(db, 'inventory', targetProduct.id), {
-             quantity: increment(addedQty),
-             qty: increment(addedQty)
+          await fetch(`${BASE_API}/db/inventory/stock`, {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify({ doc_id: targetProduct.id, amount: addedQty, product_name: targetProduct.name }),
           });
-          await FirebaseLogger.logAgentAction('Admin', 'AI_STOCK_ADD', `Menambah ${addedQty} stok ke ${targetProduct.name} via AI Terminal`);
           setChatMessages(p => [...p, { role: 'ai', content: `✅ Siap! Saya telah menambahkan ${addedQty} unit ke stok ${targetProduct.name}.`, timestamp: new Date() }]);
-        } catch (e) {
-          setChatMessages(p => [...p, { role: 'ai', content: `❌ Terjadi kesalahan saat menambah stok.`, timestamp: new Date() }]);
+        } catch {
+          setChatMessages(p => [...p, { role: 'ai', content: '❌ Terjadi kesalahan saat menambah stok.', timestamp: new Date() }]);
         }
-        setIsProcessing(false);
-        return;
       } else {
         setChatMessages(p => [...p, { role: 'ai', content: `❌ Produk dengan nama/SKU "${queryName}" tidak ditemukan di database.`, timestamp: new Date() }]);
-        setIsProcessing(false);
-        return;
       }
+      setIsProcessing(false);
+      return;
     }
 
     try {
@@ -202,15 +253,21 @@ ATURAN RESPONS:
 
 PERINTAH DARI ADMIN: ${cmd}`;
 
-      const response = await NeuralCore.generateMarketingCampaign(cmd, context);
-      await FirebaseLogger.logAgentAction('Admin', 'AI_COMMAND', `Command: "${cmd.slice(0, 50)}"`);
-
+      const response = await NeuralCore.askAgent('admin', 'inventory_chatbot', `Konteks: ${context}\n\nUser Query: ${cmd}`);
       setChatMessages(p => [...p, { role: 'ai', content: response, timestamp: new Date() }]);
     } catch {
       setChatMessages(p => [...p, { role: 'ai', content: 'Gagal terhubung ke AI. Periksa koneksi API Groq.', timestamp: new Date() }]);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // AI Command Handler — delegates to shared helper
+  const handleSendCommand = async () => {
+    const cmd = chatInput.trim();
+    if (!cmd || isProcessing) return;
+    setChatInput('');
+    await sendAICommand(cmd);
   };
 
   const filtered = products.filter(p =>
@@ -226,21 +283,44 @@ PERINTAH DARI ADMIN: ${cmd}`;
     kritis: products.filter(p => getQty(p) <= (p.min_stock || 5)).length,
   };
 
+  const [pricingLogs, setPricingLogs] = useState<{ id: number, text: string, type: 'up'|'down' }[]>([]);
+
+  // Simulator Dynamic Pricing
+  useEffect(() => {
+    if (products.length === 0) return;
+    const interval = setInterval(() => {
+      const randomProduct = products[Math.floor(Math.random() * products.length)];
+      const qty = getQty(randomProduct);
+      const isCritical = qty <= (randomProduct.min_stock || 5);
+      const isOverstock = qty > (randomProduct.max_stock || 100) * 0.8;
+      
+      if (isCritical) {
+        setPricingLogs(prev => [{ id: Date.now(), text: `📈 AI menaikkan harga ${randomProduct.name} +5% karena stok kritis (Surge Pricing).`, type: 'up' as const }, ...prev].slice(0, 3));
+      } else if (isOverstock) {
+        setPricingLogs(prev => [{ id: Date.now(), text: `📉 AI memberi diskon kilat -10% untuk ${randomProduct.name} untuk mencegah overstock.`, type: 'down' as const }, ...prev].slice(0, 3));
+      }
+    }, 15000); // setiap 15 detik simulasi
+    return () => clearInterval(interval);
+  }, [products]);
+
   return (
     <div className="space-y-6 pb-10">
 
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Inventory Tracker</h1>
-          <p className="text-slate-500 text-sm mt-1">Manajemen stok real-time — tersinkronisasi otomatis setiap transaksi</p>
-        </div>
-        <button onClick={() => setIsAdding(!isAdding)}
+      <PageHeader
+        title="Inventory Tracker"
+        subtitle="Manajemen stok real-time — tersinkronisasi otomatis setiap transaksi"
+        accent="slate"
+        actions={
+          <>
+            <button onClick={() => setIsAdding(!isAdding)}
           className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors shadow-md"
         >
           <Plus size={16} /> Tambah Produk
         </button>
-      </div>
+          </>
+        }
+      />
 
       {/* Status Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -257,6 +337,24 @@ PERINTAH DARI ADMIN: ${cmd}`;
           </motion.div>
         ))}
       </div>
+
+      {/* Dynamic Pricing AI Log */}
+      {pricingLogs.length > 0 && (
+        <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-lg">
+          <h3 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Sparkles size={14} /> AI Dynamic Pricing Active
+          </h3>
+          <div className="space-y-2">
+            <AnimatePresence>
+              {pricingLogs.map(log => (
+                <motion.div key={log.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex gap-2 text-xs font-mono">
+                  <span className={log.type === 'up' ? 'text-rose-400' : 'text-emerald-400'}>{log.text}</span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {/* Add Product Form */}
       <AnimatePresence>
@@ -503,35 +601,14 @@ PERINTAH DARI ADMIN: ${cmd}`;
 
               {/* Quick Command Chips */}
               <div className="px-4 py-2.5 bg-slate-900 border-t border-slate-800 flex gap-2 overflow-x-auto">
-                {['Produk kritis?', 'Saran restok', 'Laporan stok hari ini', 'Produk overstock?', 'Rekomendasi PO'].map(cmd => (
+                {['Produk kritis?', 'Saran restok', 'Laporan stok hari ini', 'Produk overstock?', 'Rekomendasi PO'].map(chip => (
                   <button
-                    key={cmd}
-                    onClick={async () => {
-                      setChatInput(cmd);
-                      // Auto-send: langsung kirim perintah tanpa perlu tekan Enter
-                      const userMsg: ChatMessage = { role: 'user', content: cmd, timestamp: new Date() };
-                      setChatMessages(p => [...p, userMsg]);
-                      setIsProcessing(true);
-                      try {
-                        const inventorySummary = products.length > 0
-                          ? products.map(p => { const q = getQty(p); return `- ${p.name} (${p.sku}): stok ${q}/${p.max_stock || 100} [min:${p.min_stock || 5}] — ${statusConfig(q, p.min_stock || 5).label}`; }).join('\n')
-                          : 'Inventory masih kosong.';
-                        const stats2 = { total: products.length, kritis: products.filter(p => getQty(p) <= (p.min_stock || 5)).length, menipis: products.filter(p => getQty(p) > (p.min_stock || 5) && getQty(p) <= (p.min_stock || 5) * 2).length, aman: products.filter(p => getQty(p) > (p.min_stock || 5) * 2).length };
-                        const context = `Kamu adalah AI Admin Terminal dari FusionNeural — asisten logistik presisi yang berbicara ringkas dan tegas dalam Bahasa Indonesia.\n\nDATA INVENTORY SAAT INI (${new Date().toLocaleString('id-ID')}):\n${inventorySummary}\n\nRINGKASAN STOK:\n- Total SKU: ${stats2.total}\n- Stok Aman: ${stats2.aman}\n- Menipis: ${stats2.menipis}\n- Kritis/Habis: ${stats2.kritis}\n\nATURAN RESPONS:\n1. Jawab dalam Bahasa Indonesia yang singkat dan actionable\n2. Gunakan emoji secukupnya untuk keterbacaan\n3. Jika ada produk kritis, selalu sebutkan nama produknya\n4. Berikan rekomendasi konkret, bukan teori\n5. Format dengan bullet points jika ada list\n\nPERINTAH DARI ADMIN: ${cmd}`;
-                        const response = await NeuralCore.generateMarketingCampaign(cmd, context);
-                        await FirebaseLogger.logAgentAction('Admin', 'AI_COMMAND', `Quick Command: "${cmd}"`);
-                        setChatMessages(p => [...p, { role: 'ai', content: response, timestamp: new Date() }]);
-                      } catch {
-                        setChatMessages(p => [...p, { role: 'ai', content: 'Gagal terhubung ke AI. Periksa koneksi API Groq.', timestamp: new Date() }]);
-                      } finally {
-                        setIsProcessing(false);
-                        setChatInput('');
-                      }
-                    }}
+                    key={chip}
+                    onClick={() => { setChatInput(chip); sendAICommand(chip); }}
                     disabled={isProcessing}
                     className="shrink-0 px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-300 text-[10px] font-bold transition-colors whitespace-nowrap"
                   >
-                    {cmd}
+                    {chip}
                   </button>
                 ))}
               </div>

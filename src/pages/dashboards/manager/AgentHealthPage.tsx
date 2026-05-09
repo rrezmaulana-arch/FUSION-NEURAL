@@ -2,20 +2,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, Zap, Activity, AlertTriangle, RefreshCw,
-  CheckCircle2, Clock, XCircle, Trash2, Wifi, WifiOff,
+  CheckCircle2, Clock, XCircle,
   FileText, DollarSign, Palette, Search, Image, Bot,
 } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
+import PageHeader from '../../../components/ui/PageHeader';
 
 // ── Agent & AI Provider Definitions ────────────────────────────────────────
 interface ProviderMeta {
-  key:   string;          // Redis key suffix, e.g. "groq"
-  label: string;          // Display name
-  model: string;          // Model shortname
-  role:  string;          // Which agent uses this
+  key:   string;
+  label: string;
+  model: string;
+  role:  string;
   icon:  React.ReactNode;
-  color: string;          // Tailwind bg+text
+  color: string;
 }
 
 const PROVIDERS: ProviderMeta[] = [
@@ -27,62 +30,61 @@ const PROVIDERS: ProviderMeta[] = [
   { key: 'cohere',      label: 'Cohere',        model: 'command-r-plus',       role: 'Admin JSON (Primary)',         icon: <FileText size={16} />,  color: 'bg-teal-50 text-teal-600 border-teal-200' },
   { key: 'openrouter',  label: 'OpenRouter',    model: 'gpt-4o-mini:free',     role: 'Admin + Universal Fallback',  icon: <Activity size={16} />,  color: 'bg-violet-50 text-violet-600 border-violet-200' },
   { key: 'hf_text',     label: 'HuggingFace',   model: 'Mistral-7B-Instruct',  role: 'Marketing Text (Primary)',     icon: <Palette size={16} />,   color: 'bg-purple-50 text-purple-600 border-purple-200' },
-  { key: 'gemini_image',label: 'Gemini Imagen', model: '2.0-flash-image',      role: 'Marketing Image (Premium)',   icon: <Image size={16} />,     color: 'bg-sky-50 text-sky-600 border-sky-200' },
-  { key: 'hf_image',    label: 'FLUX.1-schnell','model': 'schnell',            role: 'Marketing Image (Fast Backup)',icon: <Image size={16} />,    color: 'bg-pink-50 text-pink-600 border-pink-200' },
+  { key: 'gemini_image',label: 'Gemini Imagen', model: '2.0-flash-image',      role: 'Marketing Image (Premium)',    icon: <Image size={16} />,     color: 'bg-sky-50 text-sky-600 border-sky-200' },
+  { key: 'hf_image',    label: 'FLUX.1-schnell',model: 'schnell',              role: 'Marketing Image (Fast Backup)',icon: <Image size={16} />,    color: 'bg-pink-50 text-pink-600 border-pink-200' },
   { key: 'serper',      label: 'Serper.dev',    model: 'Google Search',        role: 'Search Tool (Real-time)',      icon: <Search size={16} />,    color: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
-const THRESHOLD = 50;
-
-interface ErrorEntry { apiName: string; errorMsg: string; agentRole: string; ts: string; }
-interface TelemetryData {
-  counts:    Record<string, number>;
-  warnings:  string[];
-  threshold: number;
-  errors:    ErrorEntry[];
+interface ActivityLog {
+  id: string;
+  agent: string;
+  action: string;
+  details: string;
+  timestamp: any;
 }
+
+// Derive agent call counts from activity_logs
+function buildCallCounts(logs: ActivityLog[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const log of logs) {
+    const agent = (log.agent || '').toLowerCase();
+    if (agent === 'admin') map['groq'] = (map['groq'] || 0) + 1;
+    else if (agent === 'finance') map['deepseek'] = (map['deepseek'] || 0) + 1;
+    else if (agent === 'marketing') map['hf_text'] = (map['hf_text'] || 0) + 1;
+    else if (agent === 'manager') map['gemini'] = (map['gemini'] || 0) + 1;
+  }
+  return map;
+}
+
+const THRESHOLD = 50;
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function AgentHealthPage() {
-  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [lastSync,  setLastSync]  = useState<string>('—');
-  const [redisOk,   setRedisOk]   = useState<boolean | null>(null);
-  const [syncing,   setSyncing]   = useState(false);
-  const [syncMsg,   setSyncMsg]   = useState('');
-  const [resetting, setResetting] = useState(false);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastSync, setLastSync] = useState<string>('—');
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
 
-  const fetchTelemetry = useCallback(async () => {
+  // Listen to activity_logs from Firestore (replaces dead /api/memory endpoint)
+  useEffect(() => {
     setLoading(true);
-    try {
-      const res  = await fetch('/api/memory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'get_telemetry' }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setTelemetry(data);
-        setRedisOk(true);
-        setLastSync(new Date().toLocaleTimeString('id-ID'));
-      } else {
-        setRedisOk(false);
-      }
-    } catch {
-      setRedisOk(false);
-    } finally {
+    const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(200));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ActivityLog[];
+      setLogs(data);
+      setLastSync(new Date().toLocaleTimeString('id-ID'));
       setLoading(false);
-    }
+    });
+    return () => unsub();
   }, []);
 
-  // Poll every 30 seconds
-  useEffect(() => {
-    fetchTelemetry();
-    const id = setInterval(fetchTelemetry, 30_000);
-    return () => clearInterval(id);
-  }, [fetchTelemetry]);
+  const callCounts = buildCallCounts(logs);
 
-  const handleForceSync = async () => {
+  const warnings = PROVIDERS.filter(p => (callCounts[p.key] || 0) >= THRESHOLD).map(p => p.key);
+  const activeWarnings = warnings.length;
+
+  const handleForceSync = useCallback(async () => {
     setSyncing(true); setSyncMsg('');
     try {
       await NeuralCore.initCorePrompts();
@@ -90,49 +92,24 @@ export default function AgentHealthPage() {
       setSyncMsg('✅ Semua SOP agen berhasil disinkronisasi ke Firestore.');
     } catch { setSyncMsg('❌ Gagal sync. Periksa koneksi Firestore.'); }
     finally { setSyncing(false); setTimeout(() => setSyncMsg(''), 5000); }
-  };
-
-  const handleResetUsage = async () => {
-    setResetting(true);
-    try {
-      await fetch('/api/memory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset_usage' }),
-      });
-      await fetchTelemetry();
-    } finally { setResetting(false); }
-  };
-
-  const totalCalls = telemetry ? Object.values(telemetry.counts).reduce((a, b) => a + b, 0) : 0;
-  const activeWarnings = telemetry?.warnings.length || 0;
+  }, []);
 
   return (
     <div className="space-y-6 pb-10">
-
-      {/* Header */}
-      <div className="flex flex-wrap items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Agent Health Monitor</h1>
-          <p className="text-slate-500 text-sm mt-1">Telemetri real-time dari Upstash Redis · SOP dari Firestore</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleResetUsage} disabled={resetting}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-rose-200 text-rose-600 text-sm font-bold rounded-xl hover:bg-rose-50 transition-colors disabled:opacity-50"
-          >
-            <Trash2 size={14} />
-            {resetting ? 'Mereset...' : 'Reset Usage'}
-          </button>
-          <button
-            onClick={handleForceSync} disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-500 transition-colors disabled:opacity-50"
+      <PageHeader
+        title="Agent Health Monitor"
+        subtitle="Telemetri real-time dari Firestore activity_logs · SOP dari Firestore"
+        accent="teal"
+        icon={<Activity size={22} className="text-white" />}
+        actions={
+          <button onClick={handleForceSync} disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white text-sm font-bold rounded-xl border border-white/30 transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
             {syncing ? 'Menyinkronkan...' : 'Force Sync SOP'}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Sync Message */}
       <AnimatePresence>
@@ -147,112 +124,89 @@ export default function AgentHealthPage() {
 
       {/* Summary Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Redis Status */}
+        {/* Firestore Status */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          className={`bg-white rounded-2xl p-5 border shadow-sm flex flex-col gap-2 ${redisOk === false ? 'border-rose-200' : 'border-slate-100'}`}
+          className="bg-[#0f172a] rounded-2xl p-5 border border-emerald-500/30 shadow-sm flex flex-col gap-2"
         >
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
-            {redisOk === null ? <Clock size={12} /> : redisOk ? <Wifi size={12} className="text-emerald-500" /> : <WifiOff size={12} className="text-rose-500" />}
-            Redis Status
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+            <CheckCircle2 size={12} className="text-emerald-400" />
+            Firestore Status
           </div>
-          <div className={`text-lg font-black ${redisOk === null ? 'text-slate-400' : redisOk ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {redisOk === null ? 'Checking...' : redisOk ? 'Connected' : 'Offline'}
-          </div>
-          <div className="text-[10px] text-slate-400">Sync: {lastSync}</div>
+          <div className="text-lg font-black text-emerald-400">Connected</div>
+          <div className="text-[10px] text-slate-500">Sync: {lastSync}</div>
         </motion.div>
 
         {/* Total Calls */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm"
+          className="bg-[#0f172a] rounded-2xl p-5 border border-white/10 shadow-sm"
         >
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Activity size={12} />Total Calls</div>
-          <div className="text-3xl font-black text-slate-800">{totalCalls.toLocaleString()}</div>
-          <div className="text-[10px] text-slate-400 mt-1">sesi ini</div>
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1"><Activity size={12} />Total Aktivitas</div>
+          <div className="text-3xl font-black text-slate-200">{loading ? '...' : logs.length.toLocaleString()}</div>
+          <div className="text-[10px] text-slate-500 mt-1">log tersimpan</div>
         </motion.div>
 
         {/* Active Warnings */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className={`rounded-2xl p-5 border shadow-sm ${activeWarnings > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'}`}
+          className={`rounded-2xl p-5 border shadow-sm ${activeWarnings > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-[#0f172a] border-white/10'}`}
         >
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><AlertTriangle size={12} />Threshold Warnings</div>
-          <div className={`text-3xl font-black ${activeWarnings > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{activeWarnings}</div>
-          <div className="text-[10px] text-slate-400 mt-1">≥ {THRESHOLD} panggilan</div>
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1"><AlertTriangle size={12} />Threshold Warnings</div>
+          <div className={`text-3xl font-black ${activeWarnings > 0 ? 'text-amber-400' : 'text-slate-200'}`}>{activeWarnings}</div>
+          <div className="text-[10px] text-slate-500 mt-1">≥ {THRESHOLD} panggilan</div>
         </motion.div>
 
-        {/* Errors Today */}
+        {/* Unique Agents */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className={`rounded-2xl p-5 border shadow-sm ${(telemetry?.errors.length || 0) > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-100'}`}
+          className="bg-[#0f172a] rounded-2xl p-5 border border-white/10 shadow-sm"
         >
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><XCircle size={12} />Error Log</div>
-          <div className={`text-3xl font-black ${(telemetry?.errors.length || 0) > 0 ? 'text-rose-600' : 'text-slate-800'}`}>{telemetry?.errors.length || 0}</div>
-          <div className="text-[10px] text-slate-400 mt-1">entri terbaru</div>
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1"><Brain size={12} />Agen Aktif</div>
+          <div className="text-3xl font-black text-slate-200">{Object.keys(callCounts).length}</div>
+          <div className="text-[10px] text-slate-500 mt-1">dari {PROVIDERS.length} provider</div>
         </motion.div>
       </div>
-
-      {/* Global Usage Warning Banner */}
-      <AnimatePresence>
-        {activeWarnings > 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4"
-          >
-            <AlertTriangle size={18} className="text-amber-500 shrink-0" />
-            <p className="text-sm text-amber-700 font-medium">
-              <strong>Peringatan Penggunaan:</strong>{' '}
-              {telemetry!.warnings.map(w => {
-                const p = PROVIDERS.find(x => x.key === w);
-                return p ? `${p.label} (${p.role})` : w;
-              }).join(', ')}{' '}
-              sudah mencapai ≥{THRESHOLD} panggilan. Pertimbangkan untuk mereset atau memantau lebih lanjut.
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Provider Cards Grid */}
       <div>
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-          AI Provider Usage — {loading ? 'Memuat...' : `Update: ${lastSync}`}
+          AI Provider Usage — {loading ? 'Memuat...' : `Update: ${lastSync} · Dihitung dari ${logs.length} log`}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {PROVIDERS.map((p, i) => {
-            const count   = telemetry?.counts[p.key] ?? 0;
+            const count   = callCounts[p.key] ?? 0;
             const pct     = Math.min((count / THRESHOLD) * 100, 100);
-            const warned  = (telemetry?.warnings || []).includes(p.key);
+            const warned  = warnings.includes(p.key);
             return (
               <motion.div
                 key={p.key}
                 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className={`bg-white rounded-2xl p-5 border shadow-sm ${warned ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-100'}`}
+                className={`bg-[#0f172a] rounded-2xl p-5 border shadow-sm ${warned ? 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'border-white/10'}`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${p.color}`}>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${p.color.replace('bg-', 'bg-opacity-10 bg-').replace('border-', 'border-opacity-30 border-')} bg-opacity-10`}>
                       {p.icon}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-800">{p.label}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{p.model}</p>
+                      <p className="text-sm font-bold text-slate-200">{p.label}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">{p.model}</p>
                     </div>
                   </div>
                   {warned
-                    ? <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-amber-100 text-amber-700"><AlertTriangle size={10} />HIGH</span>
+                    ? <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30"><AlertTriangle size={10} />HIGH</span>
                     : count > 0
-                      ? <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 size={10} />OK</span>
-                      : <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-slate-100 text-slate-500"><Clock size={10} />IDLE</span>
+                      ? <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"><CheckCircle2 size={10} />OK</span>
+                      : <span className="flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-[#1e293b] text-slate-400 border border-white/10"><Clock size={10} />IDLE</span>
                   }
                 </div>
 
-                {/* Role badge */}
-                <p className="text-[10px] text-slate-400 mb-2">{p.role}</p>
+                <p className="text-[10px] text-slate-500 mb-2">{p.role}</p>
 
-                {/* Usage bar */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>API Calls</span>
-                    <span className={`font-bold ${warned ? 'text-amber-600' : 'text-slate-600'}`}>{count} / {THRESHOLD}</span>
+                    <span>Aktivitas Terdeteksi</span>
+                    <span className={`font-bold ${warned ? 'text-amber-400' : 'text-slate-300'}`}>{count} / {THRESHOLD}</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="w-full bg-[#1e293b] rounded-full h-2 overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
@@ -267,38 +221,34 @@ export default function AgentHealthPage() {
         </div>
       </div>
 
-      {/* Error Log */}
-      {(telemetry?.errors.length || 0) > 0 && (
-        <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <XCircle size={12} className="text-rose-400" /> Error Log Terbaru (Redis)
-          </h2>
-          <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-700">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
-              <div className="w-3 h-3 rounded-full bg-rose-500" />
-              <div className="w-3 h-3 rounded-full bg-amber-400" />
-              <div className="w-3 h-3 rounded-full bg-emerald-400" />
-              <span className="ml-2 text-slate-400 text-xs font-mono">error_log:system</span>
-            </div>
-            <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
-              {telemetry!.errors.map((err, i) => {
-                const p   = PROVIDERS.find(x => x.key === err.apiName);
-                const ts  = err.ts ? new Date(err.ts).toLocaleTimeString('id-ID') : '—';
-                return (
-                  <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
-                    className="flex items-start gap-3 text-xs font-mono"
-                  >
-                    <span className="text-slate-500 shrink-0">{ts}</span>
-                    <span className="text-rose-400 shrink-0">[{err.agentRole || '?'}]</span>
-                    <span className="text-amber-400 shrink-0">{p?.label || err.apiName}:</span>
-                    <span className="text-slate-300 break-all">{err.errorMsg?.slice(0, 150)}</span>
-                  </motion.div>
-                );
-              })}
-            </div>
+      {/* Recent Activity Log */}
+      <div>
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <XCircle size={12} className="text-rose-400" /> Live Activity Log ({logs.length} entries)
+        </h2>
+        <div className="bg-[#0F172A] rounded-2xl overflow-hidden border border-slate-700">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
+            <div className="w-3 h-3 rounded-full bg-rose-500" />
+            <div className="w-3 h-3 rounded-full bg-amber-400" />
+            <div className="w-3 h-3 rounded-full bg-emerald-400" />
+            <span className="ml-2 text-slate-400 text-xs font-mono">firestore/activity_logs</span>
+          </div>
+          <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
+            {logs.length === 0 ? (
+              <div className="text-slate-600 text-xs py-8 text-center">Belum ada log aktivitas agen.</div>
+            ) : logs.slice(0, 30).map((log, i) => (
+              <motion.div key={log.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                className="flex items-start gap-3 text-xs font-mono"
+              >
+                <span className="text-slate-500 shrink-0">{log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString('id-ID') : '—'}</span>
+                <span className="text-teal-400 shrink-0">[{log.agent}]</span>
+                <span className="text-amber-400 shrink-0">{log.action}:</span>
+                <span className="text-slate-300 break-all">{log.details?.slice(0, 120)}</span>
+              </motion.div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
     </div>
   );

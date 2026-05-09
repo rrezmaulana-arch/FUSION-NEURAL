@@ -5,6 +5,7 @@ import { db } from '../../../lib/firebase';
 import { ShoppingCart, Package, Truck, CheckCircle2, Clock, AlertTriangle, ChevronRight, Brain } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
@@ -66,10 +67,11 @@ export default function OrderStreamPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Order Stream</h1>
-        <p className="text-slate-500 text-sm mt-1">Siklus hidup pesanan dari Pending hingga Delivered</p>
-      </div>
+      <PageHeader
+        title="Order Stream"
+        subtitle="Siklus hidup pesanan dari Pending hingga Delivered"
+        accent="slate"
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {stats.map((s, i) => {

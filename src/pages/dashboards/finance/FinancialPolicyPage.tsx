@@ -4,6 +4,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Shield as _S, Save, CheckCircle2, RefreshCw, Percent, DollarSign, PiggyBank } from 'lucide-react';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface PolicyConfig {
   margin_target: number;
@@ -53,19 +54,22 @@ export default function FinancialPolicyPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Financial Policy</h1>
-          <p className="text-slate-500 text-sm mt-1">Blueprint kebijakan — aturan main finansial bagi seluruh agen AI</p>
-        </div>
-        <button onClick={handleSave} disabled={isSaving}
+      <PageHeader
+        title="Financial Policy"
+        subtitle="Blueprint kebijakan — aturan main finansial bagi seluruh agen AI"
+        accent="emerald"
+        actions={
+          <>
+            <button onClick={handleSave} disabled={isSaving}
           className={`shrink-0 flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-md ${saved ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'} disabled:opacity-50`}
         >
           {isSaving ? <><RefreshCw size={15} className="animate-spin" /> Menyimpan...</>
             : saved ? <><CheckCircle2 size={15} /> Tersimpan!</>
             : <><Save size={15} /> Simpan Policy</>}
         </button>
-      </div>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Margin Locking */}

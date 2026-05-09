@@ -6,6 +6,7 @@ import { db } from '../../../lib/firebase';
 import { Building2, Plus, Star, Truck, FileText, X, Search, Sparkles, TrendingUp, Factory } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface Supplier {
   id: string;
@@ -74,7 +75,7 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
 [
   { "name": "PT Contoh Maju", "contact": "08123456789", "product_category": "Kategori relevan", "last_price": 50000, "lead_time_days": 3, "performance_score": 9, "address": "Kota, Provinsi", "track_record": "Konsisten, barang berkualitas" }
 ]`;
-      const response = await NeuralCore.generateMarketingCampaign(searchQuery, context);
+      const response = await NeuralCore.askAgent('admin', 'supplier_research', `Konteks: ${context}\n\nUser Query: ${searchQuery}`);
       
       const cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
       const data = JSON.parse(cleanJson);
@@ -125,9 +126,10 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
   const handleGeneratePO = async (supplier: Supplier) => {
     setGeneratingPO(supplier.id);
     try {
-      const po = await NeuralCore.generateMarketingCampaign(
-        `Draft Purchase Order untuk supplier ${supplier.name}`,
-        `Kamu adalah AI Admin yang membuat surat Purchase Order profesional. Buat draft PO untuk supplier "${supplier.name}" kategori "${supplier.product_category || 'umum'}", harga beli terakhir Rp ${(supplier.last_price || 0).toLocaleString('id-ID')}, lead time ${supplier.lead_time_days || 3} hari. Format sebagai dokumen formal singkat.`
+      const po = await NeuralCore.askAgent(
+        'admin',
+        'supplier_research',
+        `Konteks: Kamu adalah AI Admin yang membuat surat Purchase Order profesional. Buat draft PO untuk supplier "${supplier.name}" kategori "${supplier.product_category || 'umum'}", harga beli terakhir Rp ${(supplier.last_price || 0).toLocaleString('id-ID')}, lead time ${supplier.lead_time_days || 3} hari. Format sebagai dokumen formal singkat.\n\nTugas: Draft Purchase Order untuk supplier ${supplier.name}`
       );
       setPoResult(p => ({ ...p, [supplier.id]: po }));
       await FirebaseLogger.logAgentAction('Admin', 'PO_GENERATED', `PO draft dibuat untuk supplier ${supplier.name}`);
@@ -154,17 +156,20 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
       <div className="fixed bottom-4 right-4 text-[10px] font-mono text-slate-400 pointer-events-none opacity-60 z-50">
         SYS.COORD {coords}
       </div>
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Supplier Hub</h1>
-          <p className="text-slate-500 text-sm mt-1">Manajemen vendor — informasi kontak, harga beli, dan performa pengiriman</p>
-        </div>
-        <button onClick={() => setIsAdding(!isAdding)}
+      <PageHeader
+        title="Supplier Hub"
+        subtitle="Manajemen vendor — informasi kontak, harga beli, dan performa pengiriman"
+        accent="slate"
+        actions={
+          <>
+            <button onClick={() => setIsAdding(!isAdding)}
           className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 shadow-[0_0_15px_rgba(30,41,59,0.3)] transition-all"
         >
           <Plus size={16} className="animate-pulse text-emerald-400" /> Tambah Supplier
         </button>
-      </div>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content Area */}

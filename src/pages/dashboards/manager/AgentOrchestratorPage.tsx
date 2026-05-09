@@ -1,302 +1,389 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, Briefcase, MessagesSquare, Calculator, Search, Megaphone, Coffee, Activity, Database, User } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Network, Database, Briefcase, Shield, Megaphone, Calculator, MessageSquare, Activity, ArrowLeft, Cpu, Terminal, Zap, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
-interface ActivityLog {
-  id: string;
-  agent: string;
-  action: string;
-  details: string;
-  timestamp: any;
-}
-
-const AGENT_META = {
-  manager: { label: 'Manager AI', desc: 'Orchestrator', icon: Briefcase, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', shadow: 'shadow-indigo-500/20' },
-  frontliner: { label: 'Frontliner AI', desc: 'Customer UX', icon: MessagesSquare, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', shadow: 'shadow-emerald-500/20' },
-  admin: { label: 'Admin AI', desc: 'Data & Supply', icon: Search, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', shadow: 'shadow-blue-500/20' },
-  finance: { label: 'Finance AI', desc: 'Audit & Budget', icon: Calculator, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', shadow: 'shadow-amber-500/20' },
-  marketing: { label: 'Marketing AI', desc: 'Creative Asset', icon: Megaphone, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', shadow: 'shadow-rose-500/20' },
-};
-
-type AgentId = keyof typeof AGENT_META;
-
-const LLM_WORKERS = [
-  { id: 'groq', name: 'Groq', role: 'Fast Inference' },
-  { id: 'gemini', name: 'Gemini', role: 'Orchestrator Core' },
-  { id: 'mistral', name: 'Mistral', role: 'Backup Core' },
-  { id: 'openrouter', name: 'OpenRouter', role: 'Fallback API' },
-  { id: 'cerebras', name: 'Cerebras', role: 'Backup Fast' },
-  { id: 'cohere', name: 'Cohere', role: 'JSON Formatter' },
-  { id: 'deepseek', name: 'DeepSeek', role: 'Reasoner' },
+const ROOMS = [
+  { id: 'admin', label: 'OPS Admin', sublabel: 'Operations Command', icon: Briefcase, accent: '#8b5cf6', agents: [
+    { id: 'admin_1', name: 'Cohere', model: 'command-r-plus', role: 'Admin JSON (Primary)' },
+    { id: 'admin_2', name: 'OpenRouter', model: 'gpt-4o-mini-free', role: 'Universal Fallback' },
+  ]},
+  { id: 'manager', label: 'Manager CMD', sublabel: 'Command & Control', icon: Shield, accent: '#3b82f6', agents: [
+    { id: 'manager_1', name: 'Gemini', model: '2.5-flash-preview', role: 'Manager (Primary)' },
+    { id: 'manager_2', name: 'Mistral', model: 'large-latest', role: 'Manager (Backup)' },
+  ]},
+  { id: 'marketing', label: 'Creative MKT', sublabel: 'Marketing & Creative', icon: Megaphone, accent: '#ec4899', agents: [
+    { id: 'mkt_1', name: 'HuggingFace', model: 'Mistral-7B', role: 'Text Generation' },
+    { id: 'mkt_2', name: 'Gemini Imagen', model: '2.0-flash-image', role: 'Image (Premium)' },
+    { id: 'mkt_3', name: 'FLUX.1-schnell', model: 'schnell', role: 'Image (Fast)' },
+  ]},
+  { id: 'finance', label: 'Finance Vault', sublabel: 'Financial Intelligence', icon: Calculator, accent: '#10b981', agents: [
+    { id: 'fin_1', name: 'DeepSeek', model: 'deepseek-reasoner', role: 'Finance (Primary)' },
+  ]},
+  { id: 'frontliner', label: 'Comms & Sales', sublabel: 'Customer Communications', icon: MessageSquare, accent: '#f59e0b', agents: [
+    { id: 'fl_1', name: 'Groq', model: 'llama-3.3-70b', role: 'Frontliner (Primary)' },
+    { id: 'fl_2', name: 'Cerebras', model: 'llama-3.3-70b', role: 'Frontliner (Backup)' },
+  ]},
+  { id: 'core', label: 'Data Core', sublabel: 'Real-time Search Layer', icon: Database, accent: '#6366f1', agents: [
+    { id: 'core_1', name: 'Serper.dev', model: 'Google Search', role: 'Search Tool (Live)' },
+  ]},
 ];
 
-export default function AgentOrchestratorPage() {
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [statuses, setStatuses] = useState<Record<string, string>>({
-    manager: 'IDLE',
-    frontliner: 'IDLE',
-    admin: 'IDLE',
-    finance: 'IDLE',
-    marketing: 'IDLE',
-  });
+interface Log { id: string; agent: string; details: string; timestamp: any; }
 
-  // Polling Redis agent statuses
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch('/api/memory', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'get_all_agent_status' }),
-        });
-        const data = await res.json();
-        if (data.statuses) {
-          setStatuses(prev => ({ ...prev, ...data.statuses }));
-        }
-      } catch (e) {
-        // ignore errors
-      }
-    };
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 2000);
-    return () => clearInterval(interval);
-  }, []);
+const STYLE = `
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+.ao-wrap { font-family: 'Outfit', sans-serif; background: transparent; min-height: 100vh; color: #e2e8f0; margin: -24px; padding: 0; }
+.ao-bg { background: transparent; }
+.ao-scroll::-webkit-scrollbar { width: 5px; } .ao-scroll::-webkit-scrollbar-track { background: transparent; } .ao-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 4px; }
+.ao-card { background: rgba(15,23,42,0.7); border: 1px solid rgba(255,255,255,0.07); backdrop-filter: blur(12px); transition: all 0.25s cubic-bezier(.4,0,.2,1); }
+.ao-card:hover { border-color: rgba(255,255,255,0.14); transform: translateY(-2px); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+.ao-mono { font-family: 'JetBrains Mono', monospace; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes slide-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+`;
 
-  // Firestore activity logs
-  useEffect(() => {
-    const q = query(collection(db, 'task_results'), orderBy('completedAt', 'desc'), limit(15));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const fetchedLogs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        agent: doc.data().agent,
-        action: 'TASK_COMPLETED',
-        details: doc.data().task,
-        timestamp: doc.data().completedAt,
-      })) as ActivityLog[];
-      setLogs(fetchedLogs);
-    });
-    return () => unsub();
-  }, []);
+function timeAgo(ts: any) {
+  if (!ts?.toDate) return '—';
+  const s = Math.floor((Date.now() - ts.toDate().getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+function isRecent(ts: any) {
+  if (!ts?.toDate) return false;
+  return (Date.now() - ts.toDate().getTime()) / 1000 < 30;
+}
 
-  // Render Agent Avatar Card
-  const renderAgent = (id: AgentId) => {
-    const meta = AGENT_META[id];
-    const Icon = meta.icon;
-    const isWorking = statuses[id] === 'WORKING';
-    
-    return (
-      <motion.div
-        layoutId={`agent-avatar-${id}`}
-        initial={false}
-        animate={{ scale: isWorking ? 1.05 : 1, y: isWorking ? -5 : 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className={`relative z-20 flex flex-col items-center justify-center p-4 rounded-3xl bg-white shadow-lg border transition-all ${isWorking ? `${meta.border} ${meta.shadow}` : 'border-slate-100 shadow-slate-200/50 hover:shadow-slate-300/50'}`}
-        style={{ width: '130px' }}
-      >
-        <div className={`relative w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-inner transition-colors ${isWorking ? meta.bg : 'bg-slate-50'}`}>
-          <Icon className={`w-6 h-6 transition-colors ${isWorking ? meta.color : 'text-slate-400'}`} />
-          {isWorking && (
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-              className={`absolute -inset-1.5 rounded-2xl border-2 border-dashed ${meta.border}`}
-            />
-          )}
-        </div>
-        <span className="text-sm font-black text-slate-800 tracking-tight">{meta.label}</span>
-        <span className="text-[10px] font-medium text-slate-500 mt-0.5">{meta.desc}</span>
-        
-        <div className={`mt-3 px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase flex items-center gap-1.5 ${isWorking ? `${meta.bg} ${meta.color}` : 'bg-slate-100 text-slate-400'}`}>
-          {isWorking && <span className={`w-1.5 h-1.5 rounded-full ${meta.color.replace('text-', 'bg-')} animate-pulse`} />}
-          {statuses[id]}
-        </div>
-      </motion.div>
-    );
-  };
-
-  const idleAgents = (Object.keys(AGENT_META) as AgentId[]).filter(id => statuses[id] === 'IDLE');
-
+/* ── Agent Pill ── */
+function AgentPill({ agent, accent, active }: { agent: typeof ROOMS[0]['agents'][0], accent: string, active: boolean }) {
   return (
-    <div className="space-y-6 pb-10 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Agent Headquarters</h1>
-          <p className="text-slate-500 text-sm mt-1.5">Pemetaan visual otonom AI tersinkronisasi Redis & Firebase</p>
-        </div>
-        <div className="flex items-center gap-2.5 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 text-sm font-bold shadow-sm">
-          <Activity size={16} className="text-emerald-500" />
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live Sync
-          </div>
-        </div>
+    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:10, background: active ? `${accent}12` : 'rgba(0,0,0,0.3)', border:`1px solid ${active ? accent+'40' : 'rgba(255,255,255,0.06)'}`, transition:'all 0.2s' }}>
+      <div style={{ width:7, height:7, borderRadius:'50%', background: active ? accent : '#334155', boxShadow: active ? `0 0 8px ${accent}` : 'none', flexShrink:0, animation: active ? 'blink 1.5s infinite' : 'none' }} />
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9', lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{agent.name}</div>
+        <div className="ao-mono" style={{ fontSize:10, color:'#64748b', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{agent.model}</div>
       </div>
-
-      {/* Blueprint / Office Map */}
-      <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-slate-100 shadow-xl shadow-slate-200/50 relative overflow-hidden">
-        {/* Modern Dot Grid Background */}
-        <div className="absolute inset-0 pointer-events-none opacity-[0.2]" style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        
-        <div className="max-w-5xl mx-auto relative z-10 flex flex-col gap-8">
-          
-          {/* Top Floor: Manager & Frontdesk */}
-          <div className="grid grid-cols-2 gap-8">
-            <div className="relative bg-white rounded-[2rem] border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[220px] shadow-sm hover:shadow-md transition-shadow">
-              <div className="absolute top-5 left-6 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
-                  <MessagesSquare className="w-4 h-4 text-emerald-500" />
-                </div>
-                <h3 className="text-sm font-black text-slate-700 tracking-tight">Frontdesk Room</h3>
-              </div>
-              {statuses.frontliner === 'WORKING' && renderAgent('frontliner')}
-            </div>
-            
-            <div className="relative bg-white rounded-[2rem] border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[220px] shadow-sm hover:shadow-md transition-shadow">
-              <div className="absolute top-5 left-6 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center">
-                  <Briefcase className="w-4 h-4 text-indigo-500" />
-                </div>
-                <h3 className="text-sm font-black text-slate-700 tracking-tight">Manager Office</h3>
-              </div>
-              {statuses.manager === 'WORKING' && renderAgent('manager')}
-            </div>
-          </div>
-
-          {/* Central Lounge (Idle Room) */}
-          <div className="relative bg-white rounded-[3rem] border border-slate-200 shadow-xl shadow-slate-300/30 p-10 flex flex-col items-center justify-center min-h-[280px] w-full">
-            <div className="absolute top-6 left-8 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                <Coffee className="w-5 h-5 text-slate-500" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-800 tracking-tight">Ruang Kumpul AI (Worker Pool)</h3>
-                <p className="text-xs font-medium text-slate-500">Kumpulan model bahasa (LLM) & Agen Internal (IDLE)</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center justify-center gap-4 mt-12 w-full max-w-4xl">
-               {LLM_WORKERS.map(worker => (
-                  <div key={worker.id} className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 w-28 shadow-sm hover:shadow-md hover:bg-slate-50 transition-all">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2 text-slate-500">
-                       <User size={20} strokeWidth={2.5} />
-                    </div>
-                    <span className="text-[11px] font-black text-slate-700 tracking-tight">{worker.name}</span>
-                    <span className="text-[9px] font-medium text-slate-500 text-center leading-tight mt-0.5">{worker.role}</span>
-                  </div>
-               ))}
-            </div>
-            
-            {idleAgents.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-slate-100 w-full flex flex-col items-center">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="w-2 h-2 rounded-full bg-slate-300" />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Agen Internal Idle</p>
-                  <span className="w-2 h-2 rounded-full bg-slate-300" />
-                </div>
-                <div className="flex flex-wrap gap-4 justify-center">
-                  {idleAgents.map(id => (
-                    <div key={id} className="relative transform scale-90 origin-top">
-                      {renderAgent(id)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Floor: Worker Rooms */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="relative bg-white rounded-[2rem] border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[220px] shadow-sm hover:shadow-md transition-shadow">
-              <div className="absolute top-5 left-6 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                  <Search className="w-4 h-4 text-blue-500" />
-                </div>
-                <h3 className="text-sm font-black text-slate-700 tracking-tight">Admin Desk</h3>
-              </div>
-              {statuses.admin === 'WORKING' && renderAgent('admin')}
-            </div>
-            
-            <div className="relative bg-white rounded-[2rem] border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[220px] shadow-sm hover:shadow-md transition-shadow">
-              <div className="absolute top-5 left-6 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
-                  <Calculator className="w-4 h-4 text-amber-500" />
-                </div>
-                <h3 className="text-sm font-black text-slate-700 tracking-tight">Finance Room</h3>
-              </div>
-              {statuses.finance === 'WORKING' && renderAgent('finance')}
-            </div>
-            
-            <div className="relative bg-white rounded-[2rem] border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[220px] shadow-sm hover:shadow-md transition-shadow">
-              <div className="absolute top-5 left-6 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
-                  <Megaphone className="w-4 h-4 text-rose-500" />
-                </div>
-                <h3 className="text-sm font-black text-slate-700 tracking-tight">Marketing Studio</h3>
-              </div>
-              {statuses.marketing === 'WORKING' && renderAgent('marketing')}
-            </div>
-          </div>
-
-        </div>
+      <div style={{ fontSize:9, fontWeight:700, color: active ? accent : '#475569', letterSpacing:'0.5px', flexShrink:0, background: active ? `${accent}20` : 'rgba(255,255,255,0.04)', padding:'3px 7px', borderRadius:5 }}>
+        {active ? 'ON' : 'IDLE'}
       </div>
-
-      {/* Task Log Table */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white/80 backdrop-blur-2xl rounded-[2rem] p-8 shadow-lg shadow-slate-200/50 border border-slate-100 flex flex-col">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h3 className="font-black text-xl text-slate-800 tracking-tight">Log Hasil Kerja Agen</h3>
-            <p className="text-sm text-slate-500 mt-1">Data tersimpan permanen di Firebase Firestore</p>
-          </div>
-          <span className="text-xs font-bold text-slate-600 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm flex items-center gap-2">
-            <Database size={14} className="text-slate-400" />
-            Permanent Storage
-          </span>
-        </div>
-        
-        <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-4 font-bold">Waktu Selesai</th>
-                <th className="px-6 py-4 font-bold">Agen Eksekutor</th>
-                <th className="px-6 py-4 font-bold">Status</th>
-                <th className="px-6 py-4 font-bold">Detail Tugas Selesai</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {logs.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="text-center py-12 text-slate-400 font-medium">Belum ada tugas otonom yang diselesaikan.</td>
-                </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-slate-500 whitespace-nowrap">
-                      {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString('id-ID') : 'Baru saja'}
-                    </td>
-                    <td className="px-6 py-4 font-black text-slate-800 capitalize">
-                      {log.agent}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5 w-fit">
-                        <Sparkles size={10} />
-                        COMPLETED
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 max-w-xl truncate font-medium" title={log.details}>
-                      {log.details}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
     </div>
   );
 }
 
+/* ── Room Detail ── */
+function RoomView({ room, logs, onBack }: { room: typeof ROOMS[0], logs: Log[], onBack:()=>void }) {
+  const roomLogs = logs.filter(l => l.agent.toLowerCase() === room.id || (room.id==='core' && !ROOMS.find(r=>r.id===l.agent.toLowerCase())));
+  const active = roomLogs.length > 0 && isRecent(roomLogs[0].timestamp);
+
+  return (
+    <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }} style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Back header */}
+      <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+        <button onClick={onBack} style={{ width:40, height:40, borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+          <ArrowLeft size={18} />
+        </button>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:40, height:40, borderRadius:10, background:`${room.accent}18`, border:`1px solid ${room.accent}40`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <room.icon size={20} color={room.accent} />
+          </div>
+          <div>
+            <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:'#f8fafc', letterSpacing:'-0.01em' }}>{room.label}</h2>
+            <p style={{ margin:0, fontSize:12, color:'#64748b' }}>{room.sublabel}</p>
+          </div>
+        </div>
+        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:20, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.35)' : 'rgba(255,255,255,0.08)'}`, fontSize:12, fontWeight:700, color: active ? '#10b981' : '#475569' }}>
+          <div style={{ width:7, height:7, borderRadius:'50%', background: active ? '#10b981' : '#475569', animation: active ? 'blink 1.5s infinite' : 'none' }} />
+          {active ? 'PROCESSING' : 'STANDBY'}
+        </div>
+      </div>
+
+      {/* Grid: agents + logs */}
+      <div style={{ display:'grid', gridTemplateColumns:'340px 1fr', gap:20, alignItems:'start' }}>
+        {/* Agents */}
+        <div className="ao-card" style={{ borderRadius:16, padding:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#475569', letterSpacing:'1.5px', marginBottom:14 }}>AI NODES — {room.agents.length}</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {room.agents.map(a => <AgentPill key={a.id} agent={a} accent={room.accent} active={active} />)}
+          </div>
+          {/* Stats row */}
+          <div style={{ marginTop:20, paddingTop:16, borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', gap:16 }}>
+            {[
+              { icon: Activity, label:'Events', val: roomLogs.length },
+              { icon: Clock, label:'Last Active', val: roomLogs[0] ? timeAgo(roomLogs[0].timestamp) : '—' },
+            ].map(({ icon: Icon, label, val }) => (
+              <div key={label} style={{ flex:1 }}>
+                <div style={{ fontSize:10, color:'#475569', fontWeight:700, letterSpacing:'1px', display:'flex', alignItems:'center', gap:5, marginBottom:4 }}><Icon size={10} color='#475569'/>{label}</div>
+                <div className="ao-mono" style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Activity Log */}
+        <div className="ao-card" style={{ borderRadius:16, overflow:'hidden' }}>
+          <div style={{ padding:'16px 20px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', gap:8 }}>
+            <Terminal size={15} color={room.accent} />
+            <span style={{ fontSize:13, fontWeight:700, color:'#f8fafc' }}>Activity Log</span>
+          </div>
+          <div className="ao-scroll" style={{ maxHeight:400, overflowY:'auto' }}>
+            {roomLogs.length === 0 ? (
+              <div style={{ padding:40, textAlign:'center', color:'#334155', fontSize:13 }}>No recent activity in this sector.</div>
+            ) : roomLogs.slice(0,20).map((log, i) => (
+              <div key={log.id} style={{ padding:'14px 20px', borderBottom:'1px solid rgba(255,255,255,0.03)', display:'flex', gap:14, alignItems:'flex-start', animation:'slide-in 0.3s ease', animationDelay:`${i*0.04}s`, animationFillMode:'both' }}>
+                <CheckCircle2 size={14} color={room.accent} style={{ marginTop:2, flexShrink:0 }} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p className="ao-mono" style={{ margin:0, fontSize:12, color:'#cbd5e1', lineHeight:1.6, wordBreak:'break-word' }}>{log.details}</p>
+                  <span className="ao-mono" style={{ fontSize:10, color:'#475569', marginTop:4, display:'block' }}>{timeAgo(log.timestamp)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Room Card ── */
+function RoomCard({ room, logs, onClick, index }: { room: typeof ROOMS[0], logs: Log[], onClick:()=>void, index:number }) {
+  const roomLogs = logs.filter(l => l.agent.toLowerCase() === room.id || (room.id==='core' && !ROOMS.find(r=>r.id===l.agent.toLowerCase())));
+  const active = roomLogs.length > 0 && isRecent(roomLogs[0].timestamp);
+  const lastLog = roomLogs[0];
+
+  return (
+    <motion.div
+      initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay: index * 0.07 }}
+      whileHover={{ y:-4, scale:1.015 }} onClick={onClick}
+      className="ao-card"
+      style={{ borderRadius:18, padding:24, cursor:'pointer', position:'relative', overflow:'hidden', border:`1px solid ${active ? room.accent+'50' : 'rgba(255,255,255,0.07)'}`, boxShadow: active ? `0 8px 30px ${room.accent}20` : 'none' }}
+    >
+      {/* glow */}
+      <div style={{ position:'absolute', top:-60, right:-60, width:140, height:140, background:room.accent, filter:'blur(60px)', opacity: active ? 0.25 : 0.07, pointerEvents:'none', transition:'opacity 0.4s' }} />
+      {active && <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:`linear-gradient(90deg, transparent, ${room.accent}, transparent)` }} />}
+
+      <div style={{ position:'relative', zIndex:1 }}>
+        {/* Header */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ width:46, height:46, borderRadius:12, background:`${room.accent}18`, border:`1px solid ${room.accent}35`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <room.icon size={22} color={room.accent} />
+            </div>
+            <div>
+              <div style={{ fontSize:16, fontWeight:800, color:'#f8fafc', letterSpacing:'-0.01em' }}>{room.label}</div>
+              <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>{room.sublabel}</div>
+            </div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:20, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}` }}>
+            <div style={{ width:6, height:6, borderRadius:'50%', background: active ? '#10b981' : '#334155', animation: active ? 'blink 1.5s infinite' : 'none' }} />
+            <span style={{ fontSize:10, fontWeight:700, color: active ? '#10b981' : '#475569', letterSpacing:'0.5px' }}>{active ? 'LIVE' : 'IDLE'}</span>
+          </div>
+        </div>
+
+        {/* Agent count */}
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
+          {room.agents.map(a => (
+            <div key={a.id} className="ao-mono" style={{ fontSize:10, fontWeight:700, color: room.accent, background:`${room.accent}12`, border:`1px solid ${room.accent}25`, padding:'3px 9px', borderRadius:6 }}>
+              {a.name}
+            </div>
+          ))}
+        </div>
+
+        {/* Last task */}
+        <div style={{ padding:'12px 14px', borderRadius:10, background:'rgba(0,0,0,0.35)', border:'1px solid rgba(255,255,255,0.05)', marginBottom:16, minHeight:44 }}>
+          <p className="ao-mono" style={{ margin:0, fontSize:11, color: lastLog ? '#94a3b8' : '#334155', lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+            {lastLog ? lastLog.details : 'Awaiting task stream…'}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div className="ao-mono" style={{ fontSize:11, color:'#475569', display:'flex', alignItems:'center', gap:5 }}>
+            <Clock size={11} /> {lastLog ? timeAgo(lastLog.timestamp) : '—'}
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:700, color: room.accent }}>
+            Enter Room <ChevronRight size={14} />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Main View ── */
+function MainView({ logs, onSelectRoom }: { logs: Log[], onSelectRoom:(id:string)=>void }) {
+  const totalActive = ROOMS.filter(r => {
+    const rl = logs.filter(l => l.agent.toLowerCase() === r.id);
+    return rl.length > 0 && isRecent(rl[0].timestamp);
+  }).length;
+
+  return (
+    <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
+      {/* Stats bar */}
+      <div style={{ display:'flex', gap:16, marginBottom:28 }}>
+        {[
+          { icon: Network, label:'Total Zones', val: ROOMS.length, accent:'#6366f1' },
+          { icon: Zap, label:'Active Now', val: totalActive, accent:'#10b981' },
+          { icon: Activity, label:'Events Logged', val: logs.length, accent:'#f59e0b' },
+          { icon: Cpu, label:'AI Models', val: ROOMS.reduce((s,r)=>s+r.agents.length,0), accent:'#3b82f6' },
+        ].map(({ icon: Icon, label, val, accent }) => (
+          <div key={label} className="ao-card" style={{ flex:1, borderRadius:14, padding:'16px 20px', display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:`${accent}15`, border:`1px solid ${accent}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Icon size={18} color={accent} />
+            </div>
+            <div>
+              <div style={{ fontSize:22, fontWeight:800, color:'#f8fafc', lineHeight:1 }}>{val}</div>
+              <div style={{ fontSize:11, color:'#64748b', marginTop:3 }}>{label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Room grid */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:20 }}>
+        {ROOMS.map((room, i) => (
+          <RoomCard key={room.id} room={room} logs={logs} onClick={() => onSelectRoom(room.id)} index={i} />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Global Log Table ── */
+function GlobalLogs({ logs }: { logs: Log[] }) {
+  return (
+    <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2 }} className="ao-card" style={{ borderRadius:16, overflow:'hidden', marginTop:24 }}>
+      <div style={{ padding:'16px 22px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(0,0,0,0.2)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <Terminal size={16} color='#94a3b8' />
+          <span style={{ fontSize:14, fontWeight:700, color:'#f8fafc' }}>Global Network Activity</span>
+        </div>
+        <div className="ao-mono" style={{ fontSize:11, color:'#64748b', background:'rgba(255,255,255,0.04)', padding:'4px 10px', borderRadius:8, border:'1px solid rgba(255,255,255,0.07)' }}>
+          {logs.length} EVENTS
+        </div>
+      </div>
+      <div className="ao-scroll" style={{ overflowX:'auto', maxHeight:280 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', textAlign:'left' }}>
+          <thead>
+            <tr style={{ background:'rgba(0,0,0,0.25)' }}>
+              {['Time', 'Agent', 'Zone', 'Status', 'Output'].map(h => (
+                <th key={h} style={{ padding:'12px 20px', fontSize:11, fontWeight:700, color:'#475569', letterSpacing:'1px', whiteSpace:'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="ao-mono" style={{ fontSize:12 }}>
+            {logs.length === 0 ? (
+              <tr><td colSpan={5} style={{ textAlign:'center', padding:48, color:'#334155' }}>Waiting for neural activity…</td></tr>
+            ) : logs.map(log => {
+              const zone = ROOMS.find(r => r.id === log.agent.toLowerCase()) || ROOMS.find(r => r.id === 'core')!;
+              return (
+                <tr key={log.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                  <td style={{ padding:'12px 20px', color:'#64748b', whiteSpace:'nowrap' }}>{timeAgo(log.timestamp)}</td>
+                  <td style={{ padding:'12px 20px', color:'#f8fafc', fontWeight:700, textTransform:'capitalize' }}>{log.agent}</td>
+                  <td style={{ padding:'12px 20px' }}>
+                    <span style={{ color: zone.accent, background:`${zone.accent}15`, padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, border:`1px solid ${zone.accent}25` }}>{zone.label}</span>
+                  </td>
+                  <td style={{ padding:'12px 20px' }}>
+                    <span style={{ color:'#10b981', background:'rgba(16,185,129,0.1)', padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, border:'1px solid rgba(16,185,129,0.25)' }}>SUCCESS</span>
+                  </td>
+                  <td style={{ padding:'12px 20px', color:'#94a3b8', maxWidth:360, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{log.details}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Page ── */
+export default function AgentOrchestratorPage() {
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [isAutonomous, setIsAutonomous] = useState(false);
+
+  const toggleAutonomous = async () => {
+    const newState = !isAutonomous;
+    setIsAutonomous(newState);
+    try {
+      // Endpoint is accessible via the Vite proxy or directly if mapped
+      const baseUrl = import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:8000';
+      const apiKey = import.meta.env.VITE_BACKEND_API_KEY || 'fusion-neural-secret-key-2026';
+      await fetch(`${baseUrl}/api/autonomous/toggle`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-API-KEY': apiKey
+        },
+        body: JSON.stringify({ status: newState ? "ON" : "OFF" })
+      });
+    } catch (e) {
+      console.error("Failed to toggle autonomous mode", e);
+      setIsAutonomous(!newState);
+    }
+  };
+
+  useEffect(() => {
+    const q = query(collection(db, 'task_results'), orderBy('completedAt', 'desc'), limit(50));
+    return onSnapshot(q, snap => {
+      setLogs(snap.docs.map(d => ({ id: d.id, agent: d.data().agent, details: d.data().task, timestamp: d.data().completedAt })));
+    });
+  }, []);
+
+  const activeRoom = ROOMS.find(r => r.id === activeRoomId);
+
+  return (
+    <div className="ao-wrap ao-bg">
+      <style>{STYLE}</style>
+      <div style={{ maxWidth:1400, margin:'0 auto', padding:'28px 32px' }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:28 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.35)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Network size={22} color='#6366f1' />
+          </div>
+          <div>
+            <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:'#f8fafc', letterSpacing:'-0.02em' }}>Neural AI Simulation</h1>
+            <p className="ao-mono" style={{ margin:0, fontSize:11, color:'#475569', marginTop:2 }}>AI ORCHESTRATOR COMMAND DASHBOARD</p>
+          </div>
+          
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="ao-mono" style={{ fontSize: 11, fontWeight: 700, color: isAutonomous ? '#10b981' : '#64748b' }}>
+              {isAutonomous ? 'AUTO-LOOP: ACTIVE' : 'AUTO-LOOP: INACTIVE'}
+            </div>
+            <button 
+              onClick={toggleAutonomous}
+              style={{
+                width: 48, height: 24, borderRadius: 12, position: 'relative',
+                background: isAutonomous ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${isAutonomous ? 'rgba(16,185,129,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                cursor: 'pointer', transition: 'all 0.3s', padding: 0
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: 2, left: isAutonomous ? 26 : 2,
+                width: 18, height: 18, borderRadius: '50%',
+                background: isAutonomous ? '#10b981' : '#64748b',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: isAutonomous ? '0 0 10px rgba(16,185,129,0.6)' : 'none'
+              }} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <AnimatePresence mode="wait">
+          {activeRoom ? (
+            <RoomView key="room" room={activeRoom} logs={logs} onBack={() => setActiveRoomId(null)} />
+          ) : (
+            <motion.div key="main" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
+              <MainView logs={logs} onSelectRoom={setActiveRoomId} />
+              <GlobalLogs logs={logs} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}

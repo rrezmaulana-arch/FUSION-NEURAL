@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Image, Download, Loader2, Sparkles, X, RefreshCw } from 'lucide-react';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const QUICK_PROMPTS = [
   'produk kemasan premium minimalis dengan background putih bersih',
@@ -61,15 +62,11 @@ export default function ImageStudioPage() {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Wand2 size={22} className="text-rose-500" />
-          Image Studio
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Generate visual marketing dengan AI · Model: <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">FLUX.1-schnell</code> via HuggingFace
-        </p>
-      </div>
+      <PageHeader
+        title="Image Studio"
+        subtitle={<>Generate visual marketing dengan AI · Model: <code className="font-mono text-xs bg-white/20 px-1.5 py-0.5 rounded">FLUX.1-schnell</code> via HuggingFace</>}
+        accent="purple"
+      />
 
       {/* Input Panel */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">

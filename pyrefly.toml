@@ -1,0 +1,11 @@
+# Pyrefly configuration for FUSION NEURAL project
+# Tells Pyrefly to use the backend's virtual environment interpreter
+# so it correctly resolves fastapi, httpx, pydantic, etc.
+
+python_interpreter = "backend/venv/Scripts/python.exe"
+
+[project]
+include = ["backend/**/*.py"]
+
+[[project.search_paths]]
+path = "backend"

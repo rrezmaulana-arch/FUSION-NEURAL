@@ -5,6 +5,7 @@ import { db } from '../../../lib/firebase';
 import { Calculator, Percent, CheckCircle2, AlertTriangle, TrendingUp, BookOpen, Zap } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface TaxResult {
   gross_revenue: number;
@@ -41,6 +42,15 @@ export default function TaxCalculatorPage() {
       if (snap.exists()) setFinanceData(snap.data());
     });
     return () => unsub();
+  }, []);
+
+  // Finance Autopilot Trigger
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetch('/api/simulator', { method: 'POST', body: JSON.stringify({ action: 'finance' }) })
+        .catch(e => console.error("Finance simulator error:", e));
+    }, 10000); // 10 detik setelah masuk halaman Finance, potong biaya operasional harian
+    return () => clearTimeout(timer);
   }, []);
 
   // Listen ke activity_logs — tampilkan log Finance agen
@@ -81,7 +91,7 @@ Data saat ini:
 
 Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. Tanpa markdown bold.`;
 
-      const aiText = await NeuralCore.generateMarketingCampaign('', context);
+      const aiText = await NeuralCore.askAgent('finance', 'master_calculator', context);
 
       // Hitung net_profit & ROI untuk ditulis ke financial_reports
       const netProfit = netAfterTax;
@@ -136,14 +146,15 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Tax Calculator</h1>
-          <p className="text-slate-500 text-sm mt-1">
+      <PageHeader
+        title="Tax Calculator"
+        subtitle="
             Kalkulasi PPN 12% & PPh otomatis — hasil dikirim ke Manager & Marketing secara real-time
-          </p>
-        </div>
-        <button
+          "
+        accent="emerald"
+        actions={
+          <>
+            <button
           onClick={handleCalculate}
           disabled={isCalculating}
           className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-md"
@@ -151,7 +162,9 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
           <Calculator size={15} className={isCalculating ? 'animate-spin' : ''} />
           {isCalculating ? 'Menghitung...' : 'Hitung & Kirim ke Manager'}
         </button>
-      </div>
+          </>
+        }
+      />
 
       {/* Koneksi Banner */}
       <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">

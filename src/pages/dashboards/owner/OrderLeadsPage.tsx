@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Search, Filter, CheckCircle2, Clock, AlertCircle, ChevronDown, Bot, GitMerge, Network, Zap, DollarSign, Key, Trash2 } from 'lucide-react';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface OrderLead {
   id: string;
@@ -78,27 +79,28 @@ export default function OrderLeadsPage() {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Pemesanan Masuk</h1>
-          <p className="text-slate-500 text-sm mt-1">Pusat monitoring prospek klien FusionNeural</p>
-        </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Cari nama atau no. WA..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 ring-fn-emerald/20"
-            />
+      <PageHeader
+        title="Pemesanan Masuk"
+        subtitle="Pusat monitoring prospek klien FusionNeural"
+        accent="red"
+        actions={
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari nama atau no. WA..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 ring-emerald-500/20 text-slate-800"
+              />
+            </div>
+            <button className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
+              <Filter size={16} />
+            </button>
           </div>
-          <button className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
-            <Filter size={16} />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

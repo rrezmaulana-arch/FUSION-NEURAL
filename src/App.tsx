@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import { SystemEngineProvider } from './context/SystemEngineContext';
+
 import MicrochipCursor from './components/cursor/MicrochipCursor';
 
 // Lazy loaded pages
@@ -21,8 +21,7 @@ const PageLoader = () => (
 export default function App() {
   return (
     <AuthProvider>
-      <SystemEngineProvider>
-        <MicrochipCursor />
+      <MicrochipCursor />
         <Router>
           <Suspense fallback={<PageLoader />}>
             <Routes>
@@ -30,7 +29,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/pemesanan" element={<OrderPage />} />
               <Route 
-                path="/dashboard" 
+                path="/dashboard/*" 
                 element={
                   <ProtectedRoute>
                     <DashboardPage />
@@ -40,7 +39,6 @@ export default function App() {
             </Routes>
           </Suspense>
         </Router>
-      </SystemEngineProvider>
     </AuthProvider>
   );
 }

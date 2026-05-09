@@ -1,0 +1,92 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// FusionNeural — Firebase Security Rules (Production-Safe)
+//
+// Prinsip:
+//   - Client (browser) HANYA boleh MEMBACA data yang dibutuhkan untuk tampilan.
+//   - Semua operasi TULIS (create/update/delete) pada data bisnis sensitif
+//     harus dilakukan oleh Backend Python (Firebase Admin SDK) yang memiliki
+//     hak penuh dan tidak tunduk pada rules ini.
+//   - Pengecualian: activity_logs & marketing_assets boleh ditulis client
+//     karena membutuhkan real-time upload dari browser.
+// ─────────────────────────────────────────────────────────────────────────────
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ────────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ── Inventory (Bisnis Sensitif) ────────────────────────────────────────
+    // READ: Boleh dibaca client (untuk tampilan stok real-time)
+    // WRITE: Diblokir dari client. Wajib lewat Python Admin SDK.
+    match /inventory/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ── Financial Reports & Metrics ────────────────────────────────────────
+    match /financial_reports/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /finance_metrics/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ── Market Simulator ────────────────────────────────────────────────────
+    // READ: Boleh client untuk live dashboard
+    // WRITE: Diblokir — Python yang update via Admin SDK
+    match /market_simulator/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ── Orders ───────────────────────────────────────────────────────────────
+    match /orders/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ── Signals (inter-agent communication) ──────────────────────────────────
+    match /signals/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ── Activity Logs ──────────────────────────────────────────────────────
+    // Client boleh menulis log (addDoc), tapi tidak boleh mengubah/menghapus.
+    match /activity_logs/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ── Neural Configs (AI Prompts) ────────────────────────────────────────
+    // Hanya Manager yang bisa update prompt — tapi kita amankan via backend.
+    match /neural_configs/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ── Marketing Assets (Upload media dari browser) ───────────────────────
+    // Client perlu bisa upload, delete, dan rename aset marketing.
+    match /marketing_assets/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ── User Profiles ────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ── Fallback: Blokir semua koleksi lain ──────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

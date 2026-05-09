@@ -4,6 +4,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Brain, Zap, CheckCircle2, Clock, AlertTriangle, FileText, Palette, DollarSign } from 'lucide-react';
 import type { ReactNode } from 'react';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface AgentStatus {
   agent: string;
@@ -59,10 +60,11 @@ export default function NeuralStatusPage() {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Neural Status Panel</h1>
-        <p className="text-slate-500 text-sm mt-1">Real-time agent heartbeat & token usage monitor</p>
-      </div>
+      <PageHeader
+        title="Neural Status Panel"
+        subtitle="Real-time agent heartbeat & token usage monitor"
+        accent="teal"
+      />
 
       {/* Global Token Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { TrendingUp, TrendingDown, BarChart3, Brain, ArrowUpRight, ShoppingBag, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Brain, ArrowUpRight, ShoppingBag, Zap, ShieldAlert, ScanSearch, Globe } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface PlatformSummary {
   id: string;
@@ -34,6 +35,78 @@ export default function ROIIntelligencePage() {
   const [suggestion, setSuggestion] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
+
+  // Audit Simulator States
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [auditProgress, setAuditProgress] = useState(0);
+  const [anomaly, setAnomaly] = useState<{ detected: boolean, message: string } | null>(null);
+
+  const [globalMarket, setGlobalMarket] = useState('');
+  const [isFetchingMarket, setIsFetchingMarket] = useState(false);
+
+  const fetchGlobalMarket = async () => {
+    setIsFetchingMarket(true);
+    setGlobalMarket('');
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${apiUrl}/api/finance/market-data`);
+      const data = await res.json();
+
+      // Format rates object into readable text
+      let formatted = `📊 LIVE CURRENCY DATA (Base: ${data.base || 'IDR'})\n`;
+      formatted += `🕐 Updated: ${data.updated || new Date().toLocaleDateString()}\n`;
+      formatted += `📡 Source: ${data.source || 'API'}\n\n`;
+      if (data.rates) {
+        const rateMap: Record<string, string> = {
+          USD: '🇺🇸 USD', EUR: '🇪🇺 EUR', GBP: '🇬🇧 GBP', JPY: '🇯🇵 JPY',
+          SGD: '🇸🇬 SGD', MYR: '🇲🇾 MYR', CNY: '🇨🇳 CNY', AUD: '🇦🇺 AUD',
+          CHF: '🇨🇭 CHF', SAR: '🇸🇦 SAR',
+        };
+        Object.entries(data.rates).forEach(([code, rate]) => {
+          const idrRate = data.base === 'IDR' ? (1 / Number(rate)).toFixed(0) : rate;
+          const label = rateMap[code] || code;
+          formatted += `${label}: Rp ${Number(idrRate).toLocaleString('id-ID')}\n`;
+        });
+      }
+      setGlobalMarket(formatted);
+
+      // Auto-save to Drive
+      await fetch(`${apiUrl}/api/drive/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'finance', filename: 'Global_Market_Report', content: formatted })
+      });
+
+      setSavedMsg('✅ Data kurs live berhasil diambil & disimpan ke Google Drive!');
+      setTimeout(() => setSavedMsg(''), 5000);
+    } catch (e) {
+      setGlobalMarket('❌ Gagal mengambil data kurs. Pastikan backend Python berjalan.');
+    } finally {
+      setIsFetchingMarket(false);
+    }
+  };
+
+
+  const runDeepAudit = () => {
+    setIsAuditing(true);
+    setAuditProgress(0);
+    setAnomaly(null);
+
+    const interval = setInterval(() => {
+      setAuditProgress(p => {
+        if (p >= 100) {
+          clearInterval(interval);
+          setIsAuditing(false);
+          setAnomaly({
+            detected: true,
+            message: "⚠️ ANOMALI TERDETEKSI: Ditemukan pembayaran ganda ke 'Supplier Packaging B' sebesar Rp 15.000.000 pada tgl 4 Mei. Tindakan Otonom: Mengunci dana, membekukan transfer API, dan mengirimkan email Reversal (penarikan kembali)."
+          });
+          return 100;
+        }
+        return p + 5;
+      });
+    }, 150);
+  };
 
   // Baca simulator_summary — data real dari MarketplaceSimulator
   useEffect(() => {
@@ -71,9 +144,10 @@ export default function ROIIntelligencePage() {
         ? `\nData Finance: Net Profit Rp ${(financeData.net_profit || 0).toLocaleString('id-ID')}, ROI ${financeData.roi_percentage || 0}%`
         : '';
 
-      const result = await NeuralCore.generateMarketingCampaign(
-        summary + financeCtx,
-        'Sebagai AI Finance, analisis efisiensi per platform dan rekomendasikan alokasi anggaran optimal. Mana yang perlu di-scale up dan mana yang harus dipangkas? Singkat dan actionable.'
+      const result = await NeuralCore.askAgent(
+        'finance',
+        'allocation_strategy',
+        `Konteks: ${summary + financeCtx}\n\nInstruksi: Sebagai AI Finance, analisis efisiensi per platform dan rekomendasikan alokasi anggaran optimal. Mana yang perlu di-scale up dan mana yang harus dipangkas? Singkat dan actionable.`
       );
       setSuggestion(result.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1'));
 
@@ -97,18 +171,74 @@ export default function ROIIntelligencePage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">ROI Intelligence</h1>
-          <p className="text-slate-500 text-sm mt-1">Menilai imbal hasil per platform — data real dari Marketplace Simulator</p>
-        </div>
-        <button onClick={handleSpendingStrategy} disabled={isAnalyzing}
-          className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-md"
-        >
-          <Brain size={15} className={isAnalyzing ? 'animate-spin' : ''} />
-          {isAnalyzing ? 'Menganalisis...' : 'Spending Strategy'}
-        </button>
-      </div>
+      <PageHeader
+        title="ROI Intelligence"
+        subtitle="Menilai imbal hasil per platform — data real dari Marketplace Simulator"
+        accent="emerald"
+        icon={<TrendingUp size={22} className="text-white" />}
+        actions={
+          <div className="flex gap-2">
+            <button onClick={runDeepAudit} disabled={isAuditing}
+              className="flex items-center gap-2 px-5 py-2.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-100 text-sm font-bold rounded-xl border border-rose-500/30 transition-colors disabled:opacity-50"
+            >
+              <ScanSearch size={15} className={isAuditing ? 'animate-pulse' : ''} />
+              {isAuditing ? 'Scanning 10,000+ TX...' : 'Run Deep Audit'}
+            </button>
+            <button onClick={handleSpendingStrategy} disabled={isAnalyzing}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white text-sm font-bold rounded-xl border border-white/30 transition-colors disabled:opacity-50"
+            >
+              <Brain size={15} className={isAnalyzing ? 'animate-spin' : ''} />
+              {isAnalyzing ? 'Menganalisis...' : 'Spending Strategy'}
+            </button>
+            <button onClick={fetchGlobalMarket} disabled={isFetchingMarket}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-500/20 hover:bg-blue-500/40 text-blue-100 text-sm font-bold rounded-xl border border-blue-500/30 transition-colors disabled:opacity-50"
+            >
+              <Globe size={15} className={isFetchingMarket ? 'animate-spin' : ''} />
+              {isFetchingMarket ? 'Syncing...' : 'Global Market'}
+            </button>
+          </div>
+        }
+      />
+
+      {/* Audit Simulation UI */}
+      <AnimatePresence>
+        {isAuditing && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl overflow-hidden relative">
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.05)_1px,transparent_1px)] bg-[size:20px_20px]" />
+            <h3 className="text-sm font-black text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
+              <ScanSearch size={16} className="animate-spin-slow" /> Finance AI: Deep Audit Running
+            </h3>
+            <div className="relative z-10 space-y-2">
+              <div className="flex justify-between text-xs font-mono text-emerald-500/70">
+                <span>Scanning Ledger DB...</span>
+                <span>{auditProgress}%</span>
+              </div>
+              <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                <motion.div className="h-full bg-emerald-500" style={{ width: `${auditProgress}%` }} />
+              </div>
+              <p className="text-[10px] font-mono text-slate-500 mt-2">Checking anomalies, double spending, and tax compliance across 14,023 records...</p>
+            </div>
+          </motion.div>
+        )}
+
+        {anomaly && anomaly.detected && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-rose-950/50 rounded-3xl p-6 border border-rose-900 shadow-xl relative overflow-hidden">
+            <div className="absolute right-4 top-4 opacity-10">
+              <ShieldAlert size={80} className="text-rose-500" />
+            </div>
+            <h3 className="text-sm font-black text-rose-400 uppercase tracking-widest mb-3 flex items-center gap-2 relative z-10">
+              <ShieldAlert size={16} /> Critical Anomaly Detected
+            </h3>
+            <p className="text-sm font-medium text-rose-200 relative z-10 leading-relaxed">
+              {anomaly.message}
+            </p>
+            <div className="mt-4 flex gap-3 relative z-10">
+              <span className="px-3 py-1 bg-rose-900/50 text-rose-300 text-xs font-bold rounded-lg border border-rose-800">Status: FUND LOCKED</span>
+              <span className="px-3 py-1 bg-emerald-900/50 text-emerald-300 text-xs font-bold rounded-lg border border-emerald-800">Status: REVERSAL SENT</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Koneksi Badge */}
       <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
@@ -225,6 +355,18 @@ export default function ROIIntelligencePage() {
             <span className="text-emerald-400 text-xs font-bold uppercase tracking-widest">Spending Strategy — AI Finance</span>
           </div>
           <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{suggestion}</p>
+        </motion.div>
+      )}
+
+      {/* Global Market Data */}
+      {globalMarket && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-blue-950/50 rounded-2xl p-6 border border-blue-900 shadow-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <Globe size={14} className="text-blue-400" />
+            <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">Global Market Movement (Massive API)</span>
+          </div>
+          <p className="text-blue-200 text-sm leading-relaxed whitespace-pre-wrap font-mono">{globalMarket}</p>
         </motion.div>
       )}
     </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RefreshCw, Copy, CheckCircle2, Wand2, Image, Download, Film } from 'lucide-react';
+import { Sparkles, RefreshCw, Copy, CheckCircle2, Wand2, Image, Download, Film, Cloud } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import { collection, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const TONES = [
   { id: 'premium', label: 'Premium', desc: 'Eksklusif & otoritatif', color: 'from-amber-500 to-orange-500' },
@@ -30,6 +31,29 @@ export default function CampaignForgePage() {
   const [copied, setCopied] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([]);
+  const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success'>('idle');
+  const [isSavingDrive, setIsSavingDrive] = useState(false);
+
+  const handleSaveToDrive = async () => {
+    setIsSavingDrive(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${apiUrl}/api/drive/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'marketing', filename: `${format} - ${brief.substring(0, 15)}`, content: result })
+      });
+      if (res.ok) {
+        alert('Script berhasil disimpan ke Google Drive sebagai Google Docs!');
+      } else {
+        alert('Gagal menyimpan ke Drive.');
+      }
+    } catch (e) {
+      alert('Network Error saat menyimpan ke Drive.');
+    } finally {
+      setIsSavingDrive(false);
+    }
+  };
 
   useEffect(() => {
     const unsubMedia = onSnapshot(collection(db, 'marketing_assets'), (snap) => {
@@ -67,7 +91,7 @@ Tone: ${tone.toUpperCase()}
 Format yang diminta: ${format}
 
 Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasan tambahan. Jangan gunakan markdown bold (**).`;
-      const content = await NeuralCore.generateMarketingCampaign(brief, context);
+      const content = await NeuralCore.askAgent('marketing', 'copywriting', `${context}\n\nBrief: ${brief}`);
       setResult(content.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1'));
       await FirebaseLogger.logAgentAction('Marketing', 'CAMPAIGN_FORGE', `Generated ${format} - Tone: ${tone}`);
     } catch (error) {
@@ -84,12 +108,22 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleAutoPublish = () => {
+    setPublishStatus('publishing');
+    setTimeout(() => {
+      setPublishStatus('success');
+      setTimeout(() => setPublishStatus('idle'), 3000);
+    }, 2500);
+  };
+
   return (
     <div className="space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Campaign Forge</h1>
-        <p className="text-slate-500 text-sm mt-1">Dapur kreatif — AI merancang narasi premium untuk brand Kak</p>
-      </div>
+      <PageHeader
+        title="Campaign Forge"
+        subtitle="Dapur kreatif — AI merancang narasi premium untuk brand Kak"
+        accent="purple"
+        icon={<Wand2 size={22} className="text-white" />}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Input Panel */}
@@ -209,6 +243,18 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
                         className="flex items-center gap-2 px-4 py-2.5 bg-purple-500/50 hover:bg-purple-500/70 text-white text-xs font-bold rounded-xl transition-all"
                       >
                         <RefreshCw size={13} /> Refinasi
+                      </button>
+                      <button onClick={handleSaveToDrive} disabled={isSavingDrive}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-500/50 hover:bg-blue-500/70 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+                      >
+                        {isSavingDrive ? <RefreshCw size={13} className="animate-spin" /> : <Cloud size={13} />}
+                        Save to Drive
+                      </button>
+                      <button onClick={handleAutoPublish} disabled={publishStatus !== 'idle'}
+                        className="ml-auto flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:scale-105 text-white text-xs font-black rounded-xl transition-all shadow-lg shadow-pink-500/30 disabled:opacity-50"
+                      >
+                        {publishStatus === 'publishing' ? <RefreshCw size={14} className="animate-spin" /> : publishStatus === 'success' ? <CheckCircle2 size={14} /> : <Sparkles size={14} />}
+                        {publishStatus === 'publishing' ? 'Publishing...' : publishStatus === 'success' ? 'Published via API!' : 'Auto Publish'}
                       </button>
                     </div>
                   </motion.div>

@@ -18,7 +18,8 @@ export default defineConfig(({ mode }) => {
               req.on('end', async () => {
                 try {
                   const payload = JSON.parse(body);
-                  const serverKey = env.MIDTRANS_SERVER_KEY || 'Mid-server-umbvOIGiXz0anZS1FkQBIbKQ';
+                  const serverKey = env.MIDTRANS_SERVER_KEY;
+                  if (!serverKey) throw new Error('MIDTRANS_SERVER_KEY is not defined');
                   const encodedKey = Buffer.from(serverKey + ':').toString('base64');
                   const apiUrl = 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
@@ -61,7 +62,8 @@ export default defineConfig(({ mode }) => {
               req.on('end', async () => {
                 try {
                   const payload = JSON.parse(body);
-                  const serverKey = env.MIDTRANS_SERVER_KEY || 'SB-Mid-server-umbvOIGiXz0anZS1FkQBIbKQ';
+                  const serverKey = env.MIDTRANS_SERVER_KEY;
+                  if (!serverKey) throw new Error('MIDTRANS_SERVER_KEY is not defined');
                   const encodedKey = Buffer.from(serverKey + ':').toString('base64');
                   const apiUrl = 'https://api.sandbox.midtrans.com/v2/charge';
 
@@ -190,14 +192,14 @@ export default defineConfig(({ mode }) => {
                 try {
                   const payload = JSON.parse(body);
                   const agentId = payload.agent || 'frontliner';
-                  const pythonBackend = env.PYTHON_BACKEND_URL || 'https://confined-simple-handiwork.ngrok-free.dev';
+                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8000';
                   
-                  const n8nPayload = { ...payload, action: 'chat', agent: agentId };
+                  const agentPayload = { ...payload, action: 'chat', agent: agentId };
                   
                   const response = await fetch(`${pythonBackend}/trigger-agent`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(n8nPayload)
+                    body: JSON.stringify(agentPayload)
                   });
                   
                   const data = await response.json();
@@ -214,6 +216,35 @@ export default defineConfig(({ mode }) => {
                 } catch (e: any) {
                   res.statusCode = 503;
                   res.end(JSON.stringify({ error: 'Python Backend tidak dapat dihubungi', detail: e.message }));
+                }
+              });
+            }
+          });
+
+          // Simulator API Middleware
+          server.middlewares.use('/api/simulator', (req, res) => {
+            if (req.method === 'POST') {
+              let body = '';
+              req.on('data', chunk => { body += chunk.toString(); });
+              req.on('end', async () => {
+                try {
+                  const payload = JSON.parse(body);
+                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+                  
+                  const action = payload.action || 'trigger';
+                  const response = await fetch(`${pythonBackend}/simulator/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                  });
+                  
+                  const data = await response.json();
+                  res.setHeader('Content-Type', 'application/json');
+                  res.statusCode = response.ok ? 200 : response.status;
+                  res.end(JSON.stringify(data));
+                } catch (e: any) {
+                  res.statusCode = 503;
+                  res.end(JSON.stringify({ error: 'Python Backend tidak dapat dihubungi' }));
                 }
               });
             }

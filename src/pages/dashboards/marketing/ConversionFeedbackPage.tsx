@@ -5,6 +5,7 @@ import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface PlatformSummary {
   id: string;
@@ -47,9 +48,10 @@ export default function ConversionFeedbackPage() {
           ).join('\n')
         : 'Belum ada data simulator.';
 
-      const result = await NeuralCore.generateMarketingCampaign(
-        statsText,
-        'Analisis performa konversi per platform berikut. Rekomendasikan: apakah kampanye harus dilanjutkan, dioptimasi, atau dihentikan? Berikan insight actionable dalam Bahasa Indonesia.'
+      const result = await NeuralCore.askAgent(
+        'manager',
+        'executive_overview',
+        `Data Konversi: ${statsText}\n\nInstruksi: Analisis performa konversi per platform berikut. Rekomendasikan: apakah kampanye harus dilanjutkan, dioptimasi, atau dihentikan? Berikan insight actionable dalam Bahasa Indonesia.`
       );
       setSuggestion(result?.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1') || 'Tidak ada rekomendasi dari AI.');
       await FirebaseLogger.logAgentAction('Marketing', 'CONVERSION_ANALYSIS', `${platforms.length} platform dianalisis, revenue Rp ${totalRevenue.toLocaleString('id-ID')}`);
@@ -91,29 +93,30 @@ export default function ConversionFeedbackPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Conversion Feedback</h1>
-          <p className="text-slate-500 text-sm mt-1">Data konversi real dari Marketplace Simulator — analisis & laporan ke Finance</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Tombol Lapor ke Finance */}
-          <button
-            onClick={handleSendToFinance}
-            disabled={isSendingToFinance || platforms.length === 0}
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-500 transition-colors disabled:opacity-50 shadow-md"
-          >
-            <Send size={14} className={isSendingToFinance ? 'animate-spin' : ''} />
-            {isSendingToFinance ? 'Mengirim...' : 'Lapor ke Finance'}
-          </button>
-          <button onClick={handleStrategySuggestion} disabled={isAnalyzing}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-md"
-          >
-            <Brain size={14} className={isAnalyzing ? 'animate-spin' : ''} />
-            {isAnalyzing ? 'Menganalisis...' : 'Analisis AI'}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Conversion Feedback"
+        subtitle="Data konversi real dari Marketplace Simulator — analisis & laporan ke Finance"
+        accent="purple"
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Tombol Lapor ke Finance */}
+            <button
+              onClick={handleSendToFinance}
+              disabled={isSendingToFinance || platforms.length === 0}
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-500 transition-colors disabled:opacity-50 shadow-md"
+            >
+              <Send size={14} className={isSendingToFinance ? 'animate-spin' : ''} />
+              {isSendingToFinance ? 'Mengirim...' : 'Lapor ke Finance'}
+            </button>
+            <button onClick={handleStrategySuggestion} disabled={isAnalyzing}
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-md"
+            >
+              <Brain size={14} className={isAnalyzing ? 'animate-spin' : ''} />
+              {isAnalyzing ? 'Menganalisis...' : 'Analisis AI'}
+            </button>
+          </div>
+        }
+      />
 
       {/* Koneksi Badge */}
       <div className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5">

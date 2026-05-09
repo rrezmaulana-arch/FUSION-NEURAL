@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, addDoc, serverTimestamp, doc, setDoc, increment } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { ShoppingBag, Play, Square, Zap, TrendingUp, Package, Clock, RefreshCw, Snail, ChevronRight, ChevronsRight } from 'lucide-react';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface SimOrder {
   id: string;
@@ -222,42 +223,43 @@ export default function MarketplaceSimulatorPage() {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Marketplace Simulator</h1>
-          <p className="text-slate-500 text-sm mt-1">Simulasi order masuk dari TikTok Shop, Tokopedia & Shopee — tersimpan otomatis ke Firebase</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Speed control */}
-          <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs font-bold">
-            {(['slow', 'normal', 'fast'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setSpeed(s)}
-                className={`px-3 py-2 transition-colors capitalize ${speed === s ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+      <PageHeader
+        title="Marketplace Simulator"
+        subtitle="Simulasi order masuk dari TikTok Shop, Tokopedia & Shopee — tersimpan otomatis ke Firebase"
+        accent="slate"
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Speed control */}
+            <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs font-bold">
+              {(['slow', 'normal', 'fast'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSpeed(s)}
+                  className={`px-3 py-2 transition-colors capitalize ${speed === s ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                >
+                  {s === 'slow' ? <span className="flex items-center gap-1"><Snail size={14}/> Slow</span> : s === 'normal' ? <span className="flex items-center gap-1"><ChevronRight size={14}/> Normal</span> : <span className="flex items-center gap-1"><ChevronsRight size={14}/> Fast</span>}
+                </button>
+              ))}
+            </div>
+            <button onClick={resetSimulator} className="p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
+              <RefreshCw size={15} />
+            </button>
+            {isRunning ? (
+              <button onClick={stopSimulator}
+                className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-md"
               >
-                {s === 'slow' ? <span className="flex items-center gap-1"><Snail size={14}/> Slow</span> : s === 'normal' ? <span className="flex items-center gap-1"><ChevronRight size={14}/> Normal</span> : <span className="flex items-center gap-1"><ChevronsRight size={14}/> Fast</span>}
+                <Square size={14} /> Stop
               </button>
-            ))}
+            ) : (
+              <button onClick={startSimulator}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors shadow-md"
+              >
+                <Play size={14} /> Mulai Simulasi
+              </button>
+            )}
           </div>
-          <button onClick={resetSimulator} className="p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
-            <RefreshCw size={15} />
-          </button>
-          {isRunning ? (
-            <button onClick={stopSimulator}
-              className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-md"
-            >
-              <Square size={14} /> Stop
-            </button>
-          ) : (
-            <button onClick={startSimulator}
-              className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors shadow-md"
-            >
-              <Play size={14} /> Mulai Simulasi
-            </button>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Firebase badge */}
       <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-xl px-4 py-2.5 w-fit">

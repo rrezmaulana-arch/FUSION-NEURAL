@@ -4,6 +4,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Flame, AlertTriangle, Server, Cpu, Cloud, Zap, CheckCircle2 } from 'lucide-react';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const INFRA_COSTS = [
   { name: 'Groq API (LLM)', monthly: 350000, icon: Cpu, color: 'text-purple-600 bg-purple-50' },
@@ -57,10 +58,12 @@ export default function OperationalBurnPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Operational Burn</h1>
-        <p className="text-slate-500 text-sm mt-1">Biaya infrastruktur — memantau setiap tetes pengeluaran sistem</p>
-      </div>
+      <PageHeader
+        title="Operational Burn"
+        subtitle="Biaya infrastruktur — memantau setiap tetes pengeluaran sistem"
+        accent="emerald"
+        icon={<Flame size={22} className="text-white" />}
+      />
 
       {/* Burn Rate Alert */}
       {isOverBudget && (

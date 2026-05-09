@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { doc, setDoc, serverTimestamp, addDoc, collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase'; // Sesuaikan path ini dengan projectmu
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface Platform {
   name: string;
@@ -239,24 +240,25 @@ export default function LaunchSimulatorPage() {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Launch Simulator</h1>
-          <p className="text-slate-500 text-sm mt-1">Pilih konten dari library & simulasikan metrik viral secara real-time</p>
-        </div>
-        {isLaunched && (
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-sm font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-xl">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> LIVE · {elapsedLabel}
-            </span>
-            <button onClick={stopCampaign}
-              className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 shadow-md"
-            >
-              <Square size={14} /> Stop & Simpan
-            </button>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Launch Simulator"
+        subtitle="Pilih konten dari library & simulasikan metrik viral secara real-time"
+        accent="purple"
+        actions={
+          isLaunched && (
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 text-sm font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-xl">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> LIVE · {elapsedLabel}
+              </span>
+              <button onClick={stopCampaign}
+                className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 shadow-md"
+              >
+                <Square size={14} /> Stop & Simpan
+              </button>
+            </div>
+          )
+        }
+      />
 
       <div className="flex items-center gap-2 text-xs text-purple-600 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5 w-fit">
         <span className="w-2 h-2 rounded-full bg-purple-500" />

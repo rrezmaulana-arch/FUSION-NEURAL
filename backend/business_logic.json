@@ -1,0 +1,39 @@
+{
+  "business_hours": {
+    "start": "08:00",
+    "end": "20:00",
+    "active_interval_minutes": 10,
+    "idle_interval_minutes": 120
+  },
+  "products": {
+    "fn-sub-1": {
+      "name": "FusionNeural Basic",
+      "hpp": 1500000,
+      "selling_price": 3000000,
+      "safety_stock": 5
+    },
+    "fn-sub-2": {
+      "name": "FusionNeural Enterprise",
+      "hpp": 4000000,
+      "selling_price": 8500000,
+      "safety_stock": 2
+    }
+  },
+  "rules": {
+    "admin": {
+      "cooldown_hours_per_item": 12
+    },
+    "marketing": {
+      "max_posts_per_day": 2,
+      "brand_voice": "Elegan, Premium, Berorientasi pada Efisiensi Bisnis dan Otonomi."
+    },
+    "frontliner": {
+      "human_handoff_keywords": ["kecewa", "marah", "admin asli", "manusia", "penipu", "lama", "komplain"]
+    },
+    "finance": {
+      "minimum_budget_threshold": 1000000,
+      "tax_rate_ppn": 0.12,
+      "tax_rate_pph": 0.005
+    }
+  }
+}

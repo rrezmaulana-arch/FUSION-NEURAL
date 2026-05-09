@@ -2,6 +2,7 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { FirebaseLogger } from './FirebaseLogger';
 import { PRICING } from '../config/pricing';
+import { triggerAgent, generateImage as apiGenerateImage, searchSupplier as apiSearchSupplier } from './apiClient';
 
 // DEFAULT PROMPTS SEEDER — DENGAN KERANGKA HUKUM INDONESIA
 const DEFAULT_PROMPTS = {
@@ -235,14 +236,8 @@ export class NeuralCore {
   static async evaluateAndRealignAgents(logs: string[]): Promise<{ target_agent: string; new_prompt: string }> {
     try {
       const context = `Analisis log kerja tim hari ini:\n${JSON.stringify(logs)}\n\nTentukan agen mana yang perlu diperbaiki. Kembalikan JSON: {"target_agent": "admin_brain|marketing_brain|finance_brain|none", "new_prompt": "instruksi baru atau string kosong"}`;
-
-      const res = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: 'manager', task: 'executive_overview', message: context }),
-      });
-      const data = await res.json();
-      const text = data.result || data.choices?.[0]?.message?.content || '{"target_agent":"none","new_prompt":""}';
+      const data = await triggerAgent({ agent: 'manager', task: 'executive_overview', message: context });
+      const text = data.result || '{"target_agent":"none","new_prompt":""}';
       try { return JSON.parse(text); } catch { return { target_agent: 'none', new_prompt: text }; }
     } catch (error) {
       console.error("Evaluation Error:", error);
@@ -254,15 +249,10 @@ export class NeuralCore {
    * AI Admin processes new orders to deduct stock.
    * Routes via Python backend (admin agent, task: inventory_chatbot)
    */
-  static async processAdminOrder(order: any, currentInventory: any[]) {
+  static async processAdminOrder(order: any, currentInventory: unknown[]) {
     try {
-      const context = `Pesanan masuk: ${order.qty} ${order.product}. Stok saat ini: ${JSON.stringify(currentInventory)}. Kurangi stok dan kembalikan JSON: {"action":"update","item":"nama","new_stock":angka}`;
-      const res = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: 'admin', task: 'inventory_chatbot', message: context }),
-      });
-      const data = await res.json();
+      const context = `Pesanan masuk: ${JSON.stringify(order)}. Stok saat ini: ${JSON.stringify(currentInventory)}. Kurangi stok dan kembalikan JSON: {"action":"update","item":"nama","new_stock":angka}`;
+      const data = await triggerAgent({ agent: 'admin', task: 'inventory_chatbot', message: context });
       const text = data.result || '{}';
       try { return JSON.parse(text); } catch { return { action: 'update', raw: text }; }
     } catch (error) {
@@ -272,25 +262,15 @@ export class NeuralCore {
   }
 
   /**
-   * AI Marketing generates campaigns.
-   * Routes via Python backend (marketing agent, task: copywriting)
-   * NOTE: Kept as-is for broad usage across pages — task is inferred by caller context.
+   * Generic method to ask a specific agent a specific task.
+   * This ensures tasks are routed to the correct agent for proper logging and behavior.
    */
-  static async generateMarketingCampaign(brief: string, context?: string): Promise<string> {
+  static async askAgent(agent: string, task: string, message: string): Promise<string> {
     try {
-      const userMessage = context
-        ? `${context}\n\nBrief kampanye: ${brief}\n\nBuat konten langsung tanpa penjelasan tambahan.`
-        : `Produk/Kampanye: ${brief}\nBuatkan caption promosi premium. Langsung tulis kontennya saja.`;
-
-      const res = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: 'marketing', task: 'copywriting', message: userMessage }),
-      });
-      const data = await res.json();
-      return data.result || 'Konten berhasil dibuat.';
+      const data = await triggerAgent({ agent, task, message });
+      return data.result || '';
     } catch (error) {
-      console.error('AI Marketing Error:', error);
+      console.error(`AI ${agent} Error:`, error);
       throw error;
     }
   }
@@ -302,12 +282,7 @@ export class NeuralCore {
   static async calculateFinanceReport(revenue: number, cost: number, apiUsageCost: number) {
     try {
       const context = `Pemasukan: Rp ${revenue}. Biaya ops: Rp ${cost}. Biaya API: Rp ${apiUsageCost}. Hitung Net Profit & ROI. Kembalikan JSON: {"net_profit":angka,"roi_percentage":angka,"analysis_text":"analisis"}`;
-      const res = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: 'finance', task: 'master_calculator', message: context }),
-      });
-      const data = await res.json();
+      const data = await triggerAgent({ agent: 'finance', task: 'master_calculator', message: context });
       const text = data.result || '{}';
       try { return JSON.parse(text); } catch { return { net_profit: 0, roi_percentage: 0, analysis_text: text }; }
     } catch (error) {
@@ -339,22 +314,25 @@ export class NeuralCore {
         }
       `;
 
-      const response = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agent: 'manager',
-          task: 'market_simulation',
-          message: context,
-          sessionId: `sim_${Date.now()}`,
-        }),
+      const data = await triggerAgent({
+        agent: 'manager',
+        task: 'market_simulation',
+        message: context,
+        sessionId: `sim_${Date.now()}`,
       });
-
-      const data = await response.json();
       const responseString = data.result;
       if (!responseString) throw new Error('No response from agent');
 
-      const aiResponse = JSON.parse(responseString);
+      let aiResponse: { revenue_change: number; cost_change: number; orders_change: number; manager_log: string };
+      try {
+        aiResponse = JSON.parse(responseString);
+      } catch {
+        // R9 Fix: AI returned non-JSON — extract numbers with regex or use safe defaults
+        const numMatch = responseString.match(/[-]?\d+/);
+        const delta = numMatch ? parseInt(numMatch[0], 10) : 0;
+        aiResponse = { revenue_change: delta * 1000, cost_change: 0, orders_change: Math.max(0, delta), manager_log: responseString.slice(0, 120) };
+        console.warn('[NeuralCore] triggerMarketEvent: AI returned non-JSON, using fallback.', responseString.slice(0, 200));
+      }
       
       // Update Firebase with new stats
       const simRef = doc(db, 'market_simulator', 'live_stats');
@@ -436,6 +414,7 @@ export class NeuralCore {
    */
   static async sendTelegramNotification(chatId: number, text: string, parseMode: string = 'Markdown'): Promise<void> {
     try {
+      // Telegram notify masih aman via Vercel (tidak butuh LLM, response cepat < 2s)
       await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -444,5 +423,21 @@ export class NeuralCore {
     } catch (error) {
       console.error('Failed to send Telegram Notification via Neural Core:', error);
     }
+  }
+
+  /**
+   * Generate marketing image via Python backend (HuggingFace FLUX).
+   * Bypass Vercel timeout — langsung ke FastAPI.
+   */
+  static async generateMarketingImage(prompt: string) {
+    return apiGenerateImage(prompt);
+  }
+
+  /**
+   * Search supplier via Python backend (Serper).
+   * Bypass Vercel — langsung ke FastAPI.
+   */
+  static async searchSuppliers(query: string, num: number = 5) {
+    return apiSearchSupplier({ query, num });
   }
 }

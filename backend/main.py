@@ -23,23 +23,23 @@ from typing import Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException
+from fastapi import Depends, Header
+from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from google.oauth2 import service_account
 import google.auth.transport.requests
 
-# ── Firebase Admin SDK (Firestore) ────────────────────────────────────────────
-import firebase_admin
-from firebase_admin import credentials, firestore
+import integrations  # pyrefly: ignore[missing-import]
+from integrations import router as integrations_router  # pyrefly: ignore[missing-import]
 
 # ── Load environment variables ────────────────────────────────────────────────
 load_dotenv()
 
-# ── Service Account untuk Google Sheets & Firestore ───────────────────────────
+# ── Service Account untuk Google Sheets ───────────────────────────
 _CRED_PATH = os.path.join(os.path.dirname(__file__), "firebase-credentials.json")
 GCP_CREDS = None
-db = None
 
 if os.path.exists(_CRED_PATH):
     GCP_CREDS = service_account.Credentials.from_service_account_file(
@@ -47,15 +47,6 @@ if os.path.exists(_CRED_PATH):
         scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/userinfo.email"]
     )
     print("[gcp] ✅ Service Account JSON loaded")
-    
-    try:
-        if not firebase_admin._apps:
-            cred = credentials.Certificate(_CRED_PATH)
-            firebase_admin.initialize_app(cred)
-        db = firestore.client()
-        print("[firebase] ✅ Firestore initialized")
-    except Exception as e:
-        print(f"[firebase] ❌ Firestore init error: {e}")
 else:
     print("[gcp] ⚠️  firebase-credentials.json tidak ditemukan")
 
@@ -68,10 +59,19 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "https://fusion-neural.vercel.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "fusion-neural-secret-key-2026")
+api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+
+async def verify_api_key(api_key: str = Depends(api_key_header)):
+    if not api_key or api_key != BACKEND_API_KEY:
+        raise HTTPException(status_code=403, detail="Akses Ditolak: Invalid API Key")
+    return api_key
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 UPSTASH_URL   = os.getenv("UPSTASH_REDIS_REST_URL", "")
@@ -150,7 +150,7 @@ SYSTEM_PROMPTS: dict[str, str] = {
         '• Audit Mandiri: Aktif mendeteksi jika ada proses bisnis yang berpotensi melanggar regulasi sektoral.\n'
         '• Anti-Monopoli: Tidak merekomendasikan strategi yang melanggar UU No. 5 Tahun 1999 (Persaingan Usaha).\n\n'
         'GAYA KOMUNIKASI: Tenang, analitis, visioner. Berbicara seperti CEO yang berpengalaman — singkat, padat, berdampak. '
-        'Selalu dalam Bahasa Indonesia.'
+        'Selalu dalam Bahasa Indonesia.'"\nAUTONOMOUS GUARDRAIL: Punya 'Hak Veto'. Jika agen lain buntu atau berdebat, kamu berhak memutuskan sepihak. Jangan biarkan loop berlanjut selamanya."
     ),
 
     # ── FINANCE ───────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ SYSTEM_PROMPTS: dict[str, str] = {
         '• Reserve Fund: Selalu ingatkan untuk menyisihkan dana darurat (minimal 5% dari laba bersih).\n'
         '• ATURAN KERAS: Jika ada harga atau HPP bernilai 0 Rp — TOLAK dan HITUNG ULANG. Tidak ada kompromi.\n\n'
         'GAYA KOMUNIKASI: Presisi, berbasis angka, transparan. '
-        'Selalu gunakan Rupiah (Rp) untuk semua nilai moneter. Jelaskan dengan sederhana tanpa jargon membingungkan.'
+        'Selalu gunakan Rupiah (Rp) untuk semua nilai moneter. Jelaskan dengan sederhana tanpa jargon membingungkan.''\nAUTONOMOUS GUARDRAIL: Dilarang mengubah HPP jadi 0 atau memotong budget hingga 0. Baca referensi harga asli.'
     ),
 
     # ── ADMIN ─────────────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ SYSTEM_PROMPTS: dict[str, str] = {
         '   • Sertakan Legal Disclaimer wajib. Pastikan tidak ada diskriminasi harga.\n\n'
         'GAYA KOMUNIKASI UMUM:\n'
         'Profesional, sistematis, bergaya CLI/Terminal. Hindari emoji yang heboh atau kalimat yang mendramatisir. '
-        'Bahasa utama: Bahasa Indonesia.'
+        'Bahasa utama: Bahasa Indonesia.''\nAUTONOMOUS GUARDRAIL: Jika sudah pernah peringatkan stok habis hari ini, jangan diulangi (Cooldown). Rate limit warningmu.'
     ),
 
     # ── MARKETING ─────────────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ SYSTEM_PROMPTS: dict[str, str] = {
         '• Harga Transparan: Semua harga dalam Rupiah (Rp) — tidak ada hidden fees.\n'
         '• Konten Kreatif: Bebas berkreasi — gunakan storytelling, emosi positif, dan value proposition yang nyata.\n\n'
         'TONE: Elegan, persuasif, premium. Peka terhadap sinyal pasar. '
-        'Produksi konten yang menggerakkan orang untuk membeli, bukan menipu.'
+        'Produksi konten yang menggerakkan orang untuk membeli, bukan menipu.''\nAUTONOMOUS GUARDRAIL: Patuhi kuota post harian. Jangan spamming sosmed. Hindari diskon fiktif tanpa persetujuan Finance.'
     ),
 
     # ── FRONTLINER (Sales) ────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ SYSTEM_PROMPTS: dict[str, str] = {
         '2. Panggil user sebagai "Kak". Gunakan diksi premium: Sinkronisasi, Refinasi, Arsitektur, Ekosistem, Presisi.\n'
         '3. Hindari paragraf panjang. Alir percakapan natural, tanya-jawab organik.\n'
         '4. Bahasa utama: Indonesia.\n'
-        '5. DILARANG KERAS menggunakan emoji atau emoticon. Bersikaplah profesional dan elegan.'
+        '5. DILARANG KERAS menggunakan emoji atau emoticon. Bersikaplah profesional dan elegan.''\nAUTONOMOUS GUARDRAIL: Human Handoff. Jika user marah, komplain, atau minta admin manusia, stop balas otomatis & serahkan ke manusia.'
     ),
 
     # ── TELEGRAM ──────────────────────────────────────────────────────────────
@@ -422,23 +422,6 @@ async def call_finance_agent(
 # SIDE EFFECTS (Fire & Forget)
 # ═══════════════════════════════════════════════════════════════════
 
-async def update_firebase(agent: str, output: str):
-    """Update Firestore activity_logs dengan hasil agen."""
-    if not db:
-        return
-    try:
-        def _write():
-            payload = {
-                "agent":     agent,
-                "action":    "AGENT_RESPONSE",
-                "details":   output[:500],
-                "timestamp": firestore.SERVER_TIMESTAMP,
-            }
-            db.collection("activity_logs").add(payload)
-        await asyncio.to_thread(_write)
-        print(f"[firestore] ✅ {agent} logged to activity_logs")
-    except Exception as e:
-        print(f"[firestore] ⚠️  {agent}: {e}")
 
 
 def _refresh_gcp_token() -> Optional[str]:
@@ -532,10 +515,91 @@ async def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
+
+# ═══════════════════════════════════════════════════════════════════
+# AUTONOMOUS ENGINE (The Heartbeat)
+# ═══════════════════════════════════════════════════════════════════
+
+autonomous_task = None
+
+async def autonomous_loop():
+    """Detak Jantung AI. Membaca business_logic.json dan mengeksekusi agen secara otonom."""
+    import asyncio
+    from datetime import datetime
+    import pytz
+    
+    print("[Autonomous] 🤖 Loop Engine started.")
+    tz = pytz.timezone("Asia/Jakarta")
+    
+    while True:
+        status = await redis_get("fn:autonomous_mode")
+        if status != "ON":
+            await asyncio.sleep(60)
+            continue
+
+        now = datetime.now(tz)
+        hour = now.hour
+        
+        # Load rules
+        try:
+            with open("business_logic.json", "r") as f:
+                logic = json.load(f)
+            
+            start_hour = int(logic["business_hours"]["start"].split(":")[0])
+            end_hour = int(logic["business_hours"]["end"].split(":")[0])
+            active_sleep = logic["business_hours"]["active_interval_minutes"] * 60
+            idle_sleep = logic["business_hours"]["idle_interval_minutes"] * 60
+        except Exception:
+            start_hour, end_hour = 8, 20
+            active_sleep, idle_sleep = 600, 7200
+            logic = {}
+
+        if start_hour <= hour <= end_hour:
+            sleep_time = active_sleep
+        else:
+            sleep_time = idle_sleep
+
+        print(f"[Autonomous] 💖 Heartbeat at {now.strftime('%H:%M:%S')}. Next tick in {sleep_time}s.")
+        
+        # Eksekusi Manager Agent untuk membaca situasi dan mendelegasikan tugas
+        sys_state = f"Waktu Sistem: {now.strftime('%H:%M:%S')}\nData Referensi Bisnis: {json.dumps(logic)}"
+        
+        msgs = [
+            {"role": "system", "content": SYSTEM_PROMPTS["manager"] + "\n\nIni adalah mode AUTONOMOUS LOOP. Cek referensi. Apakah ada agen yang perlu ditugaskan? Jawab singkat saja."},
+            {"role": "user", "content": sys_state}
+        ]
+        try:
+            # We bypass regular trigger_agent to just quietly use fallback call
+            result, provider = await call_with_fallback("gemini", "groq", msgs, temperature=0.7)
+            print(f"[Autonomous Manager] {result[:100]}")
+            
+            # Kirim sinyal global
+            asyncio.create_task(log_to_signals("manager", f"Berpikir otonom: {result[:80]}..."))
+            
+            # For now, it logs the Manager's autonomous thought to the sheets.
+            asyncio.create_task(log_to_sheets("manager", f"[AUTONOMOUS THOUGHT] {result}", "auto_loop"))
+        except Exception as e:
+            print(f"[Autonomous] Error executing manager loop: {e}")
+
+        await asyncio.sleep(sleep_time)
+
+@app.on_event("startup")
+async def startup_event():
+    global autonomous_task
+    autonomous_task = asyncio.create_task(autonomous_loop())
+
+@app.post("/api/autonomous/toggle")
+async def toggle_autonomous(req: dict):
+    """Enable or disable the autonomous loop mode."""
+    status = req.get("status", "OFF")
+    await redis_set("fn:autonomous_mode", status)
+    return {"status": "success", "mode": status}
+
+
 # ── MAIN: Trigger Agent ───────────────────────────────────────────────────────
 
 @app.post("/trigger-agent", response_model=AgentResponse)
-async def trigger_agent(req: AgentRequest):
+async def trigger_agent(req: AgentRequest, api_key: str = Depends(verify_api_key)):
     """
     Endpoint utama. Dipanggil oleh Vercel API routes.
     Payload: { message, agent, sessionId }
@@ -604,9 +668,6 @@ async def trigger_agent(req: AgentRequest):
         await redis_set_simple(global_key, new_global[-3000:])
 
         # 8. Side effects — fire and forget (tidak memblok response)
-        # ping_n8n DIHAPUS: n8n sekarang upstream caller, bukan visual logger.
-        # Python → n8n ping akan membuat loop (n8n tunggu Python, Python panggil n8n).
-        asyncio.create_task(update_firebase(agent, result))
         asyncio.create_task(log_to_sheets(agent, result, session_id))
 
         # 9. Set IDLE di Redis
@@ -678,7 +739,7 @@ async def generate_image(req: ImageRequest):
         raise HTTPException(status_code=500, detail=f"Image generation error: {e}")
 
 
-# ── Activity Logger (dipanggil oleh n8n setelah agen selesai) ───────────────
+# ── Activity Logger ───────────────
 
 class LogRequest(BaseModel):
     agent:     str
@@ -686,21 +747,60 @@ class LogRequest(BaseModel):
     sessionId: str = ""
 
 @app.post("/log-activity")
-async def log_activity(req: LogRequest):
+async def log_activity(req: LogRequest, api_key: str = Depends(verify_api_key)):
     """
-    Endpoint ringan untuk n8n: terima hasil agen → log ke Google Sheets.
-    n8n tidak perlu OAuth — Python yang handle semuanya.
+    Endpoint ringan: terima hasil agen → log ke Google Sheets.
     """
     asyncio.create_task(log_to_sheets(req.agent, req.result, req.sessionId))
     return {"status": "logged", "agent": req.agent}
 
 
+async def log_to_signals(agent: str, message: str):
+    """Kirim sinyal global ke Firestore agar ditangkap oleh semua halaman Frontend."""
+    if not GCP_CREDS: return
+    try:
+        # Refresh token if needed
+        import google.auth.transport.requests
+        req = google.auth.transport.requests.Request()
+        GCP_CREDS.refresh(req)
+        
+        token = GCP_CREDS.token
+        project_id = "fusion-neural"
+        url = f"https://firestore.googleapis.com/v1/projects/{project_id}/databases/(default)/documents/signals"
+        
+        payload = {
+            "fields": {
+                "agent":   {"stringValue": agent},
+                "message": {"stringValue": message},
+                "status":  {"stringValue": "unread"},
+                "timestamp": {"timestampValue": datetime.now(timezone.utc).isoformat()}
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            await client.post(url, headers={"Authorization": f"Bearer {token}"}, json=payload)
+    except Exception as e:
+        print(f"[signals] ❌ Error: {e}")
 
+# ── Business Logic Config Endpoints ───────────────────────────────────────────
+@app.get("/api/business-logic")
+async def get_business_logic(api_key: str = Depends(verify_api_key)):
+    try:
+        with open("business_logic.json", "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+@app.post("/api/business-logic")
+async def update_business_logic(data: dict, api_key: str = Depends(verify_api_key)):
+    with open("business_logic.json", "w") as f:
+        json.dump(data, f, indent=2)
+    return {"status": "success"}
 
 # ── Supplier Search (Serper) ──────────────────────────────────────────────────
 
 @app.post("/search")
-async def search_supplier(req: SearchRequest):
+async def search_supplier(req: SearchRequest, api_key: str = Depends(verify_api_key)):
     """Cari supplier/produk menggunakan Serper Google Search."""
     if not SERPER_KEY:
         raise HTTPException(status_code=500, detail="SERPER_API_KEY tidak dikonfigurasi di .env")
@@ -721,3 +821,12 @@ async def search_supplier(req: SearchRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+app.include_router(integrations_router, prefix="/api")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+integrations.external_logger = log_to_sheets
+

@@ -8,6 +8,7 @@ import {
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface ScheduledPost {
   id: string;
@@ -177,18 +178,21 @@ export default function ContentLaunchpadPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Content Launchpad</h1>
-          <p className="text-slate-500 text-sm mt-1">Timeline, distribusi & aset — kendali penuh atas publikasi</p>
-        </div>
-        <button
+      <PageHeader
+        title="Content Launchpad"
+        subtitle="Timeline, distribusi & aset — kendali penuh atas publikasi"
+        accent="purple"
+        actions={
+          <>
+            <button
           onClick={() => setIsAdding(!isAdding)}
           className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-700 transition-colors shadow-md"
         >
           <Plus size={16} /> Jadwalkan Post
         </button>
-      </div>
+          </>
+        }
+      />
 
       <AnimatePresence>
         {isAdding && (

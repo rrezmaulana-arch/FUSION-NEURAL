@@ -4,6 +4,7 @@ import { Fingerprint, Save, CheckCircle2, RefreshCw, Palette, Tag } from 'lucide
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const VISUAL_TAGS = ['Glassmorphism', 'Dark Premium', 'Minimal White', 'Futuristik', 'Typographic', 'Bold Gradient', 'Anti-Gravity Aesthetic'];
 
@@ -62,12 +63,13 @@ Setiap konten yang kamu hasilkan harus mencerminkan standar premium FusionNeural
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Brand DNA</h1>
-          <p className="text-slate-500 text-sm mt-1">Mengunci identitas AI agar selalu selaras dengan karakter brand</p>
-        </div>
-        <button onClick={handleSave} disabled={isSaving}
+      <PageHeader
+        title="Brand DNA"
+        subtitle="Mengunci identitas AI agar selalu selaras dengan karakter brand"
+        accent="purple"
+        actions={
+          <>
+            <button onClick={handleSave} disabled={isSaving}
           className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-md ${
             saved ? 'bg-emerald-600 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'
           } disabled:opacity-50`}
@@ -76,7 +78,9 @@ Setiap konten yang kamu hasilkan harus mencerminkan standar premium FusionNeural
             : saved ? <><CheckCircle2 size={15} /> Tersimpan!</>
             : <><Save size={15} /> Simpan ke AI</>}
         </button>
-      </div>
+          </>
+        }
+      />
 
       {/* Persona Settings */}
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">

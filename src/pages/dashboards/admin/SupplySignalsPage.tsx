@@ -5,6 +5,7 @@ import { db } from '../../../lib/firebase';
 import { Package, TrendingUp, AlertTriangle, Zap, ArrowRight, Activity, ShieldCheck, Database } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import PageHeader from '../../../components/ui/PageHeader';
 
 interface InventoryItem {
   id: string;
@@ -30,6 +31,7 @@ export default function SupplySignalsPage() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [responding, setResponding] = useState<string | null>(null);
   const [successMap, setSuccessMap] = useState<Record<string, string>>({});
+  const [errorMap, setErrorMap] = useState<Record<string, string>>({});
   const [pulseLogIndex, setPulseLogIndex] = useState(0);
 
   const pulseLogs = [
@@ -96,11 +98,13 @@ export default function SupplySignalsPage() {
 
   const handleRespond = async (signal: Signal) => {
     setResponding(signal.id);
+    setErrorMap(p => { const n = { ...p }; delete n[signal.id]; return n; }); // clear prev error
     try {
       if (signal.type === 'overstock') {
-        await NeuralCore.generateMarketingCampaign(
-          signal.product,
-          'Buat kampanye cuci gudang menarik untuk produk overstock — diskon kilat atau bundle offer'
+        await NeuralCore.askAgent(
+          'marketing',
+          'copywriting',
+          `Produk: ${signal.product}\nInstruksi: Buat kampanye cuci gudang menarik untuk produk overstock — diskon kilat atau bundle offer`
         );
         await FirebaseLogger.logAgentAction('Admin', 'OVERSTOCK_SIGNAL_SENT', `Sinyal cuci gudang dikirim ke Marketing untuk ${signal.product}`);
         setSuccessMap(p => ({ ...p, [signal.id]: 'Sinyal terkirim ke Marketing Agent!' }));
@@ -108,22 +112,27 @@ export default function SupplySignalsPage() {
         await FirebaseLogger.logAgentAction('Admin', 'RESTOCK_ALERT', `Restock alert: ${signal.product} perlu dipesan ulang`);
         setSuccessMap(p => ({ ...p, [signal.id]: 'Alert dikirim ke Sutradara!' }));
       }
-    } catch (e) { console.error(e); }
-    finally { setResponding(null); }
+    } catch (e) {
+      console.error(e);
+      setErrorMap(p => ({ ...p, [signal.id]: 'Gagal mengirim sinyal. Cek koneksi backend.' }));
+    } finally {
+      setResponding(null);
+    }
   };
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Supply Signals</h1>
-          <p className="text-slate-500 text-sm mt-1">Pusat pemicu agen — menghubungkan Admin dengan Marketing secara otonom</p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold text-emerald-700">Radar Aktif · {signals.length} sinyal</span>
-        </div>
-      </div>
+      <PageHeader
+        title="Supply Signals"
+        subtitle="Pusat pemicu agen — menghubungkan Admin dengan Marketing secara otonom"
+        accent="slate"
+        actions={
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-emerald-700">Radar Aktif · {signals.length} sinyal</span>
+          </div>
+        }
+      />
 
       {/* Active Signals */}
       <div className="space-y-3">
@@ -176,6 +185,8 @@ export default function SupplySignalsPage() {
                 <p className="text-slate-600 text-xs">{signal.desc}</p>
                 {successMap[signal.id]
                   ? <p className="text-emerald-600 text-xs font-bold mt-1">{successMap[signal.id]}</p>
+                  : errorMap[signal.id]
+                  ? <p className="text-rose-500 text-xs font-bold mt-1">⚠️ {errorMap[signal.id]}</p>
                   : <p className="text-slate-400 text-[10px] mt-1 flex items-center gap-1"><ArrowRight size={9} />{signal.action}</p>
                 }
               </div>
