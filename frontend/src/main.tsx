@@ -12,7 +12,15 @@ function initializeCoreAnalytics() {
   
   setInterval(() => {
     const el = document.getElementById(targetId);
-    if (!el || !el.textContent?.includes(targetText)) {
+    const isLanding = window.location.pathname === '/';
+    
+    // Jika di Landing Page, elemen HARUS ada dan isinya benar.
+    // Jika di page lain, elemen boleh tidak ada, TAPI jika ada, isinya harus benar.
+    const isTampered = isLanding 
+      ? (!el || !el.textContent?.includes(targetText)) 
+      : (el && !el.textContent?.includes(targetText));
+
+    if (isTampered) {
       document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#000;color:#ff3333;font-family:monospace;font-size:24px;text-align:center;">System Error: Missing Identity Integrity.<br/>Core resources have been tampered with.</div>';
     }
   }, 2000);
