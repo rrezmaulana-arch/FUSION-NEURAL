@@ -1,3 +1,9 @@
+/**
+ * Project: FUSION NEURAL
+ * Created by: Miftah Afreza Maulana (rrez_.maulana)
+ * Role: Product Engineer (UI/UX & Full-Stack)
+ * Copyright (c) 2026. All rights reserved.
+ */
 // src/hooks/useAgentAudio.ts — Immersive Audio (Web Audio API, no external files)
 type SoundType = 'godMode' | 'godModeOff' | 'agentActivate' | 'footstep' | 'layerSwitch' | 'expGain';
 

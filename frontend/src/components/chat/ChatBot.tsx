@@ -1,3 +1,9 @@
+/**
+ * Project: FUSION NEURAL
+ * Created by: Miftah Afreza Maulana (rrez_.maulana)
+ * Role: Product Engineer (UI/UX & Full-Stack)
+ * Copyright (c) 2026. All rights reserved.
+ */
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Brain, Send, X, Sparkles, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";

@@ -1,3 +1,9 @@
+/**
+ * Project: FUSION NEURAL
+ * Created by: Miftah Afreza Maulana (rrez_.maulana)
+ * Role: Product Engineer (UI/UX & Full-Stack)
+ * Copyright (c) 2026. All rights reserved.
+ */
 // src/services/apiClient.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // FusionNeural — Direct API Client (Bypass Vercel 10s Timeout)

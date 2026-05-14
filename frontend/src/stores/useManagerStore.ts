@@ -1,3 +1,9 @@
+/**
+ * Project: FUSION NEURAL
+ * Created by: Miftah Afreza Maulana (rrez_.maulana)
+ * Role: Product Engineer (UI/UX & Full-Stack)
+ * Copyright (c) 2026. All rights reserved.
+ */
 // src/stores/useManagerStore.ts
 // Zustand store — Manager Agent State (Synced with Firestore)
 import { create } from 'zustand';

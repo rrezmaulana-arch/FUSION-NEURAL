@@ -1,3 +1,9 @@
+/**
+ * Project: FUSION NEURAL
+ * Created by: Miftah Afreza Maulana (rrez_.maulana)
+ * Role: Product Engineer (UI/UX & Full-Stack)
+ * Copyright (c) 2026. All rights reserved.
+ */
 import { Zap } from 'lucide-react';
 
 export default function Footer() {
@@ -27,8 +33,8 @@ export default function Footer() {
       </div>
 
       <div className="max-w-5xl mx-auto mt-8 pt-6 border-t border-white/5 text-center">
-        <p className="text-white/20 text-xs font-inter">
-          © 2026 FUSION NEURAL. Conceptual project — built for demonstration purposes only.
+        <p id="sys-ref" className="text-white/20 text-xs font-inter">
+          © 2026 Crafted with ❤️ by Miftah Afreza Maulana. Conceptual project.
         </p>
       </div>
     </footer>

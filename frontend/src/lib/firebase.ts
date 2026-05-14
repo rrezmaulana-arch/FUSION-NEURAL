@@ -1,3 +1,9 @@
+/**
+ * Project: FUSION NEURAL
+ * Created by: Miftah Afreza Maulana (rrez_.maulana)
+ * Role: Product Engineer (UI/UX & Full-Stack)
+ * Copyright (c) 2026. All rights reserved.
+ */
 import { initializeApp, getApps } from 'firebase/app';
 import { getAnalytics, type Analytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
