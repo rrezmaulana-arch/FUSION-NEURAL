@@ -32,5 +32,5 @@
 # Pastikan PYTHON_BACKEND_URL=https://fusionneural.loca.lt di Vercel Dashboard
 
 # ── SETELAH SEMUANYA JALAN ────────────────────────────────────────────────────
-# Cukup jalankan: START_FUSIONNEURAL.bat
+# Cukup jalankan: MULAI_SISTEM.bat
 # Script ini akan otomatis melakukan semua langkah di atas.

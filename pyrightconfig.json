@@ -3,6 +3,7 @@
     "venvPath": "backend",
     "venv": "venv",
     "pythonVersion": "3.13",
+    "typeCheckingMode": "basic",
     "extraPaths": [
         "backend",
         "backend/venv/Lib/site-packages"
@@ -17,6 +18,10 @@
                 "backend/venv/Lib/site-packages"
             ]
         }
-    ]
+    ],
+    "reportMissingModuleSource": "none",
+    "reportMissingImports": "none",
+    "reportMissingTypeStubs": "none",
+    "reportUnknownMemberType": "none",
+    "reportUnknownVariableType": "none"
 }
-

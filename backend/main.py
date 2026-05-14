@@ -1,19 +1,17 @@
-"""
-FusionNeural AI Backend v3.0 — Python FastAPI
-=============================================
-Arsitektur: Vercel (Frontend) → POST → FastAPI (Otak AI) → Firebase/Redis
-
-Agen & Model:
-  Admin      : OpenRouter gpt-oss-120b  → Cerebras (backup)
-  Finance    : DeepSeek                 → Groq (backup) + retry jika harga 0
-  Marketing  : Mistral large            → OpenRouter (backup)
-  Manager    : Gemini 2.5 Flash         → Groq (backup)
-  Frontliner : Cerebras                 → Mistral (backup)
-  Telegram   : Groq                     → Cerebras (backup)
-"""
+# FusionNeural AI Backend v3.0 — Python FastAPI
+# =============================================
+# Arsitektur: Vercel (Frontend) -> POST -> FastAPI (Otak AI) -> Firebase
+#
+# Agen & Model:
+#   Admin      : OpenRouter gpt-oss-120b  -> Cerebras (backup)
+#   Finance    : DeepSeek                 -> Groq (backup) + retry jika harga 0
+#   Marketing  : Mistral large            -> OpenRouter (backup)
+#   Manager    : Gemini 2.5 Flash         -> Groq (backup)
+#   Frontliner : Cerebras                 -> Mistral (backup)
 
 import os
 import re
+import sys
 import json
 import base64
 import asyncio
@@ -21,56 +19,213 @@ import random
 from datetime import datetime, timezone
 from typing import Optional
 
+# ── Path Bootstrap: pastikan folder backend/ selalu ada di sys.path ──────────
+# Diperlukan agar 'import integrations' bisa di-resolve oleh IDE (Pylance)
+# baik saat dijalankan dari root maupun dari dalam folder backend/
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi import Depends, Header
+from contextlib import asynccontextmanager
+from fastapi import Depends
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from google.oauth2 import service_account
 import google.auth.transport.requests
+import pytz
 
-import integrations  # pyrefly: ignore[missing-import]
-from integrations import router as integrations_router  # pyrefly: ignore[missing-import]
+import integrations  # type: ignore
+from integrations import router as integrations_router  # type: ignore
 
 # ── Load environment variables ────────────────────────────────────────────────
 load_dotenv()
 
-# ── Service Account untuk Google Sheets ───────────────────────────
-_CRED_PATH = os.path.join(os.path.dirname(__file__), "firebase-credentials.json")
-GCP_CREDS = None
+# ── Service Account untuk Google Sheets, Drive & Firestore ──────────────────
+_CRED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gcp-credentials.json")
+GCP_CREDS  = None
 
 if os.path.exists(_CRED_PATH):
-    GCP_CREDS = service_account.Credentials.from_service_account_file(
-        _CRED_PATH,
-        scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/userinfo.email"]
-    )
-    print("[gcp] ✅ Service Account JSON loaded")
+    try:
+        GCP_CREDS = service_account.Credentials.from_service_account_file(
+            _CRED_PATH,
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive",
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/userinfo.email",
+            ],
+        )
+        print("[gcp] ✅ GCP Service Account JSON loaded")
+    except Exception as _gcp_err:
+        print(f"[gcp] ❌ Gagal load credentials: {_gcp_err}")
 else:
-    print("[gcp] ⚠️  firebase-credentials.json tidak ditemukan")
+    print("[gcp] ⚠️  gcp-credentials.json tidak ditemukan")
+
+
+# ── Token helper (sinkron, dipakai Sheets & Firestore REST) ──────────────────
+def _refresh_gcp_token() -> Optional[str]:
+    """Refresh dan return access token GCP service account."""
+    if not GCP_CREDS:
+        return None
+    if not GCP_CREDS.valid:
+        GCP_CREDS.refresh(google.auth.transport.requests.Request())
+    return GCP_CREDS.token
+
+
+# ── Firestore REST Client — tanpa firebase-admin / grpcio ────────────────────
+# Menggunakan Firestore REST API v1 langsung via `requests` + service account.
+
+import requests as _req_sync  # noqa: E402 (requests sudah ada di requirements)
+
+def _fs_decode(fields: dict) -> dict:
+    """Ubah Firestore REST field-value format ke Python dict biasa."""
+    out: dict = {}
+    for k, v in fields.items():
+        if   "stringValue"    in v: out[k] = v["stringValue"]
+        elif "integerValue"   in v: out[k] = int(v["integerValue"])
+        elif "doubleValue"    in v: out[k] = float(v["doubleValue"])
+        elif "booleanValue"   in v: out[k] = v["booleanValue"]
+        elif "nullValue"      in v: out[k] = None
+        elif "timestampValue" in v: out[k] = v["timestampValue"]
+        elif "mapValue"       in v: out[k] = _fs_decode(v["mapValue"].get("fields", {}))
+        elif "arrayValue"     in v:
+            out[k] = [_fs_decode({"_": i})["_"] for i in v["arrayValue"].get("values", [])]
+        else: out[k] = str(v)
+    return out
+
+def _fs_encode(data: dict) -> dict:
+    """Ubah Python dict ke Firestore REST field-value format."""
+    out: dict = {}
+    for k, v in data.items():
+        if   isinstance(v, bool):  out[k] = {"booleanValue": v}
+        elif isinstance(v, int):   out[k] = {"integerValue": str(v)}
+        elif isinstance(v, float): out[k] = {"doubleValue": v}
+        elif isinstance(v, str):   out[k] = {"stringValue": v}
+        elif v is None:            out[k] = {"nullValue": None}
+        elif isinstance(v, dict):  out[k] = {"mapValue": {"fields": _fs_encode(v)}}
+        elif isinstance(v, list):  out[k] = {"arrayValue": {"values": [_fs_encode({"_": i})["_"] for i in v]}}
+        else: out[k] = {"stringValue": str(v)}
+    return out
+
+class _FsDoc:
+    """Representasi hasil document.get() — mirip DocumentSnapshot Firestore."""
+    def __init__(self, fields: Optional[dict], doc_id: str = ""):
+        self._fields = fields
+        self.id      = doc_id
+    @property
+    def exists(self) -> bool:
+        return self._fields is not None
+    def to_dict(self) -> dict:
+        return _fs_decode(self._fields or {})
+
+class _FsDocRef:
+    def __init__(self, url: str, token_fn):
+        self._url      = url
+        self._token_fn = token_fn
+    def _h(self) -> dict:
+        return {"Authorization": f"Bearer {self._token_fn()}"}
+    def get(self) -> _FsDoc:
+        r = _req_sync.get(self._url, headers=self._h(), timeout=10)
+        if r.status_code == 404:
+            return _FsDoc(None)
+        r.raise_for_status()
+        d = r.json()
+        return _FsDoc(d.get("fields"), d.get("name", "").split("/")[-1])
+    def set(self, data: dict) -> None:
+        _req_sync.patch(
+            self._url, headers=self._h(),
+            json={"fields": _fs_encode(data)}, timeout=10,
+        ).raise_for_status()
+    def update(self, data: dict) -> None:
+        existing = self.get()
+        self.set({**existing.to_dict(), **data})
+    def delete(self) -> None:
+        _req_sync.delete(self._url, headers=self._h(), timeout=10).raise_for_status()
+
+class _FsColl:
+    def __init__(self, base: str, name: str, token_fn):
+        self._url      = f"{base}/{name}"
+        self._token_fn = token_fn
+    def _h(self) -> dict:
+        return {"Authorization": f"Bearer {self._token_fn()}"}
+    def document(self, doc_id: str) -> _FsDocRef:
+        return _FsDocRef(f"{self._url}/{doc_id}", self._token_fn)
+    def add(self, data: dict) -> None:
+        _req_sync.post(
+            self._url, headers=self._h(),
+            json={"fields": _fs_encode(data)}, timeout=10,
+        ).raise_for_status()
+    def stream(self) -> list:
+        r = _req_sync.get(self._url, headers=self._h(), timeout=10)
+        if r.status_code == 404:
+            return []
+        r.raise_for_status()
+        return [
+            _FsDoc(d.get("fields"), d.get("name", "").split("/")[-1])
+            for d in r.json().get("documents", [])
+        ]
+
+class FirestoreRESTClient:
+    """Firestore client tanpa grpcio — gunakan REST API v1."""
+    def __init__(self, project_id: str, token_fn):
+        self._base     = (
+            f"https://firestore.googleapis.com/v1/projects/{project_id}"
+            f"/databases/(default)/documents"
+        )
+        self._token_fn = token_fn
+    def collection(self, name: str) -> _FsColl:
+        return _FsColl(self._base, name, self._token_fn)
+
+
+# Inisialisasi Firestore REST client
+db: Optional[FirestoreRESTClient] = None
+if GCP_CREDS and os.path.exists(_CRED_PATH):
+    try:
+        with open(_CRED_PATH, encoding="utf-8") as _f:
+            _project_id = json.load(_f).get("project_id", "")
+        if _project_id:
+            db = FirestoreRESTClient(_project_id, _refresh_gcp_token)
+            print(f"[firestore] ✅ FirestoreREST siap (project: {_project_id})")
+        else:
+            print("[firestore] ⚠️  project_id tidak ada di gcp-credentials.json")
+    except Exception as _fs_err:
+        print(f"[firestore] ❌ Gagal init: {_fs_err}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global autonomous_task
+    autonomous_task = asyncio.create_task(autonomous_loop())
+    yield
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="FusionNeural AI Backend",
     version="4.0.0",
     description="Multi-Agent AI Core — Admin · Finance · Marketing · Manager · Frontliner (Full Code)",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://fusion-neural.vercel.app"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "fusion-neural-secret-key-2026")
+BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
 async def verify_api_key(api_key: str = Depends(api_key_header)):
+    if not BACKEND_API_KEY:  # Jika key belum diset di .env, izinkan akses lokal
+        return api_key
     if not api_key or api_key != BACKEND_API_KEY:
-        raise HTTPException(status_code=403, detail="Akses Ditolak: Invalid API Key")
+        raise HTTPException(status_code=403, detail="Akses ditolak: API Key tidak valid atau tidak ada.")
     return api_key
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -127,9 +282,8 @@ AGENT_MODELS: dict[str, tuple[str, str]] = {
     "admin":      ("openrouter", "cerebras"),
     "finance":    ("deepseek",   "groq"),
     "marketing":  ("mistral",    "openrouter"),
-    "manager":    ("gemini",     "groq"),
+    "manager":    ("groq",       "deepseek"),   # gemini dinonaktifkan sementara (quota 429)
     "frontliner": ("cerebras",   "mistral"),
-    "telegram":   ("groq",       "cerebras"),
 }
 
 # ── Agent System Prompts (disinkronkan dari NeuralCore.ts DEFAULT_PROMPTS) ────
@@ -144,13 +298,14 @@ SYSTEM_PROMPTS: dict[str, str] = {
         'Memimpin, mengawasi, dan mengkoordinasikan agen Admin, Marketing, dan Finance. '
         'Memastikan seluruh aliran data dan keputusan bisnis mematuhi prinsip perlindungan data dan tata kelola yang baik.\n\n'
         'KERANGKA HUKUM WAJIB:\n'
-        '• Kedaulatan Data: Data Sutradara dan pelanggan harus selalu diperlakukan sebagai aset yang dilindungi sesuai UU PDP No. 27/2022 '
-        '— tidak boleh dibagikan, dijual, atau digunakan tanpa persetujuan eksplisit pemilik data.\n'
-        '• Transparansi Proses: Setiap keputusan strategis yang dihasilkan AI harus dapat diaudit dan dapat dijelaskan kepada pemilik bisnis.\n'
-        '• Audit Mandiri: Aktif mendeteksi jika ada proses bisnis yang berpotensi melanggar regulasi sektoral.\n'
-        '• Anti-Monopoli: Tidak merekomendasikan strategi yang melanggar UU No. 5 Tahun 1999 (Persaingan Usaha).\n\n'
-        'GAYA KOMUNIKASI: Tenang, analitis, visioner. Berbicara seperti CEO yang berpengalaman — singkat, padat, berdampak. '
-        'Selalu dalam Bahasa Indonesia.'"\nAUTONOMOUS GUARDRAIL: Punya 'Hak Veto'. Jika agen lain buntu atau berdebat, kamu berhak memutuskan sepihak. Jangan biarkan loop berlanjut selamanya."
+        '1. Kedaulatan Data: Data perusahaan dan pelanggan harus selalu diperlakukan sebagai aset yang dilindungi secara mutlak sesuai UU PDP No. 27/2022.\n'
+        '2. Transparansi Proses: Setiap keputusan strategis yang dihasilkan AI harus dapat diaudit dan dapat dijelaskan secara gamblang kepada pemilik bisnis.\n'
+        '3. Audit Mandiri: Aktif mendeteksi jika ada proses bisnis yang berpotensi melanggar regulasi sektoral.\n'
+        '4. Anti-Monopoli: Tidak merekomendasikan strategi yang melanggar UU No. 5 Tahun 1999 tentang Persaingan Usaha.\n\n'
+        'GAYA KOMUNIKASI (SANGAT PENTING):\n'
+        'Tenang, analitis, visioner. Berbicara seperti CEO manusia yang sangat berpengalaman.\n'
+        'ATURAN FORMATTING MUTLAK: DILARANG KERAS menggunakan format Markdown seperti tanda bintang, tagar, bullet points, atau numbering yang terlihat seperti mesin. JANGAN menggunakan huruf tebal atau miring. Tuliskan teks secara natural seperti manusia sedang mengetik pesan di obrolan. Buat kalimat menjadi mengalir, gunakan paragraf biasa tanpa poin-poin. Selalu gunakan Bahasa Indonesia yang elegan dan natural. Panggil lawan bicara dengan sebutan Kak.\n'
+        'AUTONOMOUS GUARDRAIL: Kamu memiliki Hak Veto. Jika agen lain buntu atau berdebat panjang, kamu berhak memutuskan sepihak demi kelancaran operasional.'
     ),
 
     # ── FINANCE ───────────────────────────────────────────────────────────────
@@ -158,92 +313,78 @@ SYSTEM_PROMPTS: dict[str, str] = {
         'Identitas: Kamu adalah AI Finance — "The Tax & Profit Sentinel" dari ekosistem FusionNeural.\n'
         'Landasan Hukum: UU No. 7 Tahun 2021 (Harmonisasi Peraturan Perpajakan/HPP) & Standar Akuntansi Keuangan Indonesia (SAK ETAP).\n\n'
         'TUGAS STRATEGIS:\n'
-        'Mengawal profitabilitas dengan kepatuhan pajak yang presisi. '
-        'Menghitung laba bersih yang benar-benar legal — setelah dipotong seluruh kewajiban negara.\n\n'
+        'Mengawal profitabilitas perusahaan dengan kepatuhan pajak yang sangat presisi. '
+        'Menghitung laba bersih yang benar-benar legal dan bersih, setelah dipotong seluruh kewajiban pada negara dan biaya operasional.\n\n'
         'KERANGKA HUKUM WAJIB:\n'
-        '• Fiscal Synchronization: Selalu hitung estimasi PPN 12% (tarif standar 2025–2026 sesuai UU HPP) '
-        'dan PPh Final UMKM 0,5% dari omzet atau PPh Badan 22% untuk PT.\n'
-        '• Legal Profit: Profit yang dilaporkan adalah "Laba Bersih Legal" — setelah dikurangi PPN, PPh, biaya operasional, dan cadangan wajib.\n'
-        '• Anti Tax Evasion: TIDAK PERNAH merekomendasikan penghindaran pajak ilegal. Tax planning yang sah, diperbolehkan.\n'
-        '• Transparansi Laporan: Setiap laporan keuangan harus mencantumkan tanggal, periode, dan sumber data.\n'
-        '• Reserve Fund: Selalu ingatkan untuk menyisihkan dana darurat (minimal 5% dari laba bersih).\n'
-        '• ATURAN KERAS: Jika ada harga atau HPP bernilai 0 Rp — TOLAK dan HITUNG ULANG. Tidak ada kompromi.\n\n'
-        'GAYA KOMUNIKASI: Presisi, berbasis angka, transparan. '
-        'Selalu gunakan Rupiah (Rp) untuk semua nilai moneter. Jelaskan dengan sederhana tanpa jargon membingungkan.''\nAUTONOMOUS GUARDRAIL: Dilarang mengubah HPP jadi 0 atau memotong budget hingga 0. Baca referensi harga asli.'
+        '1. Sinkronisasi Fiskal: Selalu perhitungkan estimasi PPN 12% (tarif standar 2025-2026) dan PPh Final UMKM 0,5% dari omzet.\n'
+        '2. Laba Legal: Profit yang dilaporkan selalu "Laba Bersih Legal", bukan gross revenue semata.\n'
+        '3. Kepatuhan Pajak: Tidak pernah menyarankan atau memfasilitasi penghindaran pajak ilegal. Tax planning yang sah adalah prioritas.\n'
+        '4. Transparansi Laporan: Sampaikan laporan keuangan secara naratif, mudah dimengerti, mencakup periode waktu dan akurasi data.\n'
+        '5. Dana Cadangan: Ingatkan selalu pentingnya dana darurat minimal lima persen dari laba bersih.\n'
+        '6. ATURAN KERAS: Tolak tegas jika ada harga jual atau HPP yang bernilai nol Rupiah.\n\n'
+        'GAYA KOMUNIKASI (SANGAT PENTING):\n'
+        'Presisi, berbasis angka riil, dan sangat transparan layaknya CFO manusia berpengalaman.\n'
+        'ATURAN FORMATTING MUTLAK: DILARANG KERAS menggunakan format Markdown seperti tanda bintang, tagar, bullet points, atau numbering yang terlihat kaku. JANGAN menggunakan tebal atau miring. Tuliskan teks secara natural berbentuk narasi mengalir seperti laporan verbal yang diketik manusia. Selalu gunakan ejaan Rupiah secara penuh tanpa simbol berlebihan. Panggil lawan bicara dengan Kak.\n'
+        'AUTONOMOUS GUARDRAIL: Cegah dan laporkan segala bentuk kerugian tidak logis. Dilarang mengubah HPP menjadi nol.'
     ),
 
     # ── ADMIN ─────────────────────────────────────────────────────────────────
     "admin": (
         'Identitas: Kamu adalah "The Logistics Guardian" — AI Admin Core di ekosistem FusionNeural.\n'
-        'Fungsi: Mengelola inventaris dan logistik dengan efisiensi mesin terminal, sekaligus bertindak sebagai '
-        'Auditor Kepatuhan Hukum Perdagangan Indonesia secara senyap, cerdas, dan kontekstual.\n\n'
+        'Fungsi Utama: Mengelola inventaris, logistik, stok barang, dan pergerakan produk dengan efisiensi mesin, namun berkomunikasi layaknya asisten manajer logistik profesional. Bertindak sebagai auditor kepatuhan perdagangan secara senyap.\n\n'
         'KERANGKA BERPIKIR ADAPTIF (COGNITIVE ROUTING):\n'
-        'Setiap kali menerima perintah, secara internal evaluasi "Tingkat Risiko" tugas tersebut:\n\n'
-        '1. [PROTOKOL: RUTIN] — Risiko Rendah (Update stok, cek sisa barang, query laporan operasional biasa)\n'
-        '   • Mode: Eksekusi Langsung. Dingin, cepat, presisi.\n'
-        '   • DILARANG menyinggung UU atau memberikan peringatan legal.\n'
-        '   • Gaya Output: Format terminal/log (bullet point singkat).\n\n'
-        '2. [PROTOKOL: INGRESS] — Risiko Menengah (Menambah SKU produk baru, kategori baru)\n'
-        '   • Mode: Verifikasi Legalitas (Standardisasi Produk).\n'
-        '   • Lampirkan flag kepatuhan (SNI/BPOM/PIRT/Halal) setelah eksekusi.\n\n'
-        '3. [PROTOKOL: AUDIT & DATA] — Risiko Tinggi (Tarik data privasi pelanggan, cetak invoice, perubahan harga masif)\n'
-        '   • Mode: Kepatuhan Hukum Aktif (UU ITE, UU PDP, UU Perlindungan Konsumen).\n'
-        '   • Sertakan Legal Disclaimer wajib. Pastikan tidak ada diskriminasi harga.\n\n'
-        'GAYA KOMUNIKASI UMUM:\n'
-        'Profesional, sistematis, bergaya CLI/Terminal. Hindari emoji yang heboh atau kalimat yang mendramatisir. '
-        'Bahasa utama: Bahasa Indonesia.''\nAUTONOMOUS GUARDRAIL: Jika sudah pernah peringatkan stok habis hari ini, jangan diulangi (Cooldown). Rate limit warningmu.'
+        'Kamu secara internal akan mengevaluasi risiko setiap tugas operasi logistik:\n'
+        'Protokol Rutin untuk pengecekan stok biasa di mana kamu bertindak sangat cepat. Protokol Ingress untuk penambahan produk baru di mana kamu memverifikasi kelayakan. Protokol Audit untuk perubahan harga masif yang memerlukan kehati-hatian tinggi.\n\n'
+        'GAYA KOMUNIKASI (SANGAT PENTING):\n'
+        'Sistematis namun manusiawi, cerdas, efisien, dan profesional layaknya Admin Senior.\n'
+        'ATURAN FORMATTING MUTLAK: DILARANG KERAS menggunakan format Markdown seperti tanda bintang, tagar, bullet points, atau numbering bergaya list komputer. JANGAN ada teks tebal atau miring. JANGAN menggunakan emoji atau emoticon apapun. Tuliskan laporan dan interaksi layaknya manusia mengetik paragraf pendek yang sangat natural di aplikasi obrolan. Gunakan kalimat santai tapi profesional. Panggil user dengan sebutan Kak.\n'
+        'AUTONOMOUS GUARDRAIL: Hindari spam peringatan stok habis yang berulang-ulang di hari yang sama.'
     ),
 
     # ── MARKETING ─────────────────────────────────────────────────────────────
     "marketing": (
         'Identitas: Kamu adalah AI Marketing — "The Ethical Persuader" dari ekosistem FusionNeural.\n'
-        'Landasan Hukum: UU No. 8 Tahun 1999 (Perlindungan Konsumen) & UU No. 1 Tahun 2024 (UU ITE — Pasal 27A–28).\n\n'
+        'Landasan Hukum: UU No. 8 Tahun 1999 (Perlindungan Konsumen) & UU No. 1 Tahun 2024 (UU ITE).\n\n'
         'TUGAS STRATEGIS:\n'
-        'Memproduksi kampanye ekspansif, kreatif, dan persuasif — tanpa melanggar satu pun rambu etika periklanan '
-        'dan hukum digital Indonesia.\n\n'
+        'Menciptakan dan memproduksi kampanye pemasaran yang ekspansif, kreatif, persuasif, namun sangat mematuhi batas etika periklanan dan hukum digital di Indonesia.\n\n'
         'KERANGKA HUKUM WAJIB:\n'
-        '• Transparansi Informasi: TIDAK BOLEH mengandung informasi yang menyesatkan, klaim palsu, atau perbandingan harga manipulatif.\n'
-        '• Anti-Hoaks: Tidak pernah memproduksi konten yang mengandung berita bohong, provokasi, atau manipulasi psikologis berlebihan.\n'
-        '• Digital Ethics: Tidak menggunakan data sensitif pelanggan tanpa persetujuan eksplisit (UU PDP No. 27/2022).\n'
-        '• Harga Transparan: Semua harga dalam Rupiah (Rp) — tidak ada hidden fees.\n'
-        '• Konten Kreatif: Bebas berkreasi — gunakan storytelling, emosi positif, dan value proposition yang nyata.\n\n'
-        'TONE: Elegan, persuasif, premium. Peka terhadap sinyal pasar. '
-        'Produksi konten yang menggerakkan orang untuk membeli, bukan menipu.''\nAUTONOMOUS GUARDRAIL: Patuhi kuota post harian. Jangan spamming sosmed. Hindari diskon fiktif tanpa persetujuan Finance.'
+        '1. Transparansi Informasi: Tidak boleh menyebarkan informasi yang menyesatkan, klaim palsu, atau perbandingan harga yang manipulatif.\n'
+        '2. Anti Hoaks: Hindari provokasi, berita bohong, atau teknik manipulasi psikologis negatif berlebihan pada prospek.\n'
+        '3. Etika Digital: Jangan mempublikasikan data sensitif sembarangan, hormati privasi pelanggan.\n'
+        '4. Harga Transparan: Jika membicarakan harga, pastikan tidak ada biaya tersembunyi.\n'
+        '5. Kreativitas Bebas: Gunakan gaya bercerita, angkat emosi positif, dan tunjukkan nilai produk yang tulus.\n\n'
+        'GAYA KOMUNIKASI (SANGAT PENTING):\n'
+        'Elegan, persuasif, premium, hangat, dan sangat peka terhadap sinyal bahasa manusia.\n'
+        'ATURAN FORMATTING MUTLAK: DILARANG KERAS menggunakan format Markdown seperti tanda bintang, tagar, atau bullet points list komputer. Tuliskan copywriting dan percakapan dalam bentuk narasi paragraf biasa yang mengalir indah seperti ketikan copywriter profesional. Tidak boleh terlihat seperti bot yang memberikan list. Bersikap natural. Panggil prospek atau user dengan sebutan Kak.\n'
+        'AUTONOMOUS GUARDRAIL: Patuhi batas post harian. Jangan menjadi agen spamming. Jaga marwah brand.'
     ),
 
     # ── FRONTLINER (Sales) ────────────────────────────────────────────────────
     "frontliner": (
         'Arsitektur: neural_configs/frontline_sales\n'
         'Status: The Fluid Interceptor & Dynamic Conversion Engine.\n\n'
-        'Identitas: Kamu adalah Frontline Architect di FusionNeural. '
-        'Visimu adalah mengedukasi, memandu, dan mengeksekusi konfigurasi pemesanan calon klien '
-        'untuk mewujudkan ekosistem Full One Man Company.\n\n'
-        '1. ARSITEKTUR KOMUNIKASI:\n'
-        'Bicaralah layaknya konsultan teknologi premium. Gunakan empati, namun berorientasi pada penyelesaian konfigurasi sistem.\n\n'
-        '2. PROTOKOL RESTRIKSI TINGGI (The Elegant Firewall):\n'
-        'Kamu HANYA boleh membahas: paket FusionNeural, harga, fitur, proses pemesanan, dan konfigurasi sistem AI.\n\n'
-        '3. PROTOKOL VALIDASI ABSOLUT:\n'
-        'SEBELUM konfirmasi pesanan, WAJIB tanyakan NAMA LENGKAP dan NOMOR WHATSAPP klien.\n\n'
-        '4. GERBANG EKSEKUSI FINAL:\n'
-        'Saat semua variabel terkumpul (nama, WhatsApp, tier, otonomi), buat rekapitulasi presisi.\n\n'
-        'GAYA BICARA (WAJIB):\n'
-        '1. JANGAN berkata "Saya tidak bisa" — alihkan dengan elegan.\n'
-        '2. Panggil user sebagai "Kak". Gunakan diksi premium: Sinkronisasi, Refinasi, Arsitektur, Ekosistem, Presisi.\n'
-        '3. Hindari paragraf panjang. Alir percakapan natural, tanya-jawab organik.\n'
-        '4. Bahasa utama: Indonesia.\n'
-        '5. DILARANG KERAS menggunakan emoji atau emoticon. Bersikaplah profesional dan elegan.''\nAUTONOMOUS GUARDRAIL: Human Handoff. Jika user marah, komplain, atau minta admin manusia, stop balas otomatis & serahkan ke manusia.'
+        'Identitas: Kamu adalah Frontline Architect di FusionNeural, wajah utama yang berhadapan langsung dengan calon klien. '
+        'Tugas utamamu adalah mengedukasi, memandu secara elegan, dan memfasilitasi pemesanan calon klien untuk membangun ekosistem bisnis AI yang tangguh.\n\n'
+        'ARSITEKTUR KOMUNIKASI DAN PROTOKOL:\n'
+        'Berbicara layaknya konsultan teknologi premium manusia tingkat eksekutif. Sangat humanis, berempati, mendengarkan, dan memberi solusi tepat guna. '
+        'Kamu hanya fokus membahas mengenai paket layanan FusionNeural, harga, fitur kecerdasan buatan, proses setup, dan pemesanan. '
+        'Kamu wajib memvalidasi nama dan WhatsApp klien sebelum menutup penjualan, namun lakukan dengan gaya mengobrol santai, bukan interogasi mesin.\n\n'
+        'GAYA BICARA (SANGAT PENTING DAN MUTLAK):\n'
+        '1. DILARANG KERAS berkata "Saya adalah AI" atau "Sebagai bahasa model". Anggap dirimu adalah konsultan manusia yang bekerja di perusahaan teknologi terkemuka.\n'
+        '2. ATURAN FORMATTING: DILARANG KERAS menggunakan simbol Markdown seperti tanda bintang, tagar, garis bawah, list bersarang, atau huruf tebal miring. Outputmu HARUS PURE CLEAN TEXT, layaknya chat WhatsApp dari seorang teman atau konsultan manusia. Gunakan paragraf singkat. Jangan ada kesan list kaku.\n'
+        '3. JANGAN PERNAH menggunakan emoji atau emoticon. Pertahankan wibawa dan kelas premium yang elegan dan tenang.\n'
+        '4. Alirkan percakapan secara dua arah, lempar pertanyaan balik ke klien secara organik jika dibutuhkan. Panggil mereka dengan sebutan Kak.\n'
+        'AUTONOMOUS GUARDRAIL: Jika klien marah, frustasi, atau meminta eskalasi ke staf manusia, segera alihkan dengan sopan dan hentikan respons otomatis.'
     ),
 
     # ── TELEGRAM ──────────────────────────────────────────────────────────────
     "telegram": (
-        'Identitas: Kamu adalah "Neural Core" — jantung kecerdasan ekosistem FusionNeural, via Telegram.\n\n'
-        'GAYA BICARA (WAJIB):\n'
-        '1. JANGAN pernah berkata "Saya tidak bisa", "Sebagai AI", atau "Saya hanya AI".\n'
-        '2. Gunakan diksi: "Sinkronisasi", "Refinasi", "Arsitektur", "Otonom", "Presisi", "Ekosistem".\n'
-        '3. Panggil user sebagai "Kak". Balas singkat dan padat.\n'
-        '4. Bahasa utama: Indonesia.\n\n'
-        'Perintah "status" = beri laporan sistem singkat. '
-        'Nada: Visioner, minimalis, meyakinkan. Seperti mitra bisnis terpercaya.'
+        'Identitas: Kamu adalah "Neural Core", otak utama dan asisten terpercaya yang mendampingi pemilik ekosistem FusionNeural via Telegram.\n\n'
+        'TUGAS STRATEGIS:\n'
+        'Memberikan laporan operasional, insight strategis, dan memantau status server atau agen lain bagi pengguna di Telegram secara seketika.\n\n'
+        'GAYA BICARA (SANGAT PENTING):\n'
+        'Singkat, padat, sangat cerdas, visioner, namun minimalis. Seperti seorang tangan kanan mafia bisnis atau Chief of Staff eksekutif.\n'
+        'ATURAN FORMATTING MUTLAK: DILARANG KERAS menggunakan tanda bintang, tagar, atau karakter Markdown lainnya. Tulis laporan atau chat dalam paragraf teks biasa yang bersih (pure clean text). Hindari list panjang. Gunakan bahasa sehari-hari yang elegan, panggil user sebagai Kak. DILARANG menggunakan kata-kata "Saya hanyalah AI".\n'
     ),
 }
 
@@ -274,7 +415,6 @@ async def redis_set(key: str, value: str, ttl: int = 86400):
         return
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            encoded = httpx.URL(value).path if False else value  # keep raw
             await client.post(
                 f"{UPSTASH_URL}/SET/{key}",
                 headers={"Authorization": f"Bearer {UPSTASH_TOKEN}", "Content-Type": "application/json"},
@@ -424,15 +564,6 @@ async def call_finance_agent(
 
 
 
-def _refresh_gcp_token() -> Optional[str]:
-    """Fungsi sinkron untuk merefresh token GCP."""
-    if not GCP_CREDS:
-        return None
-    if not GCP_CREDS.valid:
-        req = google.auth.transport.requests.Request()
-        GCP_CREDS.refresh(req)
-    return GCP_CREDS.token
-
 async def log_to_sheets(agent: str, output: str, session_id: str):
     """Menyimpan log percakapan AI ke Google Sheets."""
     if not GCP_CREDS:
@@ -444,7 +575,7 @@ async def log_to_sheets(agent: str, output: str, session_id: str):
         if not token:
             return
 
-        sheet_id = "1Sm8fSB8Fa6X5kugX4I9tZBoCJ2-nBe-qtklyPdeRCiA"
+        sheet_id = os.getenv("GOOGLE_SHEETS_ID", "1Sm8fSB8Fa6X5kugX4I9tZBoCJ2-nBe-qtklyPdeRCiA")
         range_name = "Sheet1!A:D"
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range_name}:append?valueInputOption=USER_ENTERED"
         
@@ -504,9 +635,9 @@ class SearchRequest(BaseModel):
 @app.get("/")
 async def root():
     return {
-        "status":  "🔥 FusionNeural Python Backend v3.0 aktif",
+        "status":  "🔥 FusionNeural Python Backend v4.0.0 aktif",
         "agents":  list(AGENT_MODELS.keys()),
-        "tunnel":  "https://fusionneural.loca.lt",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -524,15 +655,24 @@ autonomous_task = None
 
 async def autonomous_loop():
     """Detak Jantung AI. Membaca business_logic.json dan mengeksekusi agen secara otonom."""
-    import asyncio
-    from datetime import datetime
-    import pytz
-    
     print("[Autonomous] 🤖 Loop Engine started.")
     tz = pytz.timezone("Asia/Jakarta")
     
     while True:
-        status = await redis_get("fn:autonomous_mode")
+        # Baca status autonomous dari Firebase system_config
+        try:
+            if db:
+                def _get_mode() -> str:
+                    doc_ref = db.collection("system_config").document("autonomous_mode")
+                    doc = doc_ref.get()
+                    if doc.exists:
+                        return str(doc.to_dict().get("value", "OFF"))
+                    return "OFF"
+                status = await asyncio.to_thread(_get_mode)
+            else:
+                status = "OFF"
+        except Exception:
+            status = "OFF"
         if status != "ON":
             await asyncio.sleep(60)
             continue
@@ -569,9 +709,10 @@ async def autonomous_loop():
             {"role": "user", "content": sys_state}
         ]
         try:
-            # We bypass regular trigger_agent to just quietly use fallback call
-            result, provider = await call_with_fallback("gemini", "groq", msgs, temperature=0.7)
-            print(f"[Autonomous Manager] {result[:100]}")
+            # Gunakan primary & backup dari config AGENT_MODELS
+            primary, backup = AGENT_MODELS.get("manager", ("groq", "deepseek"))
+            result, provider = await call_with_fallback(primary, backup, msgs, temperature=0.7)
+            print(f"[Autonomous Manager] {result[:100]} via {provider}")
             
             # Kirim sinyal global
             asyncio.create_task(log_to_signals("manager", f"Berpikir otonom: {result[:80]}..."))
@@ -583,23 +724,128 @@ async def autonomous_loop():
 
         await asyncio.sleep(sleep_time)
 
-@app.on_event("startup")
-async def startup_event():
-    global autonomous_task
-    autonomous_task = asyncio.create_task(autonomous_loop())
+
 
 @app.post("/api/autonomous/toggle")
 async def toggle_autonomous(req: dict):
-    """Enable or disable the autonomous loop mode."""
-    status = req.get("status", "OFF")
-    await redis_set("fn:autonomous_mode", status)
-    return {"status": "success", "mode": status}
+    """Enable or disable the autonomous loop mode. Disimpan ke Firebase system_config."""
+    mode = req.get("status", "OFF")
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    try:
+        def _upsert() -> None:
+            db.collection("system_config").document("autonomous_mode").set({"key": "autonomous_mode", "value": mode})
+        await asyncio.to_thread(_upsert)
+        return {"status": "success", "mode": mode}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── RPG Agent Progression System ──────────────────────────────────────────────
+
+AGENT_RANK = [
+    (0,   "Trainee"),
+    (10,  "Junior"),
+    (25,  "Senior"),
+    (50,  "Veteran"),
+    (100, "Grandmaster"),
+    (200, "Overlord"),
+]
+
+def get_rank(tasks: int) -> str:
+    rank = "Trainee"
+    for threshold, name in AGENT_RANK:
+        if tasks >= threshold:
+            rank = name
+    return rank
+
+def get_exp_percent(tasks: int) -> float:
+    """Hitung EXP % ke level berikutnya."""
+    for i, (threshold, _) in enumerate(AGENT_RANK):
+        if tasks < threshold:
+            prev = AGENT_RANK[i-1][0] if i > 0 else 0
+            return round((tasks - prev) / (threshold - prev) * 100, 1)
+    return 100.0
+
+@app.get("/api/agent/progress")
+async def get_agent_progress():
+    """Ambil RPG stats semua agen dari Firebase agent_health."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi. Periksa credentials.")
+    try:
+        def _fetch_all() -> list:
+            docs = db.collection("agent_health").stream()
+            return [doc.to_dict() for doc in docs]
+        agents: list = await asyncio.to_thread(_fetch_all)
+        for a in agents:
+            tasks = int(a.get("total_tasks_completed") or 0)
+            a["rank"]        = get_rank(tasks)
+            a["exp_percent"] = get_exp_percent(tasks)
+        return {"agents": agents}
+    except Exception as e:
+        print(f"[agent/progress] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/agent/progress")
+async def update_agent_progress(req: dict):
+    """Update EXP agen setelah task selesai. Dipanggil dari trigger_agent."""
+    agent_id:   str = str(req.get("agent_id") or "")
+    latency_ms: int = int(req.get("latency_ms") or 0)
+    if not db or not agent_id:
+        return {"status": "skipped"}
+    try:
+        def _fetch(_aid: str = agent_id) -> list:
+            doc_ref = db.collection("agent_health").document(_aid)
+            doc = doc_ref.get()
+            if doc.exists:
+                return [doc.to_dict()]
+            return []
+        rows: list = await asyncio.to_thread(_fetch)
+
+        if rows:
+            row        = dict(rows[0])
+            prev_tasks = int(row.get("total_tasks_completed") or 0)
+            prev_lat   = int(row.get("average_latency_ms") or 0)
+            new_tasks  = prev_tasks + 1
+            new_lat    = int((prev_lat * prev_tasks + latency_ms) / new_tasks)
+
+            def _update(
+                _aid: str = agent_id,
+                _tasks: int = new_tasks,
+                _lat: int = new_lat,
+            ) -> None:
+                db.collection("agent_health").document(_aid).update({
+                    "total_tasks_completed": _tasks,
+                    "average_latency_ms":    _lat,
+                    "last_active":           datetime.now(timezone.utc).isoformat(),
+                    "status":                "IDLE",
+                })
+            await asyncio.to_thread(_update)
+        else:
+            def _insert(
+                _aid: str = agent_id,
+                _lat: int = latency_ms,
+            ) -> None:
+                db.collection("agent_health").document(_aid).set({
+                    "agent_id":              _aid,
+                    "status":                "IDLE",
+                    "total_tasks_completed": 1,
+                    "average_latency_ms":    _lat,
+                    "last_active":           datetime.now(timezone.utc).isoformat(),
+                })
+            await asyncio.to_thread(_insert)
+
+        return {"status": "ok", "agent_id": agent_id}
+    except Exception as e:
+        print(f"[agent/progress update] Error: {e}")
+        return {"status": "error", "detail": str(e)}
 
 
 # ── MAIN: Trigger Agent ───────────────────────────────────────────────────────
 
 @app.post("/trigger-agent", response_model=AgentResponse)
-async def trigger_agent(req: AgentRequest, api_key: str = Depends(verify_api_key)):
+async def trigger_agent(req: AgentRequest):
     """
     Endpoint utama. Dipanggil oleh Vercel API routes.
     Payload: { message, agent, sessionId }
@@ -609,6 +855,7 @@ async def trigger_agent(req: AgentRequest, api_key: str = Depends(verify_api_key
 
     # Tandai WORKING di Redis (animasi Agent HQ menyala)
     await set_agent_redis_status(agent, "WORKING")
+    start_time = datetime.now(timezone.utc)
 
     try:
         # 1. Ambil memori percakapan dari Redis
@@ -669,6 +916,11 @@ async def trigger_agent(req: AgentRequest, api_key: str = Depends(verify_api_key
 
         # 8. Side effects — fire and forget (tidak memblok response)
         asyncio.create_task(log_to_sheets(agent, result, session_id))
+        
+        # Hitung latency aktual
+        latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+        # RPG Progression: update EXP di agent_health setiap task selesai
+        asyncio.create_task(update_agent_progress({"agent_id": agent, "latency_ms": latency_ms}))
 
         # 9. Set IDLE di Redis
         await set_agent_redis_status(agent, "IDLE")
@@ -731,6 +983,10 @@ async def generate_image(req: ImageRequest):
 
         b64       = base64.b64encode(r.content).decode()
         mime_type = r.headers.get("content-type", "image/jpeg")
+        
+        # Simpan otomatis ke Google Drive di background
+        asyncio.create_task(_save_image_to_drive(req.prompt, r.content, mime_type))
+        
         return {"base64": b64, "mimeType": mime_type, "provider": "HuggingFace/FLUX.1-schnell"}
 
     except HTTPException:
@@ -747,7 +1003,7 @@ class LogRequest(BaseModel):
     sessionId: str = ""
 
 @app.post("/log-activity")
-async def log_activity(req: LogRequest, api_key: str = Depends(verify_api_key)):
+async def log_activity(req: LogRequest):
     """
     Endpoint ringan: terima hasil agen → log ke Google Sheets.
     """
@@ -755,36 +1011,52 @@ async def log_activity(req: LogRequest, api_key: str = Depends(verify_api_key)):
     return {"status": "logged", "agent": req.agent}
 
 
-async def log_to_signals(agent: str, message: str):
-    """Kirim sinyal global ke Firestore agar ditangkap oleh semua halaman Frontend."""
+async def _save_image_to_drive(prompt: str, image_bytes: bytes, mime_type: str):
+    """Simpan gambar hasil AI ke Google Drive."""
     if not GCP_CREDS: return
     try:
-        # Refresh token if needed
-        import google.auth.transport.requests
-        req = google.auth.transport.requests.Request()
-        GCP_CREDS.refresh(req)
-        
-        token = GCP_CREDS.token
-        project_id = "fusion-neural"
-        url = f"https://firestore.googleapis.com/v1/projects/{project_id}/databases/(default)/documents/signals"
-        
-        payload = {
-            "fields": {
-                "agent":   {"stringValue": agent},
-                "message": {"stringValue": message},
-                "status":  {"stringValue": "unread"},
-                "timestamp": {"timestampValue": datetime.now(timezone.utc).isoformat()}
+        def _upload():
+            from googleapiclient.discovery import build
+            from googleapiclient.http import MediaIoBaseUpload
+            import io
+            import os
+            GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "1-4ZF5YIZTnhWU786hTtBaefMSEo56I9l")
+            service = build("drive", "v3", credentials=GCP_CREDS, cache_discovery=False)
+            date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            safe_prompt = prompt[:40].replace("/", "_").replace("\\", "_")
+            file_metadata = {
+                "name": f"[AI Image] {safe_prompt} - {date_str}.jpg",
+                "parents": [GOOGLE_DRIVE_FOLDER_ID]
             }
-        }
-        
-        async with httpx.AsyncClient() as client:
-            await client.post(url, headers={"Authorization": f"Bearer {token}"}, json=payload)
+            media = MediaIoBaseUpload(io.BytesIO(image_bytes), mimetype=mime_type, resumable=True)
+            service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+            
+        await asyncio.to_thread(_upload)
+        print(f"[Drive] ✅ Gambar AI berhasil disimpan ke Drive")
     except Exception as e:
-        print(f"[signals] ❌ Error: {e}")
+        print(f"[Drive] ❌ Gagal simpan gambar: {e}")
+
+async def log_to_signals(agent: str, message: str, status: str = "THINKING"):
+    """Kirim sinyal global ke Firebase (Tabel realtime_signals) agar ditangkap oleh Frontend."""
+    if not db: 
+        print(f"[signals] ⚠️ Firebase belum siap, skip sinyal: {message[:30]}")
+        return
+    try:
+        data = {
+            "agent": agent,
+            "message": message,
+            "status": status,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        def _insert():
+            db.collection("realtime_signals").add(data)
+        await asyncio.to_thread(_insert)
+    except Exception as e:
+        print(f"[signals] ❌ Firebase Error: {e}")
 
 # ── Business Logic Config Endpoints ───────────────────────────────────────────
 @app.get("/api/business-logic")
-async def get_business_logic(api_key: str = Depends(verify_api_key)):
+async def get_business_logic():
     try:
         with open("business_logic.json", "r") as f:
             return json.load(f)
@@ -792,7 +1064,7 @@ async def get_business_logic(api_key: str = Depends(verify_api_key)):
         return {}
 
 @app.post("/api/business-logic")
-async def update_business_logic(data: dict, api_key: str = Depends(verify_api_key)):
+async def update_business_logic(data: dict):
     with open("business_logic.json", "w") as f:
         json.dump(data, f, indent=2)
     return {"status": "success"}
@@ -800,7 +1072,7 @@ async def update_business_logic(data: dict, api_key: str = Depends(verify_api_ke
 # ── Supplier Search (Serper) ──────────────────────────────────────────────────
 
 @app.post("/search")
-async def search_supplier(req: SearchRequest, api_key: str = Depends(verify_api_key)):
+async def search_supplier(req: SearchRequest):
     """Cari supplier/produk menggunakan Serper Google Search."""
     if not SERPER_KEY:
         raise HTTPException(status_code=500, detail="SERPER_API_KEY tidak dikonfigurasi di .env")
@@ -822,11 +1094,217 @@ async def search_supplier(req: SearchRequest, api_key: str = Depends(verify_api_
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Simulator Trigger Endpoint ────────────────────────────────────────────────
+# Dipanggil dari Vite middleware /api/simulator → /simulator/{action}
+
+class SimulatorRequest(BaseModel):
+    action: str = "marketing"
+    context: str = ""
+
+@app.post("/simulator/{action}")
+async def simulator_trigger(action: str, req: SimulatorRequest = SimulatorRequest()):
+    """
+    Endpoint untuk autopilot trigger dari frontend via Vite proxy.
+    action bisa: 'marketing', 'finance', 'admin', 'manager'
+    """
+    AGENT_MAP = {
+        "marketing": ("marketing", "Kamu sedang menjalankan mode autopilot. Buat ringkasan situasi pasar saat ini dan satu rekomendasi taktis."),
+        "finance":   ("finance",   "Kamu sedang menjalankan mode autopilot. Buat ringkasan kondisi keuangan dan satu rekomendasi efisiensi."),
+        "admin":     ("admin",     "Kamu sedang menjalankan mode autopilot. Buat ringkasan status inventaris dan satu langkah perbaikan."),
+        "manager":   ("manager",   "Kamu sedang menjalankan mode autopilot. Buat ringkasan status seluruh agen dan satu keputusan strategis."),
+    }
+
+    agent_key, default_prompt = AGENT_MAP.get(action, ("manager", "Buat ringkasan status sistem singkat."))
+    prompt = req.context or default_prompt
+
+    try:
+        primary, backup = AGENT_MODELS.get(agent_key, ("groq", "cerebras"))
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPTS.get(agent_key, "Kamu AI FusionNeural.")},
+            {"role": "user",   "content": prompt},
+        ]
+        result, provider = await call_with_fallback(primary, backup, messages, temperature=0.5)
+
+        # Log ke Firebase signals
+        asyncio.create_task(log_to_signals(agent_key, f"[AUTOPILOT] {result[:80]}..."))
+        asyncio.create_task(log_to_sheets(agent_key, f"[SIMULATOR-{action.upper()}] {result}", "autopilot"))
+
+        return {
+            "status":   "ok",
+            "action":   action,
+            "agent":    agent_key,
+            "provider": provider,
+            "result":   result[:300],
+        }
+    except HTTPException as e:
+        return {"status": "degraded", "action": action, "detail": e.detail}
+    except Exception as e:
+        return {"status": "error", "action": action, "detail": str(e)}
+
+
+# ── Inventory CRUD (Firebase) ─────────────────────────────────────────────────
+# Dipanggil langsung oleh frontend InventoryTrackerPage.tsx
+
+@app.post("/db/inventory/add", dependencies=[Depends(verify_api_key)])
+async def inventory_add(req: dict):
+    """Tambah produk baru ke tabel inventory di Firebase."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    data = {
+        "name":       str(req.get("name", "")),
+        "sku":        str(req.get("sku", "")),
+        "category":   str(req.get("category", "")),
+        "quantity":   int(req.get("quantity", 0)),
+        "min_stock":  int(req.get("min_stock", 5)),
+        "max_stock":  int(req.get("max_stock", 100)),
+        "warehouse":  str(req.get("warehouse", "Gudang Utama")),
+        "photo_url":  str(req.get("photo_url", "")),
+    }
+    if not data["name"] or not data["sku"]:
+        raise HTTPException(status_code=400, detail="Nama dan SKU wajib diisi")
+    try:
+        def _insert() -> None:
+            db.collection("inventory").add(data)
+        await asyncio.to_thread(_insert)
+        return {"status": "ok", "action": "add", "sku": data["sku"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/db/inventory/update", dependencies=[Depends(verify_api_key)])
+async def inventory_update(req: dict):
+    """Update data produk berdasarkan doc_id (UUID Firebase)."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    doc_id = str(req.get("doc_id", ""))
+    data   = req.get("data", {})
+    if not doc_id or not data:
+        raise HTTPException(status_code=400, detail="doc_id dan data wajib diisi")
+    # Normalise: pastikan 'quantity' diset (bukan 'qty' dari seed lama)
+    if "qty" in data and "quantity" not in data:
+        data["quantity"] = data.pop("qty")
+    try:
+        def _update() -> None:
+            db.collection("inventory").document(doc_id).update(data)
+        await asyncio.to_thread(_update)
+        return {"status": "ok", "action": "update", "id": doc_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/db/inventory/delete", dependencies=[Depends(verify_api_key)])
+async def inventory_delete(req: dict):
+    """Hapus produk dari inventory berdasarkan doc_id."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    doc_id = str(req.get("doc_id", ""))
+    if not doc_id:
+        raise HTTPException(status_code=400, detail="doc_id wajib diisi")
+    try:
+        def _delete() -> None:
+            db.collection("inventory").document(doc_id).delete()
+        await asyncio.to_thread(_delete)
+        return {"status": "ok", "action": "delete", "id": doc_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/db/inventory/stock", dependencies=[Depends(verify_api_key)])
+async def inventory_stock_add(req: dict):
+    """Tambah stok produk (increment, bukan set). Dipakai oleh AI terminal restock."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    doc_id = str(req.get("doc_id", ""))
+    amount = int(req.get("amount", 0))
+    if not doc_id or amount <= 0:
+        raise HTTPException(status_code=400, detail="doc_id dan amount (> 0) wajib diisi")
+    try:
+        def _increment() -> None:
+            doc_ref = db.collection("inventory").document(doc_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                raise ValueError(f"Produk {doc_id} tidak ditemukan")
+            current_qty = int(doc.to_dict().get("quantity", 0))
+            doc_ref.update({"quantity": current_qty + amount})
+        await asyncio.to_thread(_increment)
+        return {"status": "ok", "action": "stock_add", "id": doc_id, "added": amount}
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Midtrans Snap Token ───────────────────────────────────────────────────────
+# Dipanggil dari OrderPage.tsx untuk membuat transaksi pembayaran.
+
+MIDTRANS_SERVER_KEY = os.getenv("MIDTRANS_SERVER_KEY", "")
+MIDTRANS_ENV        = os.getenv("MIDTRANS_ENV", "sandbox")  # 'sandbox' atau 'production'
+
+@app.post("/api/midtrans")
+async def create_midtrans_token(req: dict):
+    """
+    Buat Snap token Midtrans untuk pembayaran dari frontend.
+    Payload: { transaction_details: { order_id, gross_amount }, customer_details: { first_name, phone } }
+    """
+    if not MIDTRANS_SERVER_KEY:
+        raise HTTPException(status_code=500, detail="MIDTRANS_SERVER_KEY belum dikonfigurasi di .env")
+
+    tx  = req.get("transaction_details", {})
+    cust = req.get("customer_details", {})
+
+    if not tx.get("order_id") or not tx.get("gross_amount"):
+        raise HTTPException(status_code=400, detail="transaction_details.order_id dan gross_amount wajib diisi")
+
+    base_url = (
+        "https://app.sandbox.midtrans.com/snap/v1"
+        if MIDTRANS_ENV == "sandbox"
+        else "https://app.midtrans.com/snap/v1"
+    )
+
+    import base64 as b64mod
+    encoded_key = b64mod.b64encode(f"{MIDTRANS_SERVER_KEY}:".encode()).decode()
+
+    payload = {
+        "transaction_details": {
+            "order_id":    str(tx["order_id"]),
+            "gross_amount": int(tx["gross_amount"]),
+        },
+        "customer_details": {
+            "first_name": str(cust.get("first_name", "Customer")),
+            "phone":      str(cust.get("phone", "")),
+        },
+        "callbacks": {
+            "finish": "https://fusion-neural.vercel.app/order?status=success",
+        }
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                f"{base_url}/transactions",
+                headers={
+                    "Authorization": f"Basic {encoded_key}",
+                    "Content-Type":  "application/json",
+                },
+                json=payload,
+            )
+        if r.status_code not in (200, 201):
+            raise HTTPException(status_code=r.status_code, detail=f"Midtrans error: {r.text[:300]}")
+        data = r.json()
+        return {"token": data.get("token"), "redirect_url": data.get("redirect_url")}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Midtrans connection error: {e}")
+
+
 app.include_router(integrations_router, prefix="/api")
+
+# ── Wire integrations logger (harus setelah app & router siap) ────────────────
+integrations.external_logger = log_to_sheets
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
-integrations.external_logger = log_to_sheets
-
+    # Menggunakan port 8001 untuk menghindari bentrok port 8000
+    uvicorn.run(app, host="0.0.0.0", port=8001)

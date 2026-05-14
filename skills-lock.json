@@ -1,0 +1,20 @@
+{
+  "skills": {
+    "core-firestore-patterns": {
+      "path": ".agents/skills/core-firestore-patterns.md",
+      "version": "1.0",
+      "description": "Standard operations and collections for Firebase Firestore in FUSION NEURAL ecosystem."
+    },
+    "agent-roles-and-protocols": {
+      "path": ".agents/skills/agent-roles-and-protocols.md",
+      "version": "1.0",
+      "description": "Definitions of agent missions and inter-agent communication protocols."
+    },
+    "business-logic-rules": {
+      "path": ".agents/skills/business-logic-rules.md",
+      "version": "1.0",
+      "description": "Core business rules, tax calculations, and regulatory compliance (UU PDP, ITE)."
+    }
+  },
+  "last_updated": "2026-05-12T08:46:25Z"
+}

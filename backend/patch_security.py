@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware''')
 
 # 3. Add Auth verification logic
 auth_logic = '''
-BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "fusion-neural-secret-key-2026")
+BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
 async def verify_api_key(api_key: str = Depends(api_key_header)):

@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev:ui": "vite",
+    "dev:ui": "cd frontend && vite",
     "dev:backend": "cd backend && venv\\Scripts\\activate && python main.py",
-    "dev:ngrok": "ngrok http --domain=confined-simple-handiwork.ngrok-free.dev 8000",
+    "dev:ngrok": "ngrok http --domain=confined-simple-handiwork.ngrok-free.dev 8001",
     "dev": "concurrently -k -c \"cyan.bold,green.bold,magenta.bold\" -n \"UI,BACKEND,NGROK\" \"npm run dev:ui\" \"npm run dev:backend\" \"npm run dev:ngrok\"",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build": "cd frontend && tsc -b && vite build",
+    "lint": "cd frontend && eslint src",
+    "preview": "cd frontend && vite preview"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
