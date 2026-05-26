@@ -15,7 +15,11 @@ interface Message {
   text: string;
 }
 
-const ChatBot: React.FC = () => {
+interface ChatBotProps {
+  userRole?: string;
+}
+
+const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);

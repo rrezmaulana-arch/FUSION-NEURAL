@@ -74,7 +74,7 @@ let listenersInitialized = false;
 
 export const useManagerStore = create<ManagerState>((set) => ({
   systemRequests: 0,
-  companyBudget: 100_000_000, // Rp 100.000.000 — diisi dari Firestore
+  companyBudget: 500_000_000, // Rp 500.000.000 — diisi dari Firestore
   globalBattery: 100,
   apiQuotas: { groq: 0, gemini: 0, huggingface: 0 },
   performers: [], // Diisi dari Firestore agent_health
@@ -120,7 +120,7 @@ export const useManagerStore = create<ManagerState>((set) => ({
       if (docSnap.exists()) {
         const data = docSnap.data();
         set({
-          companyBudget: data.company_budget ?? 100_000_000,
+          companyBudget: data.company_budget ?? 500_000_000,
           globalBattery: data.global_battery ?? 100,
           apiQuotas: {
             groq:        data.api_quotas?.groq        ?? 0,

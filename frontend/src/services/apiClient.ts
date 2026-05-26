@@ -1,32 +1,20 @@
 /**
  * Project: FUSION NEURAL
- * Created by: Miftah Afreza Maulana (rrez_.maulana)
- * Role: Product Engineer (UI/UX & Full-Stack)
- * Copyright (c) 2026. All rights reserved.
+ * services/apiClient.ts — Updated dengan Firebase JWT Authentication (Solusi #1)
+ *
+ * PERUBAHAN KEAMANAN UTAMA:
+ *   SEBELUM: Kirim static VITE_BACKEND_API_KEY (bocor di browser pengguna)
+ *   SESUDAH: Kirim Firebase ID Token dinamis per sesi (tidak bisa dicuri)
+ *
+ * Arsitektur:
+ *   Frontend React → [Firebase JWT Token] → Python FastAPI → Verifikasi via Firebase Admin SDK
  */
-// src/services/apiClient.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// FusionNeural — Direct API Client (Bypass Vercel 10s Timeout)
-//
-// Arsitektur baru:
-//   Frontend React → LANGSUNG → Python FastAPI (via Ngrok/Cloud)
-//   Tidak lagi melewati /api/* Vercel Serverless Functions untuk request LLM.
-//
-// Keuntungan:
-//   - Tidak ada batas 10s timeout dari Vercel hobby tier
-//   - Response streaming lebih mudah diimplementasikan di masa depan
-//   - Lebih sedikit hop/latency jaringan
-// ─────────────────────────────────────────────────────────────────────────────
+import { auth } from '../lib/firebase';
 
-// Base URL dari environment variable Vite.
-// Pastikan VITE_API_URL ada di .env (contoh: https://xyz.ngrok-free.dev)
+// Base URL dari environment variable Vite
 const BASE_URL: string = (import.meta.env.VITE_API_URL as string | undefined)
   ?? (import.meta.env.VITE_PYTHON_BACKEND_URL as string | undefined)
-  ?? 'http://localhost:8000';
-
-// API secret — harus cocok dengan FUSIONNEURAL_API_SECRET di backend .env
-// Kosongkan (atau tidak set) untuk mode dev lokal tanpa auth.
-const API_SECRET: string = (import.meta.env.VITE_API_SECRET as string | undefined) ?? '';
+  ?? 'http://localhost:8001';
 
 // ─── Type Definitions ─────────────────────────────────────────────────────────
 
@@ -75,26 +63,53 @@ export interface SimulatorTriggerPayload {
   orders?: number;
 }
 
+// ─── Auth Token Helper ────────────────────────────────────────────────────────
+
+/**
+ * Ambil Firebase ID Token dari sesi login aktif.
+ * Token ini diverifikasi di backend via Firebase Admin SDK.
+ * Refresh otomatis setiap 1 jam oleh Firebase SDK.
+ */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const baseHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  };
+
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      // getIdToken(true) = force refresh jika token hampir expired
+      const idToken = await user.getIdToken(false);
+      return {
+        ...baseHeaders,
+        'Authorization': `Bearer ${idToken}`,
+      };
+    }
+  } catch (err) {
+    console.warn('[apiClient] Gagal ambil Firebase token:', err);
+  }
+
+  // Jika tidak ada user (belum login), kirim tanpa Authorization header
+  // Backend akan menolak dengan 401 sesuai Firebase Security Rules
+  return baseHeaders;
+}
+
 // ─── Core Fetch Wrapper ───────────────────────────────────────────────────────
 
 async function apiFetch<TResponse>(
   path: string,
   payload: unknown,
-  timeoutMs: number = 120_000, // 2 menit default — cukup untuk LLM generation
+  timeoutMs: number = 120_000,
 ): Promise<TResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${BASE_URL}${path}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Ngrok requires this header to bypass the browser warning page
-        'ngrok-skip-browser-warning': 'true',
-        // Backend auth guard — matches FUSIONNEURAL_API_SECRET in .env
-        ...(API_SECRET ? { 'X-API-Key': API_SECRET } : {}),
-      },
+      headers,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
@@ -126,8 +141,8 @@ async function apiFetch<TResponse>(
 // ─── Public API Methods ───────────────────────────────────────────────────────
 
 /**
- * Kirim pesan ke salah satu agen AI (Admin, Finance, Marketing, Manager, dll).
- * Langsung menembak Python FastAPI, tidak melewati Vercel /api/agents.ts.
+ * Kirim pesan ke salah satu agen AI.
+ * Sekarang otomatis menyertakan Firebase JWT token.
  */
 export async function triggerAgent(
   payload: AgentRequestPayload,
@@ -137,7 +152,6 @@ export async function triggerAgent(
 
 /**
  * Generate gambar marketing via HuggingFace FLUX.1-schnell.
- * Timeout 120 detik karena model bisa cold-start lambat.
  */
 export async function generateImage(
   prompt: string,
@@ -175,8 +189,9 @@ export async function healthCheck(): Promise<{ status: string; timestamp: string
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5_000);
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${BASE_URL}/health`, {
-      headers: { 'ngrok-skip-browser-warning': 'true' },
+      headers,
       signal: controller.signal,
     });
     return response.json();

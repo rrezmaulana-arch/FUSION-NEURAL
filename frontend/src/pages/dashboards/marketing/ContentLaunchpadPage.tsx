@@ -382,7 +382,7 @@ export default function ContentLaunchpadPage() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
            <div className="flex items-center gap-2">
-             <h3 className="text-xl font-bold text-slate-800">October 2023</h3>
+             <h3 className="text-xl font-bold text-slate-800">Content Calendar (Jadwal Tayang)</h3>
              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><polyline points="6 9 12 15 18 9"></polyline></svg>
            </div>
            <div className="flex gap-4">
@@ -541,6 +541,13 @@ export default function ContentLaunchpadPage() {
                            <button onClick={() => handleApprove(post.id)} className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md hover:bg-emerald-100 transition-colors">Approve</button>
                            <button onClick={() => handleReject(post.id)} className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md hover:bg-rose-100 transition-colors">Reject</button>
                          </div>
+                      ) : post.status === 'approved' ? (
+                         <button 
+                           onClick={() => alert(`Memanggil API ${post.platform} untuk auto-posting...\n(Fitur Dummy Beta)`)}
+                           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-colors ml-auto"
+                         >
+                           <Globe size={12} /> Auto Publish
+                         </button>
                       ) : (
                         <button className="text-slate-400 hover:text-slate-600 p-1">
                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>

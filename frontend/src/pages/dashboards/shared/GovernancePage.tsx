@@ -1,0 +1,273 @@
+/**
+ * Project: FUSION NEURAL
+ * Created by: AI Assistant (Integrating Neural Core Concepts)
+ * Role: Shared AI Governance & Cost Control
+ */
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { db } from '../../../lib/firebase';
+import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { ShieldCheck, Wallet, Bot, CheckCircle2, AlertCircle, XCircle, Search, Plus, Activity, Network } from 'lucide-react';
+import PageHeader from '../../../components/ui/PageHeader';
+
+export default function GovernancePage() {
+  const [activeTab, setActiveTab] = useState<'approvals' | 'budgets' | 'transcripts' | 'org'>('approvals');
+
+  const [budgets, setBudgets] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [transcripts, setTranscripts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsub1 = onSnapshot(collection(db, 'agent_budgets'), snap => setBudgets(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+    const unsub3 = onSnapshot(collection(db, 'pending_approvals'), snap => setApprovals(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+    
+    // Transcripts sorted by timestamp desc if available, or just fetch and reverse
+    const unsub4 = onSnapshot(collection(db, 'run_transcripts'), snap => {
+        let loaded = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        loaded.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setTranscripts(loaded);
+    });
+    
+    return () => { unsub1(); unsub3(); unsub4(); };
+  }, []);
+
+  const handleApprove = async (id: string) => {
+    await updateDoc(doc(db, 'pending_approvals', id), { status: 'Approved' });
+  };
+
+  const handleReject = async (id: string) => {
+    await updateDoc(doc(db, 'pending_approvals', id), { status: 'Rejected' });
+  };
+
+  const fmt = (n: number) => `Rp ${(n || 0).toLocaleString('id-ID')}`;
+
+  return (
+    <div className="space-y-6 pb-10">
+      <PageHeader
+        title="AI Governance & Orchestration"
+        subtitle="Manage agent budgets, task tickets, and manual approvals"
+        accent="red"
+        actions={
+          <div className="flex gap-2">
+            <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors">
+              <Plus size={16} /> New Ticket
+            </button>
+          </div>
+        }
+      />
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 w-max shadow-sm">
+        {[
+          { id: 'approvals', label: 'Approval Gates', icon: ShieldCheck },
+          { id: 'budgets', label: 'Budgets & Cost', icon: Wallet },
+          { id: 'transcripts', label: 'Run Transcripts', icon: Search },
+          { id: 'org', label: 'Org Chart', icon: Network },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              activeTab === tab.id
+                ? 'bg-red-50 text-red-600 border border-red-100 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+            }`}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+        >
+        {/* TICKETS TAB REMOVED - Managed in TaskBoardPage */}
+
+          {/* APPROVALS TAB */}
+          {activeTab === 'approvals' && (
+            <div className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-4 items-start">
+                <AlertCircle className="text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-red-900">Human-in-the-loop Required</h4>
+                  <p className="text-sm text-red-700 mt-1">
+                    The following actions require your manual approval before agents can execute them.
+                  </p>
+                </div>
+              </div>
+              
+              {approvals.length === 0 ? (
+                <div className="bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+                  <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+                    <ShieldCheck size={32} className="text-emerald-500" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-lg">No Pending Approvals</h3>
+                  <p className="text-slate-500 text-sm mt-1 max-w-sm">All agent transactions have been cleared. Agents will pause and request approval here if they attempt to execute sensitive actions.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {approvals.map(app => (
+                  <div key={app.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-indigo-100 text-indigo-700 p-1.5 rounded-lg"><Activity size={16} /></span>
+                        <span className="font-bold text-slate-800">{app.agentId}</span>
+                      </div>
+                      <span className="text-xs font-mono text-slate-400">{app.id}</span>
+                    </div>
+                    
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Action Requested</p>
+                      <p className="font-bold text-slate-800 mt-1">{app.actionType}</p>
+                      <p className="text-sm text-slate-600 mt-1">{app.description}</p>
+                      {app.estimatedCost > 0 && (
+                        <p className="text-sm font-bold text-red-600 mt-2">Est. Cost: {fmt(app.estimatedCost)}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      {app.status === 'Pending' ? (
+                        <>
+                          <button onClick={() => handleApprove(app.id)} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white py-2 rounded-xl text-sm font-bold hover:bg-emerald-600">
+                            <CheckCircle2 size={16} /> Approve
+                          </button>
+                          <button onClick={() => handleReject(app.id)} className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-2 rounded-xl text-sm font-bold hover:bg-slate-200">
+                            <XCircle size={16} /> Reject
+                          </button>
+                        </>
+                      ) : (
+                        <div className={`w-full py-2 text-center rounded-xl text-sm font-bold ${app.status === 'Approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                          {app.status}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            </div>
+          )}
+
+          {/* BUDGETS TAB */}
+          {activeTab === 'budgets' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {budgets.length === 0 ? (
+                  <div className="col-span-3 bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+                    <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+                      <Wallet size={32} className="text-indigo-500" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 text-lg">Awaiting Budget Data</h3>
+                    <p className="text-slate-500 text-sm mt-1">Agent budgets have not been initialized yet. Start the Neural Engine to sync financial logic.</p>
+                  </div>
+                ) : budgets.map((b) => (
+                <div key={b.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Bot size={20} className="text-slate-400" />
+                      <h4 className="font-bold text-slate-800">{b.name}</h4>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                      b.status === 'Active' ? 'bg-emerald-100 text-emerald-700' :
+                      b.status === 'Throttled' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {b.status}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Monthly Budget</span>
+                      <span className="font-bold">{fmt(b.monthlyBudget)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Current Spend</span>
+                      <span className={`font-bold ${b.currentSpend > b.monthlyBudget * 0.8 ? 'text-red-500' : 'text-slate-800'}`}>
+                        {fmt(b.currentSpend)}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="h-2 w-full bg-slate-100 rounded-full mt-3 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${b.currentSpend > b.monthlyBudget * 0.8 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${Math.min((b.currentSpend / b.monthlyBudget) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 text-right mt-1">
+                      {b.monthlyBudget ? Math.round((b.currentSpend / b.monthlyBudget) * 100) : 0}% Used
+                    </p>
+                  </div>
+                  
+                  <button className="w-full mt-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100">
+                    Adjust Budget
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* TRANSCRIPTS TAB */}
+          {activeTab === 'transcripts' && (
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="font-bold text-slate-800">Chain of Thought Logs</h3>
+                  <p className="text-xs text-slate-500 mt-1">Immutable audit trail of agent decisions.</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                {transcripts.length === 0 ? (
+                  <div className="bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+                    <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+                      <Activity size={32} className="text-slate-400 animate-pulse" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 text-lg">Engine is Sleeping</h3>
+                    <p className="text-slate-500 text-sm mt-1">No recent agent activity. Create a task in the Task Board to wake up the Neural Engine.</p>
+                  </div>
+                ) : transcripts.map((trx) => (
+                  <div key={trx.id} className="border-l-2 border-indigo-200 pl-4 py-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md">{trx.agentId}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{trx.ticketId}</span>
+                      <span className="text-xs text-slate-400 ml-auto">{trx.timestamp ? new Date(trx.timestamp).toLocaleTimeString() : ''}</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-700">{trx.action}</p>
+                    <div className="mt-2 bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 border border-slate-100">
+                      <span className="text-indigo-400 font-bold mb-1 block">Internal Monologue:</span>
+                      {trx.thoughtProcess}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ORG CHART TAB */}
+          {activeTab === 'org' && (
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-8 flex flex-col items-center justify-center">
+              <div className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/20 mb-8 z-10">
+                Manager Brain (Human / Orchestrator)
+              </div>
+              
+              <div className="flex flex-wrap gap-8 justify-center relative w-full max-w-3xl before:absolute before:content-[''] before:h-8 before:w-full before:border-t-2 before:border-indigo-100 before:-top-4 before:left-0">
+                {['Neural Marketing', 'Neural Finance', 'Neural Support', 'Neural Admin'].map(agent => (
+                  <div key={agent} className="bg-slate-50 border border-slate-200 px-6 py-4 rounded-xl flex flex-col items-center gap-2 relative before:absolute before:content-[''] before:h-4 before:w-0.5 before:bg-indigo-100 before:-top-4">
+                    <Bot size={24} className="text-indigo-500" />
+                    <span className="font-bold text-slate-700 text-sm">{agent}</span>
+                    <span className="text-[10px] text-slate-400 px-2 py-0.5 bg-white rounded-full border border-slate-100">Autonomous</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}

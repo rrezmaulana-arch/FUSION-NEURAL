@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, query, orderBy, limit, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { Brain, AlertTriangle, CheckCircle2, RefreshCw, Zap, Terminal, Shield } from 'lucide-react';
+import { Brain, AlertTriangle, CheckCircle2, RefreshCw, Zap, Terminal, Shield, FileJson, MessageSquareWarning } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import { triggerSimulator } from '../../../services/apiClient';
@@ -27,21 +27,36 @@ interface EvalResult {
   new_prompt: string;
 }
 
+interface PendingApproval {
+  id: string;
+  agentId: string;
+  actionType: string;
+  description: string;
+  jsonPayload?: string;
+  status: string;
+  timestamp: string;
+}
+
 export default function StrategicAuditPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [isInjecting, setIsInjecting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Live activity logs
   useEffect(() => {
     const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(50));
     const unsub = onSnapshot(q, (snap) => {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ActivityLog[]);
     });
-    return () => unsub();
+
+    const qApp = query(collection(db, 'pending_approvals'), orderBy('timestamp', 'desc'));
+    const unsubApp = onSnapshot(qApp, (snap) => {
+      setApprovals(snap.docs.map(d => ({ id: d.id, ...d.data() })) as PendingApproval[]);
+    });
+    return () => { unsub(); unsubApp(); };
   }, []);
 
   // Manager Autopilot Trigger — via Python FastAPI
@@ -104,21 +119,89 @@ export default function StrategicAuditPage() {
   };
 
   const agentColor = (agent: string) => {
-    if (agent === 'Admin') return 'bg-blue-500/20 text-blue-400';
-    if (agent === 'Marketing') return 'bg-purple-500/20 text-purple-400';
-    if (agent === 'Finance') return 'bg-emerald-500/20 text-emerald-400';
-    if (agent === 'Manager') return 'bg-teal-500/20 text-teal-400';
+    if (agent.includes('Admin')) return 'bg-blue-500/20 text-blue-400';
+    if (agent.includes('Marketing')) return 'bg-purple-500/20 text-purple-400';
+    if (agent.includes('Finance')) return 'bg-emerald-500/20 text-emerald-400';
+    if (agent.includes('Manager')) return 'bg-teal-500/20 text-teal-400';
     return 'bg-slate-500/20 text-slate-400';
+  };
+
+  const handleApprove = async (id: string, agent: string, actionType: string) => {
+    try {
+      await setDoc(doc(db, 'pending_approvals', id), { status: 'Approved', managerFeedback: 'OK' }, { merge: true });
+      await FirebaseLogger.logAgentAction('Manager', 'APPROVE_AI_ACTION', `Menyetujui eksekusi ${actionType} oleh ${agent}. CI/CD Auto-Reload Triggered.`);
+      setSuccessMsg(`Tindakan ${agent} berhasil di-approve! Eksekusi berjalan.`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch(e) { console.error(e); }
+  };
+
+  const handleRejectScold = async (id: string, agent: string) => {
+    const reason = prompt(`Beri teguran keras ke ${agent} (marah/tegas):`, 'DILARANG MENGUBAH KODE INI! Batal!');
+    if (reason) {
+      await setDoc(doc(db, 'pending_approvals', id), { status: 'Rejected', managerFeedback: reason }, { merge: true });
+      await FirebaseLogger.logAgentAction('Manager', 'REJECT_SCOLD_AI', `Menolak tindakan ${agent}. Alasan: ${reason}`);
+    }
   };
 
   return (
     <div className="space-y-6 pb-10">
       <PageHeader
-        title="Strategic Audit Hub"
-        subtitle="Evaluasi otonom & re-alignment otak agen secara real-time"
+        title="Strategic Audit Hub & AI Meeting"
+        subtitle="Pusat kendali Human-in-the-Loop. Audit log AI dan setujui modifikasi kode/JSON krusial."
         accent="teal"
         icon={<Shield size={22} className="text-white" />}
       />
+
+      {/* HUMAN-IN-THE-LOOP APPROVALS */}
+      <div className="space-y-4 mb-8">
+        <h2 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+          <AlertTriangle size={16} className="text-amber-500" /> Human-in-the-Loop: Pending Operations
+        </h2>
+        
+        {approvals.filter(a => a.status === 'Pending').length === 0 ? (
+          <div className="bg-[#1e293b]/50 border border-slate-700/50 rounded-2xl p-6 text-center text-slate-400 text-sm">
+            Tidak ada aksi krusial yang menunggu persetujuan (Approve).
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {approvals.filter(a => a.status === 'Pending').map(app => (
+              <div key={app.id} className="bg-[#1e293b] border border-slate-700 rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${agentColor(app.agentId)}`}>{app.agentId}</span>
+                      <span className="text-xs text-slate-400">{new Date(app.timestamp).toLocaleString()}</span>
+                    </div>
+                    <h3 className="text-slate-200 font-bold">{app.actionType}</h3>
+                    <p className="text-sm text-slate-400 mt-1">
+                      <strong className="text-slate-300">Penjelasan AI:</strong> "{app.description}"
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleApprove(app.id, app.agentId, app.actionType)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all">
+                      <CheckCircle2 size={14} /> Approve & Deploy
+                    </button>
+                    <button onClick={() => handleRejectScold(app.id, app.agentId)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 rounded-lg text-xs font-bold transition-all">
+                      <MessageSquareWarning size={14} /> Reject & Scold
+                    </button>
+                  </div>
+                </div>
+                
+                {app.jsonPayload && (
+                  <div className="bg-slate-900 rounded-xl p-3 border border-slate-800">
+                    <p className="text-[10px] text-slate-500 font-bold mb-2 uppercase flex items-center gap-1"><FileJson size={12}/> Modifikasi JSON/Kode (Preview)</p>
+                    <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap">{app.jsonPayload}</pre>
+                  </div>
+                )}
+                
+                <div className="text-[10px] text-amber-500/80 bg-amber-500/10 px-3 py-2 rounded-lg border border-amber-500/20">
+                  ⚠️ <strong>Security Rule:</strong> AI Admin hanya boleh akses Data Produk. AI Finance tidak bisa ubah kode Marketing. Pastikan payload ini aman sebelum di-approve.
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* THE BIG BUTTON */}
       <motion.div
@@ -261,26 +344,163 @@ export default function StrategicAuditPage() {
       )}
 
       {/* Live Activity Log */}
-      <div className="space-y-3">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Activity Log ({logs.length} entries)</h2>
-        <div className="bg-[#0F172A] rounded-2xl p-4 h-[280px] overflow-y-auto space-y-2">
-          {logs.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-slate-600 text-xs">
-              Belum ada log. Jalankan beberapa aksi di Admin/Marketing terlebih dahulu.
-            </div>
-          ) : (
-            logs.map((log) => (
-              <div key={log.id} className="flex items-start gap-3 bg-white/5 rounded-xl px-3 py-2 border border-white/5">
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${agentColor(log.agent)}`}>
-                  {log.agent}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-slate-300 text-xs font-medium truncate">{log.action}</p>
-                  <p className="text-slate-600 text-[10px] truncate">{log.details}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="space-y-3">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Activity Log ({logs.length} entries)</h2>
+          <div className="bg-[#0F172A] rounded-2xl p-4 h-[350px] overflow-y-auto space-y-2 custom-scrollbar">
+            {logs.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-slate-600 text-xs">
+                Belum ada log. Jalankan beberapa aksi di Admin/Marketing terlebih dahulu.
+              </div>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 bg-white/5 rounded-xl px-3 py-2 border border-white/5">
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${agentColor(log.agent)}`}>
+                    {log.agent}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-slate-300 text-xs font-medium truncate">{log.action}</p>
+                    <p className="text-slate-600 text-[10px] truncate">{log.details}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <MessageSquareWarning size={14} className="text-teal-500" />
+            Direct Audit Chat (Owner & Manager AI)
+          </h2>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 h-[350px] flex flex-col relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 blur-[50px] rounded-full pointer-events-none" />
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar mb-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/30">
+                  <Brain size={14} />
+                </div>
+                <div className="bg-slate-800/80 rounded-2xl rounded-tl-sm px-4 py-3 border border-slate-700/50">
+                  <p className="text-xs text-teal-400 font-bold mb-1 uppercase tracking-widest text-[9px]">Manager AI</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">
+                    Halo Kak Reza. Saya siap menerima instruksi strategis, melakukan audit manual, atau memarahi agen yang melanggar aturan. Apa yang bisa saya bantu hari ini?
+                  </p>
                 </div>
               </div>
-            ))
-          )}
+            </div>
+            
+            <div className="relative">
+              <input 
+                type="text"
+                id="audit-input"
+                placeholder="Ketik instruksi atau teguran keras untuk manajer..."
+                className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-xl px-4 py-3 pr-24 focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all placeholder-slate-500"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    const input = e.currentTarget;
+                    const val = input.value;
+                    input.value = '';
+                    input.disabled = true;
+                    // Append user message
+                    const chatBox = input.parentElement?.previousElementSibling;
+                    if (chatBox) {
+                      chatBox.innerHTML += `
+                        <div class="flex items-start gap-3 justify-end mt-4">
+                          <div class="bg-indigo-500/20 rounded-2xl rounded-tr-sm px-4 py-3 border border-indigo-500/30 max-w-[85%]">
+                            <p class="text-xs text-indigo-400 font-bold mb-1 text-right uppercase tracking-widest text-[9px]">Owner (Anda)</p>
+                            <p class="text-sm text-slate-300 leading-relaxed text-right">${val}</p>
+                          </div>
+                        </div>
+                      `;
+                      chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                    
+                    try {
+                      // Visual loading
+                      if (chatBox) {
+                        chatBox.innerHTML += `
+                          <div id="ai-loading" class="flex items-start gap-3 mt-4">
+                            <div class="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/30">
+                              <span class="animate-spin"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></span>
+                            </div>
+                          </div>
+                        `;
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                      }
+
+                      const res = await NeuralCore.askAgent('manager', 'audit_chat', 'Sebagai Manager AI (The Compliance Architect), kamu sekarang sedang berdiskusi langsung dengan Owner. Jawab pertanyaan atau laksanakan instruksinya: ' + val);
+                      
+                      if (chatBox) {
+                        const loader = chatBox.querySelector('#ai-loading');
+                        if (loader) loader.remove();
+                        
+                        chatBox.innerHTML += `
+                          <div class="flex items-start gap-3 mt-4">
+                            <div class="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/30">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.673 15.136l-2.454-2.453a1.5 1.5 0 0 0-2.122 0l-2.453 2.454a1.5 1.5 0 0 0 0 2.12l2.453 2.455a1.5 1.5 0 0 0 2.122 0l2.454-2.454a1.5 1.5 0 0 0 0-2.122Z"/><path d="M11 12V3"/><path d="M15 12V3"/><path d="M11 21v-5"/><path d="M15 21v-5"/><path d="M19 12h-4"/></svg>
+                            </div>
+                            <div class="bg-slate-800/80 rounded-2xl rounded-tl-sm px-4 py-3 border border-slate-700/50 max-w-[85%]">
+                              <p class="text-xs text-teal-400 font-bold mb-1 uppercase tracking-widest text-[9px]">Manager AI</p>
+                              <p class="text-sm text-slate-300 leading-relaxed">${res.replace(/\\n/g, '<br/>')}</p>
+                            </div>
+                          </div>
+                        `;
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                      }
+                    } catch (e) {
+                      console.error(e);
+                    } finally {
+                      input.disabled = false;
+                      input.focus();
+                    }
+                  }
+                }}
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                    if (SpeechRecognition) {
+                      const recognition = new SpeechRecognition();
+                      recognition.lang = 'id-ID';
+                      const input = document.getElementById('audit-input') as HTMLInputElement;
+                      if(input) {
+                        input.placeholder = '🎙️ Mendengarkan...';
+                        input.disabled = true;
+                      }
+                      recognition.onresult = (event: any) => {
+                        const transcript = event.results[0][0].transcript;
+                        if(input) {
+                          input.value = transcript;
+                          input.disabled = false;
+                          input.placeholder = 'Ketik instruksi atau teguran keras untuk manajer...';
+                          // Simulasikan Enter
+                          const ev = new KeyboardEvent('keydown', { key: 'Enter' });
+                          input.dispatchEvent(ev);
+                          // Panggil handler manual
+                          input.onkeydown?.(ev as any);
+                        }
+                      };
+                      recognition.onerror = () => {
+                         if(input) {
+                           input.disabled = false;
+                           input.placeholder = 'Ketik instruksi atau teguran keras untuk manajer...';
+                         }
+                      }
+                      recognition.start();
+                    } else {
+                      alert('Browser tidak mendukung Voice Recognition (Gunakan Chrome).');
+                    }
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-teal-500/20 text-teal-400 hover:bg-teal-500 hover:text-white transition-colors"
+                  title="Biometric Voice Command"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                </button>
+                <div className="text-slate-500 text-[10px] font-bold bg-slate-700 px-2 py-1 rounded">ENTER</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

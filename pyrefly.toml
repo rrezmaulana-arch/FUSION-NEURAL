@@ -6,6 +6,8 @@ python_interpreter = "backend/venv/Scripts/python.exe"
 
 [project]
 include = ["backend/**/*.py"]
-
-[[project.search_paths]]
-path = "backend"
+# Exclude virtual inmemory files pyrefly creates for snippet analysis
+exclude = ["**/__pyrefly_virtual__/**", "**/inmemory/**"]
+# Explicitly tell Pyrefly to resolve imports relative to the backend/ folder
+# so that `routers.*` and `services.*` are found correctly.
+search_roots = ["backend"]

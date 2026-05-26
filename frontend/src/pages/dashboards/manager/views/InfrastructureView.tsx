@@ -41,7 +41,7 @@ export default function InfrastructureView() {
 
   // ── Fetch RPG progress dari backend ──────────────────────────────────────────
   useEffect(() => {
-    const backendUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:8001';
     fetch(`${backendUrl}/api/agent/progress`, {
       headers: { 'ngrok-skip-browser-warning': 'true' },
     })
@@ -54,7 +54,7 @@ export default function InfrastructureView() {
   // ── Firebase realtime: update status agen saat ada perubahan ──────────────
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'agent_health'), () => {
-      const backendUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:8000';
+      const backendUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:8001';
       fetch(`${backendUrl}/api/agent/progress`, { headers: { 'ngrok-skip-browser-warning': 'true' } })
         .then(r => r.json()).then(d => setAgentHealth(d.agents || [])).catch(() => { });
     });

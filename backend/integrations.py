@@ -37,6 +37,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # Hook untuk log ke Google Sheets (di-set dari main.py untuk menghindari circular import)
 external_logger = None
+chat_takeover_handler = None
 
 async def _log_social_interaction(source: str, user_id: str, user_text: str, ai_text: str):
     if external_logger:
@@ -196,6 +197,12 @@ async def twilio_webhook(
 
 async def _ai_whatsapp_reply(to_number: str, user_message: str, twilio_number: str = "whatsapp:+14155238886"):
     """Background task: tanya AI Frontliner, lalu kirim balasan via Twilio."""
+    if chat_takeover_handler:
+        is_paused = await chat_takeover_handler("WhatsApp", to_number, user_message, "user")
+        if is_paused:
+            print(f"[Twilio] Mode PAUSED. Mengabaikan chat dari {to_number}")
+            return
+
     if not GROQ_API_KEY:
         print("[Twilio Bot] GROQ_API_KEY tidak ada, tidak bisa generate reply.")
         return
@@ -248,6 +255,8 @@ async def _ai_whatsapp_reply(to_number: str, user_message: str, twilio_number: s
     except Exception as e:
         print(f"[Twilio Bot] Gagal kirim: {e}")
     await _log_social_interaction("WhatsApp (Twilio)", to_number, user_message, ai_text)
+    if chat_takeover_handler:
+        await chat_takeover_handler("WhatsApp", to_number, ai_text, "ai")
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -277,7 +286,8 @@ async def receive_instagram_webhook(request: Request, background_tasks: Backgrou
     except Exception:
         return {"status": "ok"}
 
-    print(f"[Instagram Webhook] Event: {json.dumps(payload)[:300]}")
+    # Log payload lengkap untuk debugging
+    print(f"[Instagram Webhook] FULL PAYLOAD: {json.dumps(payload)}")
 
     for entry in payload.get("entry", []):
         # 1. Handle Comments (dari 'changes')
@@ -292,15 +302,21 @@ async def receive_instagram_webhook(request: Request, background_tasks: Backgrou
 
         # 2. Handle Direct Messages (dari 'messaging')
         for messaging_event in entry.get("messaging", []):
-            sender_id = messaging_event.get("sender", {}).get("id")
+            sender = messaging_event.get("sender", {})
+            recipient = messaging_event.get("recipient", {})
+            sender_id = sender.get("id")
+            recipient_id = recipient.get("id")
             message = messaging_event.get("message", {})
             text = message.get("text")
             
+            print(f"[Instagram DM] sender_id={sender_id}, recipient_id={recipient_id}, text={text}")
+            
             # Pastikan bukan pesan echo dari bot itu sendiri
-            if sender_id and text and not message.get("is_echo"):
+            if sender_id and text and not message.get("is_echo") and sender_id != recipient_id:
                 background_tasks.add_task(_ai_instagram_dm_reply, sender_id, text)
 
     return {"status": "EVENT_RECEIVED"}
+
 
 
 async def _ai_instagram_reply(comment_id: str, text: str):
@@ -334,18 +350,18 @@ async def _ai_instagram_reply(comment_id: str, text: str):
         print("[Instagram] ACCESS_TOKEN tidak ada.")
         return
 
-    url = f"https://graph.facebook.com/v19.0/{comment_id}/replies"
+    url = f"https://graph.instagram.com/v25.0/{comment_id}/replies"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.post(
                 url,
-                params={"access_token": INSTAGRAM_ACCESS_TOKEN},
+                headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
                 json={"message": ai_reply},
             )
             if r.status_code == 200:
-                print(f"[Instagram] âœ… Balasan terkirim untuk komentar {comment_id}")
+                print(f"[Instagram] ✅ Balasan terkirim untuk komentar {comment_id}")
             else:
-                print(f"[Instagram] âŒ Gagal: {r.status_code} â€” {r.text[:200]}")
+                print(f"[Instagram] ❌ Gagal: {r.status_code} — {r.text[:200]}")
     except Exception as e:
         print(f"[Instagram] Network error: {e}")
     await _log_social_interaction("Instagram (Comment)", comment_id, text, ai_reply)
@@ -354,6 +370,12 @@ async def _ai_instagram_reply(comment_id: str, text: str):
 async def _ai_instagram_dm_reply(sender_id: str, text: str):
     """Background task: buat AI reply lalu posting ke DM Instagram via Graph API."""
     print(f"[Instagram DM] Pesan dari {sender_id}: '{text[:50]}...'")
+
+    if chat_takeover_handler:
+        is_paused = await chat_takeover_handler("Instagram", sender_id, text, "user")
+        if is_paused:
+            print(f"[Instagram DM] Mode PAUSED. Mengabaikan chat dari {sender_id}")
+            return
 
     ai_reply = "Halo Kak! Ada yang bisa kami bantu terkait layanan FusionNeural? ðŸ˜Š"
 
@@ -382,13 +404,13 @@ async def _ai_instagram_dm_reply(sender_id: str, text: str):
         print("[Instagram DM] ACCESS_TOKEN tidak ada.")
         return
 
-    # Endpoint untuk mengirim pesan (DM) Instagram
-    url = f"https://graph.facebook.com/v19.0/me/messages"
+    # Endpoint untuk mengirim pesan (DM) Instagram via v25.0
+    url = "https://graph.instagram.com/v25.0/me/messages"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.post(
                 url,
-                params={"access_token": INSTAGRAM_ACCESS_TOKEN},
+                headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
                 json={
                     "recipient": {"id": sender_id},
                     "message": {"text": ai_reply}
@@ -401,6 +423,8 @@ async def _ai_instagram_dm_reply(sender_id: str, text: str):
     except Exception as e:
         print(f"[Instagram DM] Network error: {e}")
     await _log_social_interaction("Instagram (DM)", sender_id, text, ai_reply)
+    if chat_takeover_handler:
+        await chat_takeover_handler("Instagram", sender_id, ai_reply, "ai")
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 
@@ -427,6 +451,12 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     return {'status': 'ok'}
 
 async def _ai_telegram_reply(chat_id: int, text: str):
+    if chat_takeover_handler:
+        is_paused = await chat_takeover_handler("Telegram", str(chat_id), text, "user")
+        if is_paused:
+            print(f"[Telegram] Mode PAUSED. Mengabaikan chat dari {chat_id}")
+            return
+
     if not GROQ_API_KEY:
         print('[Telegram Bot] GROQ_API_KEY tidak ada.')
         return
@@ -467,6 +497,51 @@ async def _ai_telegram_reply(chat_id: int, text: str):
     except Exception as e:
         print(f"[Telegram Bot] Network error: {e}")
     await _log_social_interaction("Telegram", str(chat_id), text, ai_reply)
+    if chat_takeover_handler:
+        await chat_takeover_handler("Telegram", str(chat_id), ai_reply, "ai")
 
     # Catat ke Google Sheets (Sheet2)
     await _log_social_interaction("Telegram", str(chat_id), text, ai_reply)
+
+# â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
+# 6. NEURAL ORCHESTRATION ENGINE (Budget, Tickets, Approval Gates)
+# â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
+import uuid
+
+@router.post('/ai-core/ticket/create')
+async def create_agent_ticket(req: Request):
+    """Membuat tugas/tiket baru untuk agen AI tertentu."""
+    data = await req.json()
+    ticket_id = f"TCK-{uuid.uuid4().hex[:6].upper()}"
+    # Di environment produksi, simpan ini ke Firebase Firestore koleksi 'ai_tickets'
+    print(f"[Neural Engine] New Ticket Created: {ticket_id} for {data.get('agentId')}")
+    return {"status": "success", "ticket_id": ticket_id, "data": data}
+
+@router.post('/ai-core/budget/check')
+async def check_agent_budget(req: Request):
+    """Mengecek apakah agen AI memiliki sisa budget (Token) untuk berjalan."""
+    data = await req.json()
+    agent_id = data.get("agentId")
+    estimated_cost = data.get("estimatedCost", 0)
+    
+    # Mocking budget check (Seharusnya query ke Firestore 'agent_budgets')
+    print(f"[Neural Engine] Checking budget for {agent_id}. Est Cost: {estimated_cost}")
+    return {"status": "approved", "remaining_budget": 500000 - estimated_cost, "message": "Budget sufficient."}
+
+@router.post('/ai-core/approval/request')
+async def request_human_approval(req: Request):
+    """Agen meminta persetujuan manusia (Human-in-the-loop) sebelum eksekusi aksi finansial/kritis."""
+    data = await req.json()
+    approval_id = f"APP-{uuid.uuid4().hex[:6].upper()}"
+    # Simpan ke Firestore koleksi 'pending_approvals' agar muncul di GovernancePage.tsx
+    print(f"[Neural Engine] Agent {data.get('agentId')} requesting approval for {data.get('actionType')}")
+    return {"status": "pending_human_review", "approval_id": approval_id}
+
+@router.post('/ai-core/transcript/log')
+async def log_agent_transcript(req: Request):
+    """Mencatat Chain of Thought (Internal Monologue) agen ke sistem audit (Run Transcripts)."""
+    data = await req.json()
+    transcript_id = f"TRX-{uuid.uuid4().hex[:6].upper()}"
+    # Simpan ke Firestore koleksi 'run_transcripts'
+    print(f"[Neural Engine] Transcript logged for {data.get('agentId')}: {data.get('action')}")
+    return {"status": "success", "transcript_id": transcript_id}

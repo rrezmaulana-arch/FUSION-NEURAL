@@ -1,92 +1,103 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// FusionNeural — Firebase Security Rules (Production-Safe)
+// FusionNeural — Firebase Security Rules v2.0
 //
-// Prinsip:
-//   - Client (browser) HANYA boleh MEMBACA data yang dibutuhkan untuk tampilan.
-//   - Semua operasi TULIS (create/update/delete) pada data bisnis sensitif
-//     harus dilakukan oleh Backend Python (Firebase Admin SDK) yang memiliki
-//     hak penuh dan tidak tunduk pada rules ini.
-//   - Pengecualian: activity_logs & marketing_assets boleh ditulis client
-//     karena membutuhkan real-time upload dari browser.
+// Arsitektur Auth:
+//   - Frontend (React): Firebase JWT token dari logged-in user
+//   - Backend (Python): Firebase email/password auth (backend-agent@fusionneural.app)
+//   - Semua write memerlukan request.auth != null → isAuthenticated()
 // ─────────────────────────────────────────────────────────────────────────────
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper Functions ────────────────────────────────────────────────────
+    // ── Helper ───────────────────────────────────────────────────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
-
-    // ── Inventory (Bisnis Sensitif) ────────────────────────────────────────
-    // READ: Boleh dibaca client (untuk tampilan stok real-time)
-    // WRITE: Diblokir dari client. Wajib lewat Python Admin SDK.
-    match /inventory/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
+    function isRole(rolePrefix) {
+      return isAuthenticated() && request.auth.token.email.matches('^' + rolePrefix + '@.*');
+    }
+    function isManager() {
+      return isRole('manager') || isRole('backend-agent');
     }
 
-    // ── Financial Reports & Metrics ────────────────────────────────────────
+    // ── AI Orchestrator & Agent Collections ──────────────────────────────────
+    // Backend Python (backend-agent@fusionneural.app) menulis ke sini.
+    match /neural_tasks/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /ai_tickets/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /pending_approvals/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /realtime_signals/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /run_transcripts/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /agent_health/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /system_config/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /agent_budgets/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /agent_schedules/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /system_prompts/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ── Business Data (read only for clients, backend can write) ─────────────
+    match /inventory/{docId} {
+      allow read: if isManager() || isRole('admin');
+      allow write: if isManager() || isRole('admin');
+    }
+    match /orders/{docId} {
+      allow read: if isManager() || isRole('admin') || isRole('finance');
+      allow write: if isManager() || isRole('admin');
+    }
     match /financial_reports/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
+      allow read: if isManager() || isRole('finance');
+      allow write: if isManager() || isRole('finance');
     }
     match /finance_metrics/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
+      allow read: if isManager() || isRole('finance');
+      allow write: if isManager() || isRole('finance');
     }
-
-    // ── Market Simulator ────────────────────────────────────────────────────
-    // READ: Boleh client untuk live dashboard
-    // WRITE: Diblokir — Python yang update via Admin SDK
     match /market_simulator/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
+      allow read, write: if isAuthenticated();
     }
-
-    // ── Orders ───────────────────────────────────────────────────────────────
-    match /orders/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
-    }
-
-    // ── Signals (inter-agent communication) ──────────────────────────────────
     match /signals/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
+      allow read, write: if isAuthenticated();
     }
-
-    // ── Activity Logs ──────────────────────────────────────────────────────
-    // Client boleh menulis log (addDoc), tapi tidak boleh mengubah/menghapus.
     match /activity_logs/{docId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if false;
     }
-
-    // ── Neural Configs (AI Prompts) ────────────────────────────────────────
-    // Hanya Manager yang bisa update prompt — tapi kita amankan via backend.
     match /neural_configs/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
+      allow read, write: if isAuthenticated();
     }
-
-    // ── Marketing Assets (Upload media dari browser) ───────────────────────
-    // Client perlu bisa upload, delete, dan rename aset marketing.
     match /marketing_assets/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if isManager() || isRole('marketing');
     }
 
-    // ── User Profiles ────────────────────────────────────────────────────────
+    // ── User Profiles ─────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // ── Fallback: Blokir semua koleksi lain ──────────────────────────────────
+    // ── Fallback: block unauthenticated access, allow authenticated ───────────
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isAuthenticated();
     }
   }
 }

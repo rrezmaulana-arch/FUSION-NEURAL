@@ -4,11 +4,15 @@
  * Role: Product Engineer (UI/UX & Full-Stack)
  * Copyright (c) 2026. All rights reserved.
  */
-import { useRef } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { MULTI_SECTOR_STEPS } from '../data/content';
 import { Database, BrainCircuit, Zap, CheckCircle } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
+
+gsap.registerPlugin(ScrollTrigger);
 
 const stepIcons = [
   <Database size={32} />,
@@ -18,56 +22,81 @@ const stepIcons = [
 ];
 
 export default function CrossIndustrySection() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const sectionRef = useRef<HTMLElement>(null);
   const { isEnglish } = useLang();
+
+  useEffect(() => {
+    if (!sectionRef.current) return;
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        scrollTrigger: { trigger: '[data-cross="header"]', start: 'top 85%', once: true }
+      });
+      tl.fromTo('[data-cross="tag"]', { opacity: 0 }, { opacity: 1, duration: 0.5 })
+        .fromTo('[data-cross="title"]', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8 }, '-=0.2')
+        .fromTo('[data-cross="desc"]', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7 }, '-=0.4')
+        .fromTo('[data-cross="swipe"]', { opacity: 0 }, { opacity: 1, duration: 0.8 }, '-=0.3');
+
+      gsap.fromTo('[data-cross="step"]', 
+        { opacity: 0, y: 40 },
+        {
+          opacity: 1, y: 0, duration: 0.7, stagger: 0.15,
+          scrollTrigger: { trigger: '[data-cross="steps"]', start: 'top 85%', once: true }
+        }
+      );
+
+      gsap.fromTo('[data-cross="result"]',
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1, y: 0, duration: 0.8,
+          scrollTrigger: { trigger: '[data-cross="result"]', start: 'top 90%', once: true }
+        }
+      );
+    }, sectionRef);
+    return () => ctx.revert();
+  }, []);
 
   return (
     <section
       id="cross-industry"
       className="relative py-20 overflow-hidden select-none bg-white"
-      ref={ref}
+      ref={sectionRef}
     >
 
       <div className="max-w-6xl mx-auto px-6">
         {/* Header */}
-        <div className="text-center mb-12 md:mb-16">
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={inView ? { opacity: 1 } : {}}
-            transition={{ duration: 0.5 }}
+        <div data-cross="header" className="text-center mb-12 md:mb-16">
+          <span
+            data-cross="tag"
             className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full glass-emerald"
+            style={{ opacity: 0 }}
           >
             {isEnglish ? 'Universal Adaptation · Any Sector' : 'Adaptasi Universal · Semua Sektor'}
-          </motion.span>
-          <motion.h2
-            initial={{ opacity: 0, y: 30 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.8, delay: 0.1 }}
+          </span>
+          <h2
+            data-cross="title"
             className="font-space font-bold text-4xl md:text-6xl text-fn-navy"
+            style={{ opacity: 0 }}
           >
             {isEnglish ? 'Adaptable Intelligence.' : 'Kecerdasan yang Adaptif.'}
             <br />
             <span className="gradient-text-emerald">{isEnglish ? 'Infinite Applications.' : 'Aplikasi Tanpa Batas.'}</span>
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.7, delay: 0.2 }}
+          </h2>
+          <p
+            data-cross="desc"
             className="mt-4 text-fn-navy/55 font-inter text-lg max-w-2xl mx-auto"
+            style={{ opacity: 0 }}
           >
             {isEnglish
               ? "Whether you're in e-commerce, agriculture, logistics, or services, FUSION NEURAL's autonomous workflow adapts to your industry — eliminating inefficiencies and unlocking scalable growth."
               : 'Apakah bisnis Kak bergerak di e-commerce, pertanian, logistik, atau jasa — alur kerja otonom FusionNeural beradaptasi dengan industri Kak dan membuka pertumbuhan yang tak terbatas.'}
-          </motion.p>
+          </p>
         </div>
 
         {/* PETUNJUK SWIPE KHUSUS MOBILE */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={inView ? { opacity: 1 } : {}}
-          transition={{ duration: 0.8, delay: 0.5 }}
+        <div
+          data-cross="swipe"
           className="md:hidden flex items-center justify-center gap-2 mb-4 text-xs font-inter text-fn-navy/40 uppercase tracking-widest"
+          style={{ opacity: 0 }}
         >
           <span>Geser untuk melihat</span>
           <motion.span
@@ -76,7 +105,7 @@ export default function CrossIndustrySection() {
           >
             →
           </motion.span>
-        </motion.div>
+        </div>
 
         {/* Workflow Steps - Horizontal Scroll di Mobile, Grid di Desktop */}
         <div className="relative">
@@ -85,13 +114,12 @@ export default function CrossIndustrySection() {
             style={{ background: 'linear-gradient(to right, #F59E0B, #3B82F6, #EC4899, #10B981)' }} />
 
           {/* Container Scroll */}
-          <div className="flex md:grid overflow-x-auto md:overflow-visible md:grid-cols-4 gap-6 relative z-10 pb-8 pt-4 -my-4 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:pt-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div data-cross="steps" className="flex md:grid overflow-x-auto md:overflow-visible md:grid-cols-4 gap-6 relative z-10 pb-8 pt-4 -my-4 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:pt-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {MULTI_SECTOR_STEPS.map((step, i) => (
-              <motion.div
+              <div
                 key={step.id}
-                initial={{ opacity: 0, y: 40 }}
-                animate={inView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.7, delay: 0.2 + i * 0.15 }}
+                data-cross="step"
+                style={{ opacity: 0 }}
                 className="flex flex-col items-center text-center w-[75vw] md:w-auto flex-shrink-0 snap-center"
               >
                 {/* Lucide icon */}
@@ -112,19 +140,18 @@ export default function CrossIndustrySection() {
 
                 <h3 className="font-space font-bold text-fn-navy text-lg mb-2 px-2">{step.title}</h3>
                 <p className="text-sm text-fn-navy/60 font-inter leading-relaxed px-4 md:px-0">{step.desc}</p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
 
         {/* Result card — stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.8, delay: 0.9 }}
+        <div
+          data-cross="result"
           className="mt-8 md:mt-16 relative rounded-3xl p-8 md:p-10 overflow-hidden bg-slate-50"
           style={{
             border: '1px solid rgba(16,185,129,0.15)',
+            opacity: 0
           }}
         >
           <div className="grid grid-cols-2 md:flex md:flex-row flex-wrap justify-center items-center gap-8 md:gap-12 relative z-10">
@@ -145,7 +172,7 @@ export default function CrossIndustrySection() {
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

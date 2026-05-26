@@ -8,7 +8,8 @@ import { useState, useEffect, type ReactElement } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { ShoppingCart, Package, Truck, CheckCircle2, Clock, AlertTriangle, ChevronRight, Brain } from 'lucide-react';
+import { ShoppingCart, Package, Truck, CheckCircle2, Clock, AlertTriangle, ChevronRight, Brain, Printer } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -18,6 +19,7 @@ type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancell
 interface Order {
   id: string;
   customer?: string;
+  platform?: string;
   items?: { name: string; qty: number }[];
   total?: number;
   status?: OrderStatus;
@@ -74,10 +76,45 @@ export default function OrderStreamPage() {
   return (
     <div className="space-y-6 pb-10">
       <PageHeader
-        title="Order Stream"
-        subtitle="Siklus hidup pesanan dari Pending hingga Delivered"
+        title="Order Stream & Analytics"
+        subtitle="Siklus hidup pesanan dan performa barang berdasarkan platform"
         accent="slate"
       />
+
+      {/* AI Sales Analytics Chart */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mb-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Brain size={16} className="text-indigo-500" />
+          AI Analytics: Volume Penjualan per Platform
+        </h3>
+        <div className="h-48 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={Object.values(
+                orders.reduce((acc: any, order) => {
+                  const plat = order.platform || 'Direct';
+                  if (!acc[plat]) acc[plat] = { name: plat, orders: 0, revenue: 0 };
+                  acc[plat].orders += 1;
+                  acc[plat].revenue += order.total || 0;
+                  return acc;
+                }, {})
+              )}
+              margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+              <YAxis yAxisId="left" orientation="left" stroke="#8b5cf6" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+              <YAxis yAxisId="right" orientation="right" stroke="#10b981" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+              <Tooltip 
+                cursor={{ fill: '#f8fafc' }}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
+              />
+              <Bar yAxisId="left" dataKey="orders" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Total Pesanan" />
+              <Bar yAxisId="right" dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} name="Revenue (Rp)" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
       <div id="order-pipeline" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {stats.map((s, i) => {
@@ -153,6 +190,13 @@ export default function OrderStreamPage() {
                         className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-xl"
                       >
                         <ChevronRight size={11} /> Advance
+                      </button>
+                    )}
+                    {status !== 'pending' && status !== 'cancelled' && (
+                      <button onClick={() => alert(`Sedang mengenerate PDF Resi Ekspedisi untuk Order #${order.id}\n(Fitur Dummy Beta)`)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[10px] font-black rounded-xl transition-colors mt-1"
+                      >
+                        <Printer size={11} /> Cetak Resi
                       </button>
                     )}
                   </div>

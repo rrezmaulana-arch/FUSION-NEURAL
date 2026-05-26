@@ -8,7 +8,7 @@
 // Zustand store — Finance Agent State (Synced with Firestore)
 // Saldo awal: Rp 100.000.000 (modal awal). Semua data real-time dari Firestore.
 import { create } from 'zustand';
-import { collection, doc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, orderBy, limit, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,10 +35,10 @@ interface FinanceState {
 let listenersInitialized = false;
 
 export const useFinanceStore = create<FinanceState>((set) => ({
-  // Modal awal Rp 100.000.000 — akan di-override dari Firestore finance_metrics/stats
+  // Modal awal Rp 500.000.000 — akan di-override dari Firestore finance_metrics/stats
   revenue: 0,
   expenses: 0,
-  budget: 100_000_000,
+  budget: 500_000_000,
   transactions: [],
   chartData: [0, 0, 0, 0, 0, 0], // diisi dari data historis Firestore
 
@@ -51,10 +51,16 @@ export const useFinanceStore = create<FinanceState>((set) => ({
     onSnapshot(statsRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        
+        // Auto-migration: if the budget is still exactly 100M (the old mock value), force update it to 500M
+        if (data.budget === 100000000) {
+           updateDoc(statsRef, { budget: 500000000, company_budget: 500000000 }).catch(console.error);
+        }
+        
         set({
           revenue:  data.revenue  ?? 0,
           expenses: data.expenses ?? 0,
-          budget:   data.budget   ?? 100_000_000,
+          budget:   data.budget === 100000000 ? 500000000 : (data.budget ?? 500_000_000),
           chartData: data.chart_data ?? [0, 0, 0, 0, 0, 0],
         });
       }

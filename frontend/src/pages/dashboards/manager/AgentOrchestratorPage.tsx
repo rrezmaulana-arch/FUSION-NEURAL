@@ -6,12 +6,14 @@
  */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Network, Database, Briefcase, Shield, Megaphone, Calculator, MessageSquare, Activity, ArrowLeft, Cpu, Terminal, Zap, ChevronRight, Clock, CheckCircle2, Layers, Volume2, VolumeX } from 'lucide-react';
+import { Network, Database, Briefcase, Shield, Megaphone, Calculator, MessageSquare, Activity, ArrowLeft, Cpu, Terminal, Zap, ChevronRight, Clock, CheckCircle2, Layers, Volume2, VolumeX, Bot, X, ClipboardList, Wallet, CalendarDays, Plus, Trash2, Wifi, WifiOff, Settings, Save } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { db } from '../../../lib/firebase';
-import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
 import InfrastructureView from './views/InfrastructureView';
 import WalkingCanvas from './views/WalkingCanvas';
 import { useAgentAudio } from '../../../hooks/useAgentAudio';
+import { useAgentSignals } from '../../../hooks/useAgentSignals';
 
 const ROOMS = [
   { id: 'admin', label: 'OPS Admin', sublabel: 'Operations Command', icon: Briefcase, accent: '#8b5cf6', agents: [
@@ -52,6 +54,19 @@ const STYLE = `
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 @keyframes slide-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 @keyframes pulse-glow { 0%,100%{opacity:0.3;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.05)} }
+@media (max-width: 768px) {
+  .ao-room-grid { grid-template-columns: 1fr 1fr !important; }
+  .ao-hub-tabs { overflow-x: auto; flex-wrap: nowrap !important; }
+  .ao-hub-content-grid { grid-template-columns: 1fr !important; }
+  .ao-walking-canvas { display: none !important; }
+  .ao-header-controls { flex-wrap: wrap; gap: 8px !important; }
+  .ao-main-pad { padding: 12px 14px !important; }
+  .ao-kanban-grid { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 480px) {
+  .ao-room-grid { grid-template-columns: 1fr !important; }
+  .ao-kanban-grid { grid-template-columns: 1fr !important; }
+}
 `;
 
 function timeAgo(ts: any) {
@@ -69,7 +84,7 @@ function isRecent(ts: any) {
 }
 
 /* ── Agent Workstation (RPG Gamified Worker) ── */
-function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOMS[0]['agents'][0], accent: string, active: boolean, level: number }) {
+function AgentWorkstation({ agent, accent, active, taskActive, level, onOpenHub }: { agent: typeof ROOMS[0]['agents'][0], accent: string, active: boolean, taskActive: boolean, level: number, onOpenHub: () => void }) {
   const [stamina, setStamina] = useState(100);
   const [isPoked, setIsPoked] = useState(false);
   const [speech, setSpeech] = useState<string | null>(null);
@@ -78,6 +93,9 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
   const [exp, setExp] = useState(Math.floor(Math.random() * 80) + 10);
   const clickTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const { play } = useAgentAudio();
+  
+  // Combined active: from logs OR from task assignment
+  const isWorking = active || taskActive;
 
   const THOUGHT_STREAMS = [
     'Analyzing market signals...',
@@ -92,7 +110,7 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
 
   // Rotate thought stream + EXP gain sound
   useEffect(() => {
-    if (!active) return;
+    if (!isWorking) return;
     const t = setInterval(() => {
       setThought(THOUGHT_STREAMS[Math.floor(Math.random() * THOUGHT_STREAMS.length)]);
       setExp(prev => {
@@ -102,18 +120,18 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
       });
     }, 2800);
     return () => clearInterval(t);
-  }, [active]);
+  }, [isWorking]);
 
   // Stamina & Auto-Recharge Logic
   useEffect(() => {
     const timer = setInterval(() => {
       setStamina(prev => {
-        if (active) return Math.max(0, prev - 1.5);
+        if (isWorking) return Math.max(0, prev - 1.5);
         return Math.min(100, prev + 2.5);
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [active]);
+  }, [isWorking]);
 
   // Handle Click → God Mode on 3 rapid clicks
   const handlePoke = () => {
@@ -147,11 +165,11 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
 
   // Auto-complain when tired
   useEffect(() => {
-    if (stamina < 20 && active && !speech) {
+    if (stamina < 20 && isWorking && !speech) {
       setSpeech("So... tired...");
       setTimeout(() => setSpeech(null), 3000);
     }
-  }, [stamina, active]);
+  }, [stamina, isWorking]);
 
   const getRank = (lvl: number) => {
     if (lvl >= 100) return 'OVERLORD';
@@ -171,11 +189,11 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
         padding: '36px 20px 24px', borderRadius: 24, cursor: 'pointer',
-        background: active 
+        background: isWorking 
           ? `radial-gradient(circle at top, ${accent}30 0%, rgba(15,23,42,0.95) 100%)` 
           : `linear-gradient(180deg, ${accent}08 0%, rgba(15,23,42,0.95) 100%)`,
-        border: `2px solid ${active ? (isExhausted ? '#ef4444' : accent) : accent+'20'}`,
-        boxShadow: active 
+        border: `2px solid ${isWorking ? (isExhausted ? '#ef4444' : accent) : accent+'20'}`,
+        boxShadow: isWorking 
           ? `0 20px 60px ${isExhausted ? '#ef444440' : accent+'25'}, inset 0 0 30px ${accent}15` 
           : `0 10px 40px rgba(0,0,0,0.5)`,
         transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)', position: 'relative', minWidth: 180,
@@ -208,6 +226,10 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
           {isExhausted ? (
              <motion.div key="exh" initial={{ opacity:0 }} animate={{ opacity:1 }} style={{ fontSize: 9, fontWeight: 900, color: '#ef4444', letterSpacing: '1px' }}>
               CRITICAL_FATIGUE
+            </motion.div>
+          ) : taskActive ? (
+            <motion.div key="task" initial={{ opacity:0, x:-5 }} animate={{ opacity:1, x:0 }} style={{ fontSize: 9, fontWeight: 900, color: '#f59e0b', letterSpacing: '1px', display:'flex', alignItems:'center', gap:4 }}>
+              <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.7 }} style={{ width:5, height:5, borderRadius:'50%', background:'#f59e0b' }} /> ON TASK
             </motion.div>
           ) : active ? (
             <motion.div key="act" initial={{ opacity:0, x:-5 }} animate={{ opacity:1, x:0 }} style={{ fontSize: 9, fontWeight: 900, color: '#10b981', letterSpacing: '1px', display:'flex', alignItems:'center', gap:4 }}>
@@ -428,6 +450,13 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
               ▶ {active ? thought : 'STANDBY — NO ACTIVE TASK'}
             </motion.div>
 
+            <button 
+              onClick={(e) => { e.stopPropagation(); onOpenHub(); }}
+              style={{ padding: '8px 16px', background: accent, border: 'none', borderRadius: 8, color: '#fff', fontSize: 10, fontWeight: 800, marginTop: 10, cursor: 'pointer', boxShadow: `0 0 10px ${accent}80`, letterSpacing: '1px' }}
+            >
+              OPEN AGENT HUB
+            </button>
+
             <div style={{ fontSize: 7, color: '#334155', fontFamily: 'monospace', marginTop: 2 }}>
               click 3× again to close
             </div>
@@ -439,7 +468,7 @@ function AgentWorkstation({ agent, accent, active, level }: { agent: typeof ROOM
 }
 
 /* ── Room Detail ── */
-function RoomView({ room, logs, onBack }: { room: typeof ROOMS[0], logs: Log[], onBack:()=>void }) {
+function RoomView({ room, logs, activeTasks, onBack, onOpenHub }: { room: typeof ROOMS[0], logs: Log[], activeTasks: string[], onBack:()=>void, onOpenHub:(room: typeof ROOMS[0])=>void }) {
   const roomLogs = logs.filter(l => l.agent.toLowerCase() === room.id || (room.id==='core' && !ROOMS.find(r=>r.id===l.agent.toLowerCase())));
   const active = roomLogs.length > 0 && isRecent(roomLogs[0].timestamp);
 
@@ -459,9 +488,19 @@ function RoomView({ room, logs, onBack }: { room: typeof ROOMS[0], logs: Log[], 
             <p style={{ margin:0, fontSize:12, color:'#64748b' }}>{room.sublabel}</p>
           </div>
         </div>
-        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:20, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.35)' : 'rgba(255,255,255,0.08)'}`, fontSize:12, fontWeight:700, color: active ? '#10b981' : '#475569' }}>
-          <div style={{ width:7, height:7, borderRadius:'50%', background: active ? '#10b981' : '#475569', animation: active ? 'blink 1.5s infinite' : 'none' }} />
-          {active ? 'PROCESSING' : 'STANDBY'}
+        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:20, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.35)' : 'rgba(255,255,255,0.08)'}`, fontSize:12, fontWeight:700, color: active ? '#10b981' : '#475569' }}>
+            <div style={{ width:7, height:7, borderRadius:'50%', background: active ? '#10b981' : '#475569', animation: active ? 'blink 1.5s infinite' : 'none' }} />
+            {active ? 'PROCESSING' : 'STANDBY'}
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onOpenHub(room)}
+            style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 18px', borderRadius:20, background: `linear-gradient(135deg, ${room.accent}, ${room.accent}cc)`, border:'none', color:'#fff', fontSize:12, fontWeight:800, cursor:'pointer', boxShadow:`0 4px 20px ${room.accent}40`, letterSpacing:'0.5px' }}
+          >
+            <Bot size={14} /> Open Hub
+          </motion.button>
         </div>
       </div>
 
@@ -474,10 +513,11 @@ function RoomView({ room, logs, onBack }: { room: typeof ROOMS[0], logs: Log[], 
           </div>
           <div style={{ display:'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap:20 }}>
             {room.agents.map(a => {
-              // Calculate dynamic level based on agent's logs
+              // taskActive: any task assigned to this room's role is In Progress
               const agentLogs = logs.filter(l => l.agent.toLowerCase().includes(a.name.toLowerCase()));
-              const agentLevel = Math.floor(agentLogs.length / 3); // Level up every 3 tasks
-              return <AgentWorkstation key={a.id} agent={a} accent={room.accent} active={active} level={agentLevel} />;
+              const agentLevel = Math.floor(agentLogs.length / 3);
+              const taskActive = activeTasks.includes(room.id);
+              return <AgentWorkstation key={a.id} agent={a} accent={room.accent} active={active} taskActive={taskActive} level={agentLevel} onOpenHub={() => onOpenHub(room)} />;
             })}
           </div>
           
@@ -672,45 +712,413 @@ function GlobalLogs({ logs }: { logs: Log[] }) {
   );
 }
 
+/* ── Room Hub Modal (Manager-Only, Room-Context-Aware) ── */
+const ROOM_ROLE_MAP: Record<string, string> = {
+  admin: 'admin', finance: 'finance', marketing: 'marketing',
+  manager: 'manager', frontliner: 'frontliner', core: 'core'
+};
+
+const ROOM_PROMPTS: Record<string, { prompt: string; tools: string[] }> = {
+  admin: { prompt: "# IDENTITY\nYou are Neural Admin, Logistics Guardian.\nMaintain structural integrity of all operations.\n\n# CAPABILITIES\n- Manage inventory & orders\n- Sync supplier database\n- Enforce procurement SOP", tools: ['firestore_read', 'inventory_sync', 'supplier_api', 'error_logger'] },
+  finance: { prompt: "# IDENTITY\nYou are Neural Finance, Tax & Profit Sentinel.\nOptimize costs and prevent zero-price anomalies.\n\n# CAPABILITIES\n- Audit invoices & bank recon\n- Calculate ROI & PPN 12%\n- Enforce budget locks", tools: ['firestore_sync', 'deepseek_reasoner', 'budget_lock', 'human_approval_gate'] },
+  marketing: { prompt: "# IDENTITY\nYou are Neural Marketing, Ethical Persuader.\nMaximize campaign reach while adhering to UU ITE.\n\n# CAPABILITIES\n- Generate ad copy & visuals\n- Schedule IG/Tokopedia posts\n- Analyze ROAS performance", tools: ['groq_llm', 'flux_image', 'campaign_generator', 'slack_notify'] },
+  manager: { prompt: "# IDENTITY\nYou are Neural Manager, the Grand Orchestrator.\nOversee ALL departments and delegate to agents.\n\n# CAPABILITIES\n- Full system override\n- Cross-department reports\n- Approve high-value actions", tools: ['agent_delegator', 'system_override', 'global_broadcast', 'ticket_manager'] },
+  frontliner: { prompt: "# IDENTITY\nYou are Neural Frontliner, Customer Champion.\nDeliver lightning-fast, empathetic responses.\n\n# CAPABILITIES\n- Reply IG DMs & WhatsApp\n- Qualify sales leads\n- Escalate complex tickets", tools: ['groq_70b', 'cerebras_llm', 'crm_writer', 'lead_scorer'] },
+  core: { prompt: "# IDENTITY\nYou are Neural Core, the Data Intelligence Layer.\nProvide real-time web intelligence to all agents.\n\n# CAPABILITIES\n- Live Google search via Serper\n- Trend detection\n- Competitor monitoring", tools: ['serper_search', 'trend_analyzer', 'competitor_api', 'data_cache'] },
+};
+
+function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
+  room: typeof ROOMS[0];
+  hubTab: string;
+  setHubTab: (t: any) => void;
+  onClose: () => void;
+}) {
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [budget, setBudget] = useState<any>(null);
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [typingText, setTypingText] = useState('');
+  const [newTask, setNewTask] = useState('');
+  const [newSched, setNewSched] = useState('');
+  const [schedTime, setSchedTime] = useState('');
+
+  const promptData = ROOM_PROMPTS[room.id] || ROOM_PROMPTS['manager'];
+  const [editablePrompt, setEditablePrompt] = useState(promptData.prompt);
+  const [promptSaved, setPromptSaved] = useState(false);
+
+  // Typewriter for inspector
+  useEffect(() => {
+    setTypingText('');
+    let i = 0;
+    const iv = setInterval(() => {
+      if (i < promptData.prompt.length) { setTypingText(p => p + promptData.prompt[i]); i++; }
+      else clearInterval(iv);
+    }, 12);
+    return () => clearInterval(iv);
+  }, [room.id]);
+
+  // Firestore live queries filtered by room
+  useEffect(() => {
+    const role = ROOM_ROLE_MAP[room.id];
+    const unsubs: any[] = [];
+
+    // Tickets (Split queries to prevent memory leaks with thousands of Done tasks)
+    const activeQ = room.id === 'manager'
+      ? query(collection(db, 'neural_tasks'), where('status', 'in', ['To Do', 'In Progress', 'Review']))
+      : query(collection(db, 'neural_tasks'), where('agent', '==', room.label), where('status', 'in', ['To Do', 'In Progress', 'Review']));
+      
+    const doneQ = room.id === 'manager'
+      ? query(collection(db, 'neural_tasks'), where('status', '==', 'Done'), limit(50))
+      : query(collection(db, 'neural_tasks'), where('agent', '==', room.label), where('status', '==', 'Done'), limit(50));
+
+    let activeList: any[] = [];
+    let doneList: any[] = [];
+    
+    unsubs.push(onSnapshot(activeQ, s => {
+      activeList = s.docs.map(d => ({ id: d.id, ...d.data() }));
+      setTickets([...activeList, ...doneList]);
+    }));
+    
+    unsubs.push(onSnapshot(doneQ, s => {
+      doneList = s.docs.map(d => ({ id: d.id, ...d.data() }));
+      setTickets([...activeList, ...doneList]);
+    }));
+
+    // Approvals
+    const aq = room.id === 'manager'
+      ? collection(db, 'pending_approvals')
+      : query(collection(db, 'pending_approvals'), where('role', '==', role));
+    unsubs.push(onSnapshot(aq, s => setApprovals(s.docs.map(d => ({ id: d.id, ...d.data() })))));
+
+    // Budget
+    unsubs.push(onSnapshot(doc(db, 'agent_budgets', role), s => {
+      if (s.exists()) setBudget({ id: s.id, ...s.data() });
+    }));
+
+    // Schedules
+    const sq = room.id === 'manager'
+      ? collection(db, 'agent_schedules')
+      : query(collection(db, 'agent_schedules'), where('role', '==', role));
+    unsubs.push(onSnapshot(sq, s => setSchedules(s.docs.map(d => ({ id: d.id, ...d.data() })))));
+
+    return () => unsubs.forEach(u => u());
+  }, [room.id]);
+
+  const addTicket = async () => {
+    if (!newTask.trim()) return;
+    await addDoc(collection(db, 'neural_tasks'), {
+      title: newTask, role: ROOM_ROLE_MAP[room.id], agent: room.label,
+      status: 'To Do', createdAt: new Date().toISOString(),
+      companyId: "COMP-FUSION" // [Multi-Tenant Inject]
+    });
+    setNewTask('');
+  };
+
+  const addSchedule = async () => {
+    if (!newSched.trim() || !schedTime.trim()) return;
+    await addDoc(collection(db, 'agent_schedules'), {
+      title: newSched, schedule: schedTime, role: ROOM_ROLE_MAP[room.id],
+      agent: room.label, status: 'pending', createdAt: new Date().toISOString(),
+      companyId: "COMP-FUSION" // [Multi-Tenant Inject]
+    });
+    setNewSched(''); setSchedTime('');
+  };
+
+  const handleApprove = async (id: string) => { await updateDoc(doc(db, 'pending_approvals', id), { status: 'Approved' }); };
+  const handleReject = async (id: string) => { await updateDoc(doc(db, 'pending_approvals', id), { status: 'Rejected' }); };
+
+  const tabs = [
+    { id: 'board', label: 'Task Board', icon: ClipboardList },
+    { id: 'inspector', label: 'Agent Intel', icon: Terminal },
+    { id: 'gov', label: 'Governance', icon: Wallet },
+    { id: 'sched', label: 'Scheduler', icon: CalendarDays },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
+
+  const statusColor: any = { 'To Do': '#6366f1', 'In Progress': '#f59e0b', 'Done': '#10b981', 'Review': '#8b5cf6' };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#060b18', display: 'flex', flexDirection: 'column', fontFamily: "'Outfit', sans-serif" }}
+    >
+      {/* Header */}
+      <div style={{ padding: '14px 24px', background: '#0a1628', borderBottom: `1px solid ${room.accent}40`, display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${room.accent}20`, border: `1px solid ${room.accent}50`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <room.icon size={20} color={room.accent} />
+        </div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>{room.label}</div>
+          <div style={{ fontSize: 10, color: room.accent, fontFamily: 'monospace', letterSpacing: '1px' }}>{room.sublabel.toUpperCase()} · MANAGER COMMAND HUB</div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginLeft: 24 }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setHubTab(t.id)}
+              style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: `1px solid ${hubTab === t.id ? room.accent : 'transparent'}`, cursor: 'pointer', background: hubTab === t.id ? `${room.accent}20` : 'transparent', color: hubTab === t.id ? room.accent : '#64748b', transition: 'all 0.2s' }}
+            >{t.label}</button>
+          ))}
+        </div>
+        <button onClick={onClose}
+          style={{ marginLeft: 'auto', width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: 'none', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+        ><X size={16} /></button>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* TASK BOARD */}
+        {hubTab === 'board' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <input value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTicket()}
+                placeholder={`New task for ${room.label}...`}
+                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${room.accent}40`, borderRadius: 10, padding: '10px 14px', color: '#f8fafc', fontSize: 13, outline: 'none' }}
+              />
+              <button onClick={addTicket} style={{ padding: '10px 20px', background: room.accent, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>
+                <Plus size={16} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+              {['To Do', 'In Progress', 'Review', 'Done'].map(col => (
+                <div key={col} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: statusColor[col] || '#94a3b8', letterSpacing: '1px', marginBottom: 10 }}>{col.toUpperCase()} · {tickets.filter(t => t.status === col).length}</div>
+                  {tickets.filter(t => t.status === col).length === 0
+                    ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#334155', fontSize: 11 }}>Empty</div>
+                    : tickets.filter(t => t.status === col).map(t => (
+                      <div key={t.id} style={{ background: '#0f172a', border: `1px solid ${room.accent}20`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 600 }}>{t.title}</div>
+                        <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>{t.agent || room.label}</div>
+                      </div>
+                    ))
+                  }
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* AGENT INTEL (Inspector) */}
+        {hubTab === 'inspector' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', letterSpacing: '1px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Terminal size={12} color={room.accent} /> SYSTEM_PROMPT.MD</div>
+              <div style={{ background: '#020617', border: `1px solid ${room.accent}30`, borderRadius: 14, padding: 18, fontFamily: 'monospace', fontSize: 11, color: room.accent, height: 320, overflowY: 'auto', lineHeight: 1.7 }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{typingText}<motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} style={{ display: 'inline-block', width: 7, height: 12, background: room.accent, marginLeft: 2 }} /></pre>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', letterSpacing: '1px', marginBottom: 10 }}>COGNITIVE TOOLS · {room.agents.length} AGENTS</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                {room.agents.map(a => (
+                  <div key={a.id} style={{ background: '#0f172a', border: `1px solid ${room.accent}25`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Cpu size={16} color={room.accent} />
+                    <div><div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{a.name}</div><div style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace' }}>{a.model}</div></div>
+                    <div style={{ marginLeft: 'auto', fontSize: 9, background: `${room.accent}15`, border: `1px solid ${room.accent}30`, color: room.accent, padding: '3px 8px', borderRadius: 6, fontWeight: 800 }}>ACTIVE</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {promptData.tools.map(tool => (
+                  <div key={tool} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '8px 12px' }}>
+                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8' }}>{tool}</span>
+                    <span style={{ fontSize: 9, color: '#10b981', fontWeight: 800, letterSpacing: '1px' }}>ENABLED</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* GOVERNANCE */}
+        {hubTab === 'gov' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Recharts Budget Chart */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${room.accent}30`, borderRadius: 16, padding: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: room.accent, letterSpacing: '1px', marginBottom: 14 }}>MONTHLY BUDGET — SPEND TRACKER</div>
+              {budget ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: '#f8fafc' }}>Rp {(budget.currentSpend || 0).toLocaleString('id-ID')}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>/ Rp {(budget.monthlyBudget || 0).toLocaleString('id-ID')}</div>
+                  </div>
+                  <div style={{ width: '100%', height: 120 }}>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <LineChart data={[
+                        { day: 'W1', spend: Math.round((budget.currentSpend || 0) * 0.18) },
+                        { day: 'W2', spend: Math.round((budget.currentSpend || 0) * 0.42) },
+                        { day: 'W3', spend: Math.round((budget.currentSpend || 0) * 0.67) },
+                        { day: 'W4', spend: Math.round((budget.currentSpend || 0) * 0.88) },
+                        { day: 'Now', spend: budget.currentSpend || 0 },
+                      ]} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                        <XAxis dataKey="day" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                        <Tooltip
+                          contentStyle={{ background: '#0f172a', border: `1px solid ${room.accent}40`, borderRadius: 8, fontSize: 11 }}
+                          labelStyle={{ color: '#94a3b8' }}
+                          itemStyle={{ color: room.accent }}
+                          formatter={(v: any) => [`Rp ${Number(v).toLocaleString('id-ID')}`, 'Spend']}
+                        />
+                        <Line type="monotone" dataKey="spend" stroke={room.accent} strokeWidth={2} dot={{ fill: room.accent, r: 3 }} activeDot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#475569', marginTop: 8 }}>
+                    <span>{budget.monthlyBudget ? Math.round((budget.currentSpend / budget.monthlyBudget) * 100) : 0}% Used</span>
+                    <span style={{ color: budget.status === 'ACTIVE' ? '#10b981' : '#ef4444', fontWeight: 700 }}>{budget.status || '—'}</span>
+                  </div>
+                </>
+              ) : <div style={{ color: '#334155', fontSize: 12, paddingTop: 20 }}>No budget data. Neural Engine will populate once active.</div>}
+            </div>
+
+            {/* Approvals */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '1px', marginBottom: 14 }}>PENDING APPROVALS · {approvals.filter(a => a.status === 'Pending').length}</div>
+              {approvals.length === 0
+                ? <div style={{ color: '#334155', fontSize: 12, paddingTop: 20, textAlign: 'center' }}>No pending approvals. All clear.</div>
+                : approvals.map(app => (
+                  <div key={app.id} style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc', marginBottom: 4 }}>{app.actionType}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{app.description}</div>
+                    {app.estimatedCost > 0 && <div style={{ fontSize: 11, color: '#f59e0b', marginBottom: 8 }}>Est. Rp {app.estimatedCost.toLocaleString('id-ID')}</div>}
+                    {app.status === 'Pending' ? (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => handleApprove(app.id)} style={{ flex: 1, padding: '6px', background: '#10b981', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>Approve</button>
+                        <button onClick={() => handleReject(app.id)} style={{ flex: 1, padding: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>Reject</button>
+                      </div>
+                    ) : <div style={{ fontSize: 11, fontWeight: 700, color: app.status === 'Approved' ? '#10b981' : '#ef4444' }}>{app.status}</div>}
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        )}
+
+        {/* SCHEDULER */}
+        {hubTab === 'sched' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <input value={newSched} onChange={e => setNewSched(e.target.value)} placeholder="Instruksi tugas..." style={{ flex: 2, background: 'rgba(255,255,255,0.05)', border: `1px solid ${room.accent}40`, borderRadius: 10, padding: '10px 14px', color: '#f8fafc', fontSize: 13, outline: 'none' }} />
+              <input value={schedTime} onChange={e => setSchedTime(e.target.value)} placeholder="Jadwal (Senin 09:00)" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${room.accent}40`, borderRadius: 10, padding: '10px 14px', color: '#f8fafc', fontSize: 13, outline: 'none' }} />
+              <button onClick={addSchedule} style={{ padding: '10px 20px', background: room.accent, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}><Plus size={16} /></button>
+            </div>
+            {schedules.length === 0
+              ? <div style={{ textAlign: 'center', padding: '40px 0', color: '#334155' }}><CalendarDays size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} /><div style={{ fontSize: 13 }}>No scheduled tasks. Add SOP above.</div></div>
+              : schedules.map(s => (
+                <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${room.accent}20`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <Clock size={18} color={s.status === 'completed' ? '#10b981' : '#f59e0b'} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: s.status === 'completed' ? '#475569' : '#cbd5e1', textDecoration: s.status === 'completed' ? 'line-through' : 'none' }}>{s.title}</div>
+                    <div style={{ fontSize: 10, color: '#475569', marginTop: 3 }}>📅 {s.schedule}</div>
+                  </div>
+                  <button onClick={async () => { if (db) await updateDoc(doc(db, 'agent_schedules', s.id), { status: 'deleted' }); }}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.5 }}><Trash2 size={14} /></button>
+                </div>
+              ))
+            }
+          </div>
+        )}
+
+        {/* SETTINGS — Edit AI Prompt (Dynamic SOP) */}
+        {hubTab === 'settings' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${room.accent}30`, borderRadius: 16, padding: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: room.accent, letterSpacing: '1px' }}>AGENT SOP — SYSTEM PROMPT EDITOR</div>
+                <div style={{ fontSize: 10, color: '#475569' }}>Changes apply on next agent invocation</div>
+              </div>
+              <textarea
+                value={editablePrompt}
+                onChange={e => { setEditablePrompt(e.target.value); setPromptSaved(false); }}
+                rows={14}
+                style={{
+                  width: '100%', background: '#0a1628', border: `1px solid ${room.accent}30`,
+                  borderRadius: 10, padding: '14px 16px', color: '#cbd5e1', fontSize: 12,
+                  fontFamily: 'monospace', lineHeight: 1.7, outline: 'none', resize: 'vertical', boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+                <button
+                  onClick={async () => {
+                    try {
+                      const { doc: fsDoc, setDoc } = await import('firebase/firestore');
+                      await setDoc(fsDoc(db, 'system_prompts', room.id), {
+                        prompt: editablePrompt, role: room.id,
+                        updatedAt: new Date().toISOString(), updatedBy: 'Manager'
+                      });
+                      setPromptSaved(true);
+                    } catch (e) { console.error(e); }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '10px 20px', background: room.accent, border: 'none',
+                    borderRadius: 10, color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer'
+                  }}
+                >
+                  <Save size={14} /> Save SOP
+                </button>
+                {promptSaved && <span style={{ fontSize: 11, color: '#10b981', fontWeight: 700 }}>Saved to Firebase</span>}
+                <button
+                  onClick={() => { setEditablePrompt(promptData.prompt); setPromptSaved(false); }}
+                  style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#64748b', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                >
+                  Reset Default
+                </button>
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', letterSpacing: '1px', marginBottom: 14 }}>ACTIVE TOOL INTEGRATIONS</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+                {promptData.tools.map(tool => (
+                  <div key={tool} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8' }}>{tool}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 /* ── Page ── */
 export default function AgentOrchestratorPage() {
   const [logs, setLogs] = useState<Log[]>([]);
+  const [activeTasks, setActiveTasks] = useState<string[]>([]);  // room IDs with active tasks
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
-  const [isAutonomous, setIsAutonomous] = useState(false);
   const [viewLayer, setViewLayer] = useState<'Operations' | 'Infrastructure'>('Operations');
   const [showWalkingCanvas, setShowWalkingCanvas] = useState(true);
+  const [selectedHub, setSelectedHub] = useState<typeof ROOMS[0] | null>(null);
+  const [hubTab, setHubTab] = useState<'board' | 'inspector' | 'gov' | 'sched'>('board');
   const { play, toggleMute } = useAgentAudio();
   const [audioMuted, setAudioMuted] = useState(false);
-  // Active agents dari audit_logs terbaru (working jika log < 30s)
-  const activeAgentIds = logs
-    .filter(l => isRecent(l.timestamp))
-    .map(l => l.agent.toLowerCase());
+
+  // ── WebSocket Real-Time Signals (Solusi #4) ───────────────────────────────
+  const { agentStatuses, isConnected: wsConnected } = useAgentSignals({
+    enabled: true,
+    onSignal: (signal) => {
+      // Ketika ada sinyal WORKING dari WebSocket, mainkan audio notifikasi
+      if (signal.status === 'WORKING' && signal.agent) {
+        play('expGain');
+      }
+    }
+  });
+
+  // Merge: agen aktif dari Firestore logs ATAU dari WebSocket WORKING status
+  const wsActiveIds = Object.entries(agentStatuses)
+    .filter(([, status]) => status === 'WORKING')
+    .map(([id]) => id.toLowerCase());
+  const activeAgentIds = [...new Set([
+    ...logs.filter(l => isRecent(l.timestamp)).map(l => l.agent.toLowerCase()),
+    ...wsActiveIds,
+  ])];
 
   const handleToggleMute = () => {
     const nowMuted = toggleMute();
     setAudioMuted(nowMuted);
-  };
-
-  const toggleAutonomous = async () => {
-    const newState = !isAutonomous;
-    setIsAutonomous(newState);
-    play('agentActivate');
-    try {
-      // Endpoint is accessible via the Vite proxy or directly if mapped
-      const baseUrl = import.meta.env.VITE_PYTHON_BACKEND_URL || 'http://localhost:8000';
-      const apiKey = import.meta.env.VITE_BACKEND_API_KEY || '';
-      await fetch(`${baseUrl}/api/autonomous/toggle`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-API-KEY': apiKey
-        },
-        body: JSON.stringify({ status: newState ? "ON" : "OFF" })
-      });
-    } catch (e) {
-      console.error("Failed to toggle autonomous mode", e);
-      setIsAutonomous(!newState);
-    }
   };
 
   useEffect(() => {
@@ -724,8 +1132,25 @@ export default function AgentOrchestratorPage() {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
       setLogs(data.map((d: any) => ({ id: d.id, agent: d.agent, details: d.details || d.action_type, timestamp: d.created_at })));
     });
+
+    // Live neural_tasks — detect which rooms have In Progress tasks
+    const taskQ = query(collection(db, 'neural_tasks'), where('status', '==', 'In Progress'));
+    const unsubTasks = onSnapshot(taskQ, (snapshot) => {
+      const rooms: string[] = [];
+      snapshot.docs.forEach(d => {
+        const data = d.data();
+        const agent = (data.agent || '').toLowerCase();
+        // Map agent name string to room ID
+        if (agent.includes('admin'))  rooms.push('admin');
+        if (agent.includes('finance')) rooms.push('finance');
+        if (agent.includes('marketing')) rooms.push('marketing');
+        if (agent.includes('manager')) rooms.push('manager');
+        if (agent.includes('frontliner') || agent.includes('groq') || agent.includes('cerebras')) rooms.push('frontliner');
+      });
+      setActiveTasks([...new Set(rooms)]);
+    });
       
-    return () => unsubscribe();
+    return () => { unsubscribe(); unsubTasks(); };
   }, []);
 
   const activeRoom = ROOMS.find(r => r.id === activeRoomId);
@@ -772,26 +1197,19 @@ export default function AgentOrchestratorPage() {
               {audioMuted ? <VolumeX size={14} color='#475569' /> : <Volume2 size={14} color='#6366f1' />}
             </button>
 
-            <div className="ao-mono" style={{ fontSize: 11, fontWeight: 700, color: isAutonomous ? '#10b981' : '#64748b' }}>
-              {isAutonomous ? 'AUTO-LOOP: ACTIVE' : 'AUTO-LOOP: INACTIVE'}
+            {/* WebSocket Signal Indicator */}
+            <div title={wsConnected ? 'Neural Signal Stream aktif' : 'Mencoba terhubung...'} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: wsConnected ? '#10b981' : '#475569', background: wsConnected ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${wsConnected ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}`, padding: '5px 10px', borderRadius: 8 }}>
+              {wsConnected ? <Wifi size={11} /> : <WifiOff size={11} />}
+              {wsConnected ? 'LIVE' : 'SYNC'}
             </div>
-            <button 
-              onClick={toggleAutonomous}
-              style={{
-                width: 48, height: 24, borderRadius: 12, position: 'relative',
-                background: isAutonomous ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
-                border: `1px solid ${isAutonomous ? 'rgba(16,185,129,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                cursor: 'pointer', transition: 'all 0.3s', padding: 0
-              }}
-            >
-              <div style={{
-                position: 'absolute', top: 2, left: isAutonomous ? 26 : 2,
-                width: 18, height: 18, borderRadius: '50%',
-                background: isAutonomous ? '#10b981' : '#64748b',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: isAutonomous ? '0 0 10px rgba(16,185,129,0.6)' : 'none'
-              }} />
-            </button>
+
+            {/* Live Task Indicator */}
+            <div className="ao-mono" style={{ fontSize: 11, fontWeight: 700, color: activeTasks.length > 0 ? '#f59e0b' : '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {activeTasks.length > 0 && (
+                <motion.div animate={{ scale: [1, 1.4, 1] }} transition={{ repeat: Infinity, duration: 0.8 }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
+              )}
+              {activeTasks.length > 0 ? `${activeTasks.length} AGENT(S) ON TASK` : 'ALL AGENTS IDLE'}
+            </div>
           </div>
         </div>
 
@@ -800,7 +1218,7 @@ export default function AgentOrchestratorPage() {
           {viewLayer === 'Infrastructure' ? (
             <InfrastructureView key="infra" />
           ) : activeRoom ? (
-            <RoomView key="room" room={activeRoom} logs={logs} onBack={() => setActiveRoomId(null)} />
+            <RoomView key="room" room={activeRoom} logs={logs} activeTasks={activeTasks} onBack={() => setActiveRoomId(null)} onOpenHub={(room) => { setSelectedHub(room); setHubTab('board'); }} />
           ) : (
             <motion.div key="main" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
               {/* Walking Canvas — Operations Floor */}
@@ -824,6 +1242,19 @@ export default function AgentOrchestratorPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ── ROOM HUB MODAL (Manager Only, Room-Context-Aware) ── */}
+        <AnimatePresence>
+          {selectedHub && (
+            <RoomHubModal
+              room={selectedHub}
+              hubTab={hubTab}
+              setHubTab={setHubTab}
+              onClose={() => setSelectedHub(null)}
+            />
+          )}
+        </AnimatePresence>
+
       </div>
     </div>
   );

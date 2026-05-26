@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../lib/firebase';
-import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, getDocs, getDoc, doc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import {
   Package, Plus, AlertTriangle, CheckCircle2, X, Tag, Warehouse,
   ImageIcon, Terminal, Send, Bot, Loader2, ChevronDown, ChevronUp, Edit2, Trash2, Sparkles
@@ -143,32 +143,14 @@ export default function InventoryTrackerPage() {
     reader.readAsDataURL(file);
   };
 
-  const BASE_API = import.meta.env.VITE_API_URL;
-  const API_SECRET: string = (import.meta.env.VITE_API_SECRET as string | undefined) ?? '';
-  const authHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
-    ...(API_SECRET ? { 'X-API-Key': API_SECRET } : {}),
-  };
-
   const handleSave = async () => {
     if (!form.name || !form.sku) return;
     setIsSaving(true);
     try {
       if (isEditing) {
-        const res = await fetch(`${BASE_API}/db/inventory/update`, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify({ doc_id: isEditing, data: { ...form, qty: form.quantity } }),
-        });
-        if (!res.ok) console.error('[Inventory] Update gagal:', res.status, await res.text());
+        await updateDoc(doc(db, 'inventory', isEditing), { ...form, qty: form.quantity });
       } else {
-        const res = await fetch(`${BASE_API}/db/inventory/add`, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify(form),
-        });
-        if (!res.ok) console.error('[Inventory] Add gagal:', res.status, await res.text());
+        await addDoc(collection(db, 'inventory'), form);
       }
       setForm({ name: '', sku: '', category: '', quantity: 0, min_stock: 5, max_stock: 100, warehouse: 'Gudang Utama', photo_url: '' });
       setPhotoPreview('');
@@ -192,12 +174,7 @@ export default function InventoryTrackerPage() {
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Hapus produk ${name}?`)) return;
     try {
-      const res = await fetch(`${BASE_API}/db/inventory/delete`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({ doc_id: id, name }),
-      });
-      if (!res.ok) console.error('[Inventory] Delete gagal:', res.status, await res.text());
+      await deleteDoc(doc(db, 'inventory', id));
     } catch (e) { console.error('[Inventory] handleDelete error:', e); }
   };
 
@@ -206,30 +183,6 @@ export default function InventoryTrackerPage() {
     const userMsg: ChatMessage = { role: 'user', content: cmd, timestamp: new Date() };
     setChatMessages(p => [...p, userMsg]);
     setIsProcessing(true);
-
-    // AI Intent Interception: tambah stok via natural language
-    const matchTambah = cmd.match(/tambah(?:kan)? stok (.*) (\d+)/i) || cmd.match(/masukin stok (.*) (\d+)/i);
-    if (matchTambah) {
-      const queryName = matchTambah[1].trim().toLowerCase();
-      const addedQty = parseInt(matchTambah[2], 10);
-      const targetProduct = products.find(p => p.name?.toLowerCase().includes(queryName) || p.sku?.toLowerCase().includes(queryName));
-      if (targetProduct) {
-        try {
-          await fetch(`${BASE_API}/db/inventory/stock`, {
-            method: 'POST',
-            headers: authHeaders,
-            body: JSON.stringify({ doc_id: targetProduct.id, amount: addedQty, product_name: targetProduct.name }),
-          });
-          setChatMessages(p => [...p, { role: 'ai', content: `✅ Siap! Saya telah menambahkan ${addedQty} unit ke stok ${targetProduct.name}.`, timestamp: new Date() }]);
-        } catch {
-          setChatMessages(p => [...p, { role: 'ai', content: '❌ Terjadi kesalahan saat menambah stok.', timestamp: new Date() }]);
-        }
-      } else {
-        setChatMessages(p => [...p, { role: 'ai', content: `❌ Produk dengan nama/SKU "${queryName}" tidak ditemukan di database.`, timestamp: new Date() }]);
-      }
-      setIsProcessing(false);
-      return;
-    }
 
     try {
       const inventorySummary = products.length > 0
@@ -260,14 +213,82 @@ RINGKASAN STOK:
 ATURAN RESPONS:
 1. Jawab dalam Bahasa Indonesia yang singkat dan actionable
 2. Gunakan emoji secukupnya untuk keterbacaan
-3. Jika ada produk kritis, selalu sebutkan nama produknya
-4. Berikan rekomendasi konkret, bukan teori
-5. Format dengan bullet points jika ada list
+3. JIKA DAN HANYA JIKA user secara eksplisit meminta MENAMBAH/RESTOCK produk, WAJIB sertakan text command ini: [RESTOCK|nama_produk|jumlah]. Contoh: [RESTOCK|Tas Kulit|50]. Sertakan kalimat bahwa kamu telah berkoordinasi dengan agen Finance untuk memotong anggaran restock.
+4. JIKA DAN HANYA JIKA user secara eksplisit meminta MENGURANGI stok produk, WAJIB sertakan text command ini: [KURANGI|nama_produk|jumlah]. Contoh: [KURANGI|Tas Kulit|10].
+5. PENTING: Jika user HANYA BERTANYA saran atau rekomendasi, JANGAN PERNAH mengeluarkan command [RESTOCK] atau [KURANGI] tersebut!
+6. Sistem otomatis akan mengeksekusi command tersebut ke database dan memotong saldo Finance.
 
 PERINTAH DARI ADMIN: ${cmd}`;
 
       const response = await NeuralCore.askAgent('admin', 'inventory_chatbot', `Konteks: ${context}\n\nUser Query: ${cmd}`);
-      setChatMessages(p => [...p, { role: 'ai', content: response, timestamp: new Date() }]);
+      
+      let finalResponse = response;
+      const restockMatch = response.match(/\[RESTOCK\|([^|]+)\|(\d+)\]/i);
+      const kurangiMatch = response.match(/\[KURANGI\|([^|]+)\|(\d+)\]/i);
+      
+      if (restockMatch) {
+         finalResponse = finalResponse.replace(restockMatch[0], '').trim();
+         const queryName = restockMatch[1].trim().toLowerCase();
+         const addedQty = parseInt(restockMatch[2], 10);
+         
+         const targetProduct = products.find(p => p.name?.toLowerCase().includes(queryName) || p.sku?.toLowerCase().includes(queryName));
+         if (targetProduct) {
+             try {
+                const currentQty = getQty(targetProduct);
+                await updateDoc(doc(db, 'inventory', targetProduct.id), { quantity: currentQty + addedQty, qty: currentQty + addedQty });
+                finalResponse += `\n\n✅ [SYSTEM]: Stok ${targetProduct.name} berhasil ditambah sebanyak ${addedQty}.`;
+                
+                // Finance Integration: Potong biaya restock dari budget Finance
+                const costPerUnit = 150000; // Asumsi biaya restock Rp 150.000 / unit
+                const totalCost = addedQty * costPerUnit;
+                
+                const statsRef = doc(db, 'finance_metrics', 'stats');
+                const statDoc = await getDoc(statsRef);
+                let currentBudget = statDoc.exists() ? (statDoc.data().budget || 500000000) : 500000000;
+                let currentExpenses = statDoc.exists() ? (statDoc.data().expenses || 0) : 0;
+                
+                await updateDoc(statsRef, {
+                  budget: currentBudget - totalCost,
+                  expenses: currentExpenses + totalCost
+                });
+                
+                await addDoc(collection(db, 'finance_transactions'), {
+                  type: `Restock ${targetProduct.name} (${addedQty} unit)`,
+                  amount: totalCost,
+                  isPositive: false,
+                  timestamp: new Date()
+                });
+                
+                finalResponse += `\n💸 [FINANCE]: Biaya restock sebesar Rp ${totalCost.toLocaleString('id-ID')} telah dipotong dari anggaran utama Finance.`;
+             } catch (e) {
+                finalResponse += `\n\n❌ [SYSTEM]: Gagal menambah stok. API Error.`;
+             }
+         } else {
+             finalResponse += `\n\n❌ [SYSTEM]: Gagal menambah stok. Produk dengan nama/SKU yang mengandung kata "${queryName}" tidak ditemukan.`;
+         }
+      }
+
+      if (kurangiMatch) {
+         finalResponse = finalResponse.replace(kurangiMatch[0], '').trim();
+         const queryName = kurangiMatch[1].trim().toLowerCase();
+         const subQty = parseInt(kurangiMatch[2], 10);
+         
+         const targetProduct = products.find(p => p.name?.toLowerCase().includes(queryName) || p.sku?.toLowerCase().includes(queryName));
+         if (targetProduct) {
+             try {
+                const currentQty = getQty(targetProduct);
+                const newQty = Math.max(0, currentQty - subQty);
+                await updateDoc(doc(db, 'inventory', targetProduct.id), { quantity: newQty, qty: newQty });
+                finalResponse += `\n\n✅ [SYSTEM]: Stok ${targetProduct.name} berhasil dikurangi sebanyak ${subQty}.`;
+             } catch (e) {
+                finalResponse += `\n\n❌ [SYSTEM]: Gagal mengurangi stok. API Error.`;
+             }
+         } else {
+             finalResponse += `\n\n❌ [SYSTEM]: Gagal mengurangi stok. Produk dengan nama/SKU yang mengandung kata "${queryName}" tidak ditemukan.`;
+         }
+      }
+
+      setChatMessages(p => [...p, { role: 'ai', content: finalResponse || "Perintah berhasil dieksekusi.", timestamp: new Date() }]);
     } catch {
       setChatMessages(p => [...p, { role: 'ai', content: 'Gagal terhubung ke AI. Periksa koneksi API Groq.', timestamp: new Date() }]);
     } finally {

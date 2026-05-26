@@ -6,8 +6,9 @@
   "scripts": {
     "dev:ui": "cd frontend && vite",
     "dev:backend": "cd backend && venv\\Scripts\\activate && python main.py",
-    "dev:ngrok": "ngrok http --domain=confined-simple-handiwork.ngrok-free.dev 8001",
-    "dev": "concurrently -k -c \"cyan.bold,green.bold,magenta.bold\" -n \"UI,BACKEND,NGROK\" \"npm run dev:ui\" \"npm run dev:backend\" \"npm run dev:ngrok\"",
+    "dev:ngrok": "ngrok http --url=confined-simple-handiwork.ngrok-free.dev 8001",
+    "dev": "concurrently -c \"cyan.bold,green.bold\" -n \"UI,BACKEND\" \"npm run dev:ui\" \"npm run dev:backend\"",
+    "dev:with-ngrok": "concurrently -c \"cyan.bold,green.bold,magenta.bold\" -n \"UI,BACKEND,NGROK\" \"npm run dev:ui\" \"npm run dev:backend\" \"npm run dev:ngrok\"",
     "build": "cd frontend && tsc -b && vite build",
     "lint": "cd frontend && eslint src",
     "preview": "cd frontend && vite preview"
@@ -26,6 +27,8 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
+    "jspdf": "^4.2.1",
+    "recharts": "^3.8.1",
     "three": "^0.184.0",
     "zustand": "^5.0.13"
   },

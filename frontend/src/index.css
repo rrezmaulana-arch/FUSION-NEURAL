@@ -118,16 +118,24 @@ section {
   overflow: hidden;
 }
 
-/* ─── Scrollbar ───────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: #ffffff;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #10B981, #3B82F6);
   border-radius: 99px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* ─── Shimmer Button ──────────────────────────────── */

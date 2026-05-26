@@ -12,8 +12,8 @@ import {
   LogOut, LayoutDashboard, Menu as MenuIcon, X,
   ChevronLeft, ChevronRight, Bell, Cloud,
   TrendingUp, Flame, Package, Network, BookOpen,
-  Activity, Shield, Sparkles, Radio, CalendarDays, BarChart2, Fingerprint,
-  ShoppingCart, Building2, Gamepad2, Rocket, Users, Calculator, Image, AlertTriangle, Globe, Settings
+  Activity, Shield, Sparkles, CalendarDays, Wallet,
+  ShoppingCart, Building2, Users, Calculator, Image, AlertTriangle, ClipboardList, Receipt, Tags
 } from 'lucide-react';
 
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
@@ -21,35 +21,31 @@ import NeuralGuide from '../components/tutorial/NeuralGuide';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
-import ManagerDashboard from './dashboards/manager/ManagerDashboard';
-
 import ProfitLedgerPage from './dashboards/finance/ProfitLedgerPage';
 import OperationalBurnPage from './dashboards/finance/OperationalBurnPage';
-import ROIIntelligencePage from './dashboards/finance/ROIIntelligencePage';
-import FinancialPolicyPage from './dashboards/finance/FinancialPolicyPage';
 import CampaignForgePage from './dashboards/marketing/CampaignForgePage';
-import MarketSignalsPage from './dashboards/marketing/MarketSignalsPage';
 import ContentLaunchpadPage from './dashboards/marketing/ContentLaunchpadPage';
-import ConversionFeedbackPage from './dashboards/marketing/ConversionFeedbackPage';
-import BrandDNAPage from './dashboards/marketing/BrandDNAPage';
+import GenerativeUIPage from './dashboards/marketing/GenerativeUIPage';
 import TaxCalculatorPage from './dashboards/finance/TaxCalculatorPage';
-import WorldMoneyPage from './dashboards/finance/WorldMoneyPage';
+import PricingStrategyPage from './dashboards/finance/PricingStrategyPage';
+import CryptoTreasuryPage from './dashboards/finance/CryptoTreasuryPage';
 import InventoryTrackerPage from './dashboards/admin/InventoryTrackerPage';
 import OrderStreamPage from './dashboards/admin/OrderStreamPage';
-import SupplySignalsPage from './dashboards/admin/SupplySignalsPage';
 import SupplierHubPage from './dashboards/admin/SupplierHubPage';
+import ProcurementPOPage from './dashboards/admin/ProcurementPOPage';
 import AgentOrchestratorPage from './dashboards/manager/AgentOrchestratorPage';
 import ExecutiveSummaryPage from './dashboards/manager/ExecutiveSummaryPage';
-import AgentHealthPage from './dashboards/manager/AgentHealthPage';
-import StrategicAuditPage from './dashboards/manager/StrategicAuditPage';
 import WarRoomPage from './dashboards/manager/WarRoomPage';
-import NeuralSettingsPage from './dashboards/manager/NeuralSettingsPage';
-import NeuralStatusPage from './dashboards/manager/NeuralStatusPage';
-import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
-import LogsPage from './dashboards/admin/LogsPage';
-import LaunchSimulatorPage from './dashboards/marketing/LaunchSimulatorPage';
+import StrategicAuditPage from './dashboards/manager/StrategicAuditPage';
+import NeuralTasksPage from './dashboards/manager/NeuralTasksPage';
 import ImageStudioPage from './dashboards/marketing/ImageStudioPage';
-import OrderLeadsPage from './dashboards/owner/OrderLeadsPage';
+import MarketingAnalyticsPage from './dashboards/marketing/MarketingAnalyticsPage';
+import AudienceCRMPage from './dashboards/marketing/AudienceCRMPage';
+import ShippingReturnsPage from './dashboards/admin/ShippingReturnsPage';
+import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
+import BankReconPage from './dashboards/finance/BankReconPage';
+import AccountsPayablePage from './dashboards/finance/AccountsPayablePage';
+
 
 // --- TYPESCRIPT INTERFACES ---
 interface ThemeConfig {
@@ -78,10 +74,10 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     menus: [
       { path: '/dashboard', label: 'Inventory Tracker', icon: Package },
       { path: '/dashboard/orders', label: 'Order Stream', icon: ShoppingCart },
-      { path: '/dashboard/supply-signals', label: 'Supply Signals', icon: Radio },
+      { path: '/dashboard/shipping', label: 'Shipping & Returns', icon: Package },
       { path: '/dashboard/suppliers', label: 'Supplier Hub', icon: Building2 },
-      { path: '/dashboard/marketplace-sim', label: 'Marketplace Simulator', icon: Gamepad2 },
-      { path: '/dashboard/logs', label: 'System Logs', icon: BookOpen },
+      { path: '/dashboard/procurement', label: 'Procurement & QC', icon: ClipboardList },
+      { path: '/dashboard/simulator', label: 'E-commerce Simulator', icon: AlertTriangle },
     ]
   },
   finance: {
@@ -89,11 +85,12 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     theme: { gradient: 'from-[#059669] to-[#047857]', text: 'text-emerald-600', glow: 'bg-emerald-500/20' },
     menus: [
       { path: '/dashboard', label: 'Profit Ledger', icon: BookOpen },
+      { path: '/dashboard/pricing', label: 'Pricing Strategy', icon: Tags },
+      { path: '/dashboard/treasury', label: 'Web3 Treasury', icon: Wallet },
+      { path: '/dashboard/ap-ar', label: 'Invoicing & AP/AR', icon: Receipt },
+      { path: '/dashboard/bank-recon', label: 'Bank Recon & Petty Cash', icon: Activity },
       { path: '/dashboard/burn', label: 'Operational Burn', icon: Flame },
-      { path: '/dashboard/roi-intel', label: 'ROI Intelligence', icon: TrendingUp },
-      { path: '/dashboard/policy', label: 'Financial Policy', icon: Shield },
       { path: '/dashboard/tax-calc', label: 'Tax Calculator', icon: Calculator },
-      { path: '/dashboard/world-money', label: 'World Money Tracker', icon: Globe },
     ]
   },
   marketing: {
@@ -101,32 +98,22 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     theme: { gradient: 'from-[#A21CAF] to-[#86198F]', text: 'text-purple-600', glow: 'bg-purple-500/20' },
     menus: [
       { path: '/dashboard', label: 'Campaign Forge', icon: Sparkles },
-      { path: '/dashboard/signals', label: 'Market Signals', icon: Radio },
+      { path: '/dashboard/generative-ui', label: 'Generative UI', icon: Sparkles },
+      { path: '/dashboard/launchpad', label: 'Content Launchpad (Drafts)', icon: CalendarDays },
       { path: '/dashboard/image-studio', label: 'Image Studio', icon: Image },
-      { path: '/dashboard/launchpad', label: 'Content Launchpad', icon: CalendarDays },
-      { path: '/dashboard/conversion', label: 'Conversion Feedback', icon: BarChart2 },
-      { path: '/dashboard/brand-dna', label: 'Brand DNA', icon: Fingerprint },
-      { path: '/dashboard/launch-sim', label: 'Launch Simulator', icon: Rocket },
+      { path: '/dashboard/marketing-analytics', label: 'Performance Analytics', icon: TrendingUp },
+      { path: '/dashboard/crm', label: 'Audience & CRM', icon: Users },
     ]
   },
-
   manager: {
     title: 'Management Suite',
     theme: { gradient: 'from-[#4f46e5] to-[#6366f1]', text: 'text-indigo-400', glow: 'bg-indigo-500/10' },
     menus: [
-      { path: '/dashboard', label: 'Workspace Dashboard', icon: LayoutDashboard },
-      { path: '/dashboard/orchestrator', label: 'Agent Orchestrator', icon: Network },
-      { path: '/dashboard/executive', label: 'Executive Summary', icon: TrendingUp },
+      { path: '/dashboard', label: 'Agent Orchestrator', icon: Network },
+      { path: '/dashboard/neural-tasks', label: 'Neural Tasks (Kanban)', icon: ClipboardList },
       { path: '/dashboard/strategic-audit', label: 'Strategic Audit Hub', icon: Shield },
-      { path: '/dashboard/war-room', label: 'War Room Simulator', icon: AlertTriangle },
-      { path: '/dashboard/neural-settings', label: 'Neural Settings', icon: Settings },
-    ]
-  },
-  owner: {
-    title: 'Owner Suite',
-    theme: { gradient: 'from-[#B91C1C] to-[#991B1B]', text: 'text-red-700', glow: 'bg-red-500/20' },
-    menus: [
-      { path: '/dashboard', label: 'Pemesanan Masuk', icon: Users }
+      { path: '/dashboard/executive', label: 'Executive Summary', icon: TrendingUp },
+      { path: '/dashboard/war-room', label: 'Multi-Agent War Room', icon: Users },
     ]
   },
   default: {
@@ -174,9 +161,8 @@ export default function DashboardPage() {
       case 'admin': return <InventoryTrackerPage />;
       case 'finance': return <ProfitLedgerPage />;
       case 'marketing': return <CampaignForgePage />;
-      case 'owner': return <OrderLeadsPage />;
       case 'manager':
-      default: return <ManagerDashboard />;
+      default: return <AgentOrchestratorPage />;
     }
   };
 
@@ -220,7 +206,7 @@ export default function DashboardPage() {
 
   return (
     <div className={`min-h-screen font-sans flex flex-col md:flex-row overflow-hidden relative ${safeRole === 'manager' ? 'bg-[#060b18] text-slate-200' : 'bg-[#F8F9FA] text-slate-800'}`}>
-      <MicrochipCursor />
+      {safeRole === 'manager' && <MicrochipCursor />}
       
       {/* Interactive Game Guide */}
       <NeuralGuide />
@@ -472,8 +458,12 @@ export default function DashboardPage() {
         </header>
 
         {/* EFEK GLOW BACKGROUND KONTEN */}
-        <div className={`absolute top-0 right-0 w-[400px] md:w-[600px] h-[400px] md:h-[600px] rounded-full blur-[100px] md:blur-[120px] pointer-events-none opacity-60 ${config.theme.glow}`} />
-        <div className={`absolute bottom-0 left-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full blur-[100px] md:blur-[120px] pointer-events-none opacity-40 ${config.theme.glow}`} />
+        {safeRole === 'manager' && (
+          <>
+            <div className={`absolute top-0 right-0 w-[400px] md:w-[600px] h-[400px] md:h-[600px] rounded-full blur-[100px] md:blur-[120px] pointer-events-none opacity-60 ${config.theme.glow}`} />
+            <div className={`absolute bottom-0 left-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full blur-[100px] md:blur-[120px] pointer-events-none opacity-40 ${config.theme.glow}`} />
+          </>
+        )}
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 overflow-y-auto relative z-10 p-4 sm:p-6 lg:p-8">
@@ -484,35 +474,35 @@ export default function DashboardPage() {
                 <Route index element={getDefaultComponent()} />
                 
                 {/* Finance Routes */}
+                <Route path="pricing" element={<PricingStrategyPage />} />
+                <Route path="treasury" element={<CryptoTreasuryPage />} />
+                <Route path="bank-recon" element={<BankReconPage />} />
                 <Route path="burn" element={<OperationalBurnPage />} />
-                <Route path="roi-intel" element={<ROIIntelligencePage />} />
-                <Route path="policy" element={<FinancialPolicyPage />} />
                 <Route path="tax-calc" element={<TaxCalculatorPage />} />
-                <Route path="world-money" element={<WorldMoneyPage />} />
+                <Route path="ap-ar" element={<AccountsPayablePage />} />
 
                 {/* Marketing Routes */}
-                <Route path="signals" element={<MarketSignalsPage />} />
                 <Route path="image-studio" element={<ImageStudioPage />} />
                 <Route path="launchpad" element={<ContentLaunchpadPage />} />
-                <Route path="conversion" element={<ConversionFeedbackPage />} />
-                <Route path="brand-dna" element={<BrandDNAPage />} />
-                <Route path="launch-sim" element={<LaunchSimulatorPage />} />
+                <Route path="generative-ui" element={<GenerativeUIPage />} />
+                <Route path="marketing-analytics" element={<MarketingAnalyticsPage />} />
+                <Route path="crm" element={<AudienceCRMPage />} />
 
                 {/* Admin Routes */}
                 <Route path="orders" element={<OrderStreamPage />} />
-                <Route path="supply-signals" element={<SupplySignalsPage />} />
+                <Route path="shipping" element={<ShippingReturnsPage />} />
                 <Route path="suppliers" element={<SupplierHubPage />} />
-                <Route path="marketplace-sim" element={<MarketplaceSimulatorPage />} />
-                <Route path="logs" element={<LogsPage />} />
+                <Route path="procurement" element={<ProcurementPOPage />} />
+                <Route path="simulator" element={<MarketplaceSimulatorPage />} />
+
+                {/* AI Core Operations are now inside Agent Orchestrator Hub (Manager only) */}
 
                 {/* Manager Routes */}
                 <Route path="orchestrator" element={<AgentOrchestratorPage />} />
                 <Route path="executive" element={<ExecutiveSummaryPage />} />
-                <Route path="agent-health" element={<AgentHealthPage />} />
-                <Route path="strategic-audit" element={<StrategicAuditPage />} />
                 <Route path="war-room" element={<WarRoomPage />} />
-                <Route path="neural-settings" element={<NeuralSettingsPage />} />
-                <Route path="status" element={<NeuralStatusPage />} />
+                <Route path="strategic-audit" element={<StrategicAuditPage />} />
+                <Route path="neural-tasks" element={<NeuralTasksPage />} />
 
                 {/* Fallback 404/Coming Soon */}
                 <Route path="*" element={
@@ -530,6 +520,8 @@ export default function DashboardPage() {
         </main>
 
       </div>
+
+
     </div>
   );
 }

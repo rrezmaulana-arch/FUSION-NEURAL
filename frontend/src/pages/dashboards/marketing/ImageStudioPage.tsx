@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Image, Download, Loader2, Sparkles, X, RefreshCw } from 'lucide-react';
 import PageHeader from '../../../components/ui/PageHeader';
+import { FirebaseLogger } from '../../../services/FirebaseLogger';
 
 const QUICK_PROMPTS = [
   'produk kemasan premium minimalis dengan background putih bersih',
@@ -52,6 +53,9 @@ export default function ImageStudioPage() {
 
       setImageBase64(data.base64);
       setImageMime(data.mimeType || 'image/jpeg');
+
+      // Log ke Firestore audit_logs
+      await FirebaseLogger.logAgentAction('Marketing', 'IMAGE_GENERATED', `FLUX.1 generate: "${p.slice(0, 100)}"`);
     } catch (e: any) {
       setError('Gagal menghubungi server. Periksa koneksi Anda.');
     } finally {

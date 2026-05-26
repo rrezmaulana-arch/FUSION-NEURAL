@@ -7,10 +7,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Percent, Activity, Brain, BarChart3, ShoppingBag, RefreshCw, Sparkles, Cloud } from 'lucide-react';
-import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { NeuralCore } from '../../../services/NeuralCore';
 import PageHeader from '../../../components/ui/PageHeader';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 
 export default function ExecutiveSummaryPage() {
   const [financeData, setFinanceData] = useState<any>(null);
@@ -38,13 +39,30 @@ export default function ExecutiveSummaryPage() {
     return () => unsub();
   }, []);
 
-  // Listen to order_leads with status Selesai and aggregate revenue
+  // Listen to orders
   useEffect(() => {
-    const q = query(collection(db, 'order_leads'), where('status', '==', 'Selesai'));
+    const q = query(collection(db, 'orders'));
     const unsub = onSnapshot(q, (snap) => {
-      const total = snap.docs.reduce((sum, d) => sum + (d.data().price || 0), 0);
-      setOrderRevenue(total);
       setOrderCount(snap.docs.length);
+    });
+    return () => unsub();
+  }, []);
+
+  const [totalExpenses, setTotalExpenses] = useState(0);
+
+  // Listen to finance_transactions for revenue & expenses
+  useEffect(() => {
+    const q = query(collection(db, 'finance_transactions'));
+    const unsub = onSnapshot(q, (snap) => {
+      let inc = 0;
+      let exp = 0;
+      snap.docs.forEach(d => {
+         const data = d.data();
+         if (data.transaction_type === 'INCOME') inc += data.amount || 0;
+         if (data.transaction_type === 'EXPENSE') exp += data.amount || 0;
+      });
+      setOrderRevenue(inc);
+      setTotalExpenses(exp);
     });
     return () => unsub();
   }, []);
@@ -52,8 +70,8 @@ export default function ExecutiveSummaryPage() {
   const handleRecalculate = async () => {
     setIsCalculating(true);
     try {
-      const rev = (financeData?.revenue || 15000000) + orderRevenue;
-      const cost = financeData?.cost || 4500000;
+      const rev = orderRevenue > 0 ? orderRevenue : (financeData?.revenue || 15000000);
+      const cost = totalExpenses > 0 ? totalExpenses : (financeData?.cost || 4500000);
       const apiCost = financeData?.api_cost || 350000;
       await NeuralCore.calculateFinanceReport(rev, cost, apiCost);
     } catch (e) { console.error(e); }
@@ -64,14 +82,15 @@ export default function ExecutiveSummaryPage() {
     setIsAnalyzing(true);
     setAiInsight('');
     try {
-      const totalRev = (financeData?.revenue || 0) + orderRevenue;
-      const cost = financeData?.cost || 0;
+      const totalRev = orderRevenue > 0 ? orderRevenue : (financeData?.revenue || 0);
+      const cost = totalExpenses > 0 ? totalExpenses : (financeData?.cost || 0);
       const roi = financeData?.roi_percentage ?? 0;
-      const prompt = `Sebagai Manager AI, berikan executive insight singkat (3 poin penting) berdasarkan data:
-- Total Revenue: Rp ${totalRev.toLocaleString('id-ID')} (termasuk ${orderCount} order klien senilai Rp ${orderRevenue.toLocaleString('id-ID')})
-- Biaya Operasional: Rp ${cost.toLocaleString('id-ID')}
+      const prompt = `Sebagai Manager AI, berikan executive insight singkat (3 poin penting) berdasarkan data E-commerce Simulator terbaru:
+- Total Revenue (INCOME): Rp ${totalRev.toLocaleString('id-ID')} (berasal dari ${orderCount} transaksi)
+- Biaya Operasional (EXPENSE / Ads Spend / PO): Rp ${cost.toLocaleString('id-ID')}
+- Laba Bersih (Net Profit): Rp ${(totalRev - cost).toLocaleString('id-ID')}
 - ROI Saat Ini: ${roi}%
-Berikan rekomendasi strategis yang actionable. Tanpa markdown bold (**).`;
+Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengeluaran iklan. Jangan gunakan markdown bold (**).`;
       const result = await NeuralCore.askAgent('manager', 'executive_overview', prompt);
       setAiInsight(result.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1'));
     } catch (e) {
@@ -100,10 +119,10 @@ Berikan rekomendasi strategis yang actionable. Tanpa markdown bold (**).`;
     }
   };
 
-  const totalRevenue = (financeData?.revenue ?? 0) + orderRevenue;
+  const totalRevenue = orderRevenue > 0 ? orderRevenue : (financeData?.revenue ?? 0);
   const roi = financeData?.roi_percentage ?? null;
   const netProfit = financeData?.net_profit ?? null;
-  const cost = financeData?.cost ?? 0;
+  const cost = totalExpenses > 0 ? totalExpenses : (financeData?.cost ?? 0);
   const apiCost = financeData?.api_cost ?? 0;
   const efficiencyRatio = totalRevenue > 0 ? (((cost + apiCost) / totalRevenue) * 100).toFixed(1) : '–';
   const burnRate = totalRevenue > 0 ? ((cost / totalRevenue) * 100).toFixed(1) : '–';
@@ -273,23 +292,46 @@ Berikan rekomendasi strategis yang actionable. Tanpa markdown bold (**).`;
           </div>
         </div>
 
-        {/* CSS-based Chart Simulator */}
-        <div className="h-40 w-full flex items-end gap-2 relative z-10">
-          {[40, 45, 42, 55, 60, 58, 70, 75, 85, 90, 88, 95, 100].map((h, i) => (
-            <motion.div key={i} className="flex-1 flex flex-col justify-end h-full relative group">
-              <motion.div 
-                initial={{ height: 0 }} 
-                animate={{ height: `${h}%` }} 
-                transition={{ duration: 1.5, delay: i * 0.05, ease: "easeOut" }}
-                className={`w-full rounded-t-md ${i > 5 ? 'bg-indigo-500/80' : 'bg-[#1e293b]'} group-hover:bg-indigo-400 transition-colors`}
+        {/* Recharts Predictive Chart Simulator */}
+        <div className="h-64 w-full relative z-10 mt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={[
+                { day: 'Day 1', actual: 4000000, predict: 4000000 },
+                { day: 'Day 5', actual: 4500000, predict: 4500000 },
+                { day: 'Day 10', actual: 4200000, predict: 4200000 },
+                { day: 'Day 15', actual: 5500000, predict: 5500000 },
+                { day: 'Day 20 (Today)', actual: totalRevenue || 6000000, predict: totalRevenue || 6000000 },
+                { day: 'Day 25', predict: (totalRevenue || 6000000) * 1.2 },
+                { day: 'Day 30', predict: (totalRevenue || 6000000) * 1.5 },
+                { day: 'Day 40', predict: (totalRevenue || 6000000) * 2.1 },
+                { day: 'Day 50', predict: (totalRevenue || 6000000) * 3.5 }
+              ]}
+              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorPredict" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.5} />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+              <YAxis hide domain={['dataMin', 'dataMax']} />
+              <Tooltip 
+                cursor={{ stroke: '#64748b', strokeWidth: 1, strokeDasharray: '4 4' }}
+                contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                formatter={(value: any) => [`Rp ${value.toLocaleString('id-ID')}`, 'Revenue']}
               />
-              {i === 6 && (
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#1e293b] border border-white/10 text-slate-200 text-[9px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                  Hari Ini
-                </div>
-              )}
-            </motion.div>
-          ))}
+              <ReferenceLine x="Day 20 (Today)" stroke="#94a3b8" strokeDasharray="3 3" label={{ position: 'top', value: 'Today', fill: '#94a3b8', fontSize: 10 }} />
+              <Area type="monotone" dataKey="actual" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" name="Actual Revenue" />
+              <Area type="monotone" dataKey="predict" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" fillOpacity={1} fill="url(#colorPredict)" name="AI Prediction" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </motion.div>
 

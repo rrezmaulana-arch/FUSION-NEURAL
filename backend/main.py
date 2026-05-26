@@ -14,14 +14,22 @@
 #   Frontliner : Cerebras                 -> Mistral (backup)
 
 import os
+import os
+import io
 import re
 import sys
 import json
 import base64
 import asyncio
+import time
 import random
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Response, Form
+from fastapi.responses import PlainTextResponse, JSONResponse
+from pydantic import BaseModel
+import httpx
 
 # ── Path Bootstrap: pastikan folder backend/ selalu ada di sys.path ──────────
 # Diperlukan agar 'import integrations' bisa di-resolve oleh IDE (Pylance)
@@ -45,6 +53,10 @@ import pytz
 import integrations  # type: ignore
 from integrations import router as integrations_router  # type: ignore
 
+# ── Modul Baru: Routers & Services ───────────────────────────────────────────
+from routers.websocket_signals import router as ws_router, broadcaster  # type: ignore
+from services.auth import verify_token as verify_firebase_token  # type: ignore
+
 # ── Load environment variables ────────────────────────────────────────────────
 load_dotenv()
 
@@ -63,11 +75,11 @@ if os.path.exists(_CRED_PATH):
                 "https://www.googleapis.com/auth/userinfo.email",
             ],
         )
-        print("[gcp] ✅ GCP Service Account JSON loaded")
+        print("[gcp] GCP Service Account JSON loaded")
     except Exception as _gcp_err:
-        print(f"[gcp] ❌ Gagal load credentials: {_gcp_err}")
+        print(f"[gcp] Gagal load credentials: {_gcp_err}")
 else:
-    print("[gcp] ⚠️  gcp-credentials.json tidak ditemukan")
+    print("[gcp]  gcp-credentials.json tidak ditemukan")
 
 
 # ── Token helper (sinkron, dipakai Sheets & Firestore REST) ──────────────────
@@ -80,11 +92,47 @@ def _refresh_gcp_token() -> Optional[str]:
     return GCP_CREDS.token
 
 
-# ── Firestore REST Client — tanpa firebase-admin / grpcio ────────────────────
-# Menggunakan Firestore REST API v1 langsung via `requests` + service account.
+# ── Firestore REST Client ─────────────────────────────────────────────────────
+# FIX UTAMA: Backend sekarang menyambung ke project 'fusion-neural' yang sama
+# dengan frontend, menggunakan Firebase email/password auth untuk mendapatkan
+# ID token yang diakui Firestore security rules (request.auth != null).
+# ─────────────────────────────────────────────────────────────────────────────
 
-import requests as _req_sync  # noqa: E402 (requests sudah ada di requirements)
+import requests as _req_sync  # noqa: E402
 
+# ── Firebase Auth untuk Firestore ──────────────────────────────────────────
+# Token di-cache dan di-refresh otomatis sebelum 1 jam kedaluwarsa.
+_FIREBASE_PROJECT_ID  = os.getenv("VITE_FIREBASE_PROJECT_ID", "fusion-neural")
+_FIREBASE_WEB_API_KEY = os.getenv("VITE_FIREBASE_API_KEY", "")
+_FIREBASE_BACKEND_EMAIL = os.getenv("FIREBASE_BACKEND_EMAIL", "backend-agent@fusionneural.app")
+_FIREBASE_BACKEND_PASS  = os.getenv("FIREBASE_BACKEND_PASS",  "FusionNeural2026!Backend")
+
+_fb_id_token:   str   = ""
+_fb_token_exp:  float = 0.0
+
+def _get_firebase_token() -> str:
+    """Sign in ke Firebase Auth via email/password, return cached ID token."""
+    global _fb_id_token, _fb_token_exp
+    now = time.time()
+    if _fb_id_token and now < _fb_token_exp - 300:   # refresh 5 menit sebelum expire
+        return _fb_id_token
+    try:
+        r = _req_sync.post(
+            f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={_FIREBASE_WEB_API_KEY}",
+            json={"email": _FIREBASE_BACKEND_EMAIL, "password": _FIREBASE_BACKEND_PASS, "returnSecureToken": True},
+            timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+        _fb_id_token  = data["idToken"]
+        _fb_token_exp = now + int(data.get("expiresIn", 3600))
+        print("[firestore] Firebase token refreshed")
+        return _fb_id_token
+    except Exception as _te:
+        print(f"[firestore]  Token refresh gagal, fallback ke GCP token: {_te}")
+        return _refresh_gcp_token() or ""
+
+# ── Encode / Decode helpers ───────────────────────────────────────────────
 def _fs_decode(fields: dict) -> dict:
     """Ubah Firestore REST field-value format ke Python dict biasa."""
     out: dict = {}
@@ -116,7 +164,6 @@ def _fs_encode(data: dict) -> dict:
     return out
 
 class _FsDoc:
-    """Representasi hasil document.get() — mirip DocumentSnapshot Firestore."""
     def __init__(self, fields: Optional[dict], doc_id: str = ""):
         self._fields = fields
         self.id      = doc_id
@@ -174,9 +221,9 @@ class _FsColl:
         ]
 
 class FirestoreRESTClient:
-    """Firestore client tanpa grpcio — gunakan REST API v1."""
+    """Firestore REST client — target project fusion-neural (same as frontend)."""
     def __init__(self, project_id: str, token_fn):
-        self._base     = (
+        self._base = (
             f"https://firestore.googleapis.com/v1/projects/{project_id}"
             f"/databases/(default)/documents"
         )
@@ -185,19 +232,15 @@ class FirestoreRESTClient:
         return _FsColl(self._base, name, self._token_fn)
 
 
-# Inisialisasi Firestore REST client
+# ── Inisialisasi Firestore ke proyek yang sama dengan frontend ────────────
 db: Optional[FirestoreRESTClient] = None
-if GCP_CREDS and os.path.exists(_CRED_PATH):
-    try:
-        with open(_CRED_PATH, encoding="utf-8") as _f:
-            _project_id = json.load(_f).get("project_id", "")
-        if _project_id:
-            db = FirestoreRESTClient(_project_id, _refresh_gcp_token)
-            print(f"[firestore] ✅ FirestoreREST siap (project: {_project_id})")
-        else:
-            print("[firestore] ⚠️  project_id tidak ada di gcp-credentials.json")
-    except Exception as _fs_err:
-        print(f"[firestore] ❌ Gagal init: {_fs_err}")
+try:
+    # Gunakan Firebase ID token (bukan GCP OAuth token) agar dikenali
+    # oleh Firestore security rules di proyek fusion-neural.
+    db = FirestoreRESTClient(_FIREBASE_PROJECT_ID, _get_firebase_token)
+    print(f"[firestore] FirestoreREST → project: {_FIREBASE_PROJECT_ID} (Firebase Auth mode)")
+except Exception as _fs_err:
+    print(f"[firestore] Gagal init: {_fs_err}")
 
 
 @asynccontextmanager
@@ -214,23 +257,53 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Security: Rate Limiting ───────────────────────────────────────────────────
+class RateLimiter:
+    def __init__(self, max_requests: int, window_seconds: int):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+
+    def is_allowed(self, ip: str) -> bool:
+        now = time.time()
+        # Bersihkan request lama
+        self.requests[ip] = [req_time for req_time in self.requests[ip] if now - req_time < self.window_seconds]
+        if len(self.requests[ip]) >= self.max_requests:
+            return False
+        self.requests[ip].append(now)
+        return True
+
+limiter = RateLimiter(max_requests=60, window_seconds=60) # Maks 60 request per menit per IP
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # Dapatkan IP Klien (menangani proxy/ngrok)
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "127.0.0.1")
+    client_ip = client_ip.split(",")[0].strip()
+    
+    # Kecualikan localhost dari rate limiting jika diperlukan (opsional)
+    if client_ip != "127.0.0.1" and not limiter.is_allowed(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Terlalu banyak request. Harap tunggu sebentar (Rate Limit Exceeded)."}
+        )
+    return await call_next(request)
+
+# ── Security: CORS Hardening ──────────────────────────────────────────────────
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "OPTIONS"], # Batasi metode yang diizinkan
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
 
-BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
-api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
-
-async def verify_api_key(api_key: str = Depends(api_key_header)):
-    if not BACKEND_API_KEY:  # Jika key belum diset di .env, izinkan akses lokal
-        return api_key
-    if not api_key or api_key != BACKEND_API_KEY:
-        raise HTTPException(status_code=403, detail="Akses ditolak: API Key tidak valid atau tidak ada.")
-    return api_key
+async def verify_api_key(user: dict = Depends(verify_firebase_token)):
+    """Dependency: verifikasi Firebase JWT (atau static key di dev mode)."""
+    return user
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 UPSTASH_URL   = os.getenv("UPSTASH_REDIS_REST_URL", "")
@@ -284,9 +357,9 @@ PROVIDERS: dict[str, dict] = {
 # ── Agent → (primary, backup) ─────────────────────────────────────────────────
 AGENT_MODELS: dict[str, tuple[str, str]] = {
     "admin":      ("openrouter", "cerebras"),
-    "finance":    ("deepseek",   "groq"),
+    "finance":    ("deepseek",   "gemini"),
     "marketing":  ("mistral",    "openrouter"),
-    "manager":    ("groq",       "deepseek"),   # gemini dinonaktifkan sementara (quota 429)
+    "manager":    ("gemini",     "cerebras"),
     "frontliner": ("cerebras",   "mistral"),
 }
 
@@ -429,19 +502,8 @@ async def redis_set(key: str, value: str, ttl: int = 86400):
 
 
 async def redis_set_simple(key: str, value: str, ttl: int = 86400):
-    """Simpan via GET endpoint (untuk value pendek)."""
-    if not UPSTASH_URL or not UPSTASH_TOKEN:
-        return
-    try:
-        import urllib.parse
-        encoded = urllib.parse.quote(value, safe="")
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.get(
-                f"{UPSTASH_URL}/SET/{key}/{encoded}/EX/{ttl}",
-                headers={"Authorization": f"Bearer {UPSTASH_TOKEN}"},
-            )
-    except Exception as e:
-        print(f"[redis_set_simple] Error: {e}")
+    """Simpan nilai ke Redis via POST (menghindari URI too long error)."""
+    await redis_set(key, value, ttl)
 
 # ═══════════════════════════════════════════════════════════════════
 # AI PROVIDER CALLER
@@ -485,13 +547,13 @@ async def call_llm(
             print(f"[{provider_key}] HTTP {r.status_code}: {r.text[:300]}")
             return None
         content = r.json()["choices"][0]["message"]["content"]
-        print(f"[{provider_key}] ✅ OK ({len(content)} chars)")
+        print(f"[{provider_key}] OK ({len(content)} chars)")
         return content
     except httpx.TimeoutException:
         print(f"[{provider_key}] ⏱ Timeout")
         return None
     except Exception as e:
-        print(f"[{provider_key}] ❌ Error: {e}")
+        print(f"[{provider_key}] Error: {e}")
         return None
 
 
@@ -524,6 +586,46 @@ async def call_with_fallback(
 # FINANCE: AUTO-RETRY JIKA HARGA 0 RP
 # ═══════════════════════════════════════════════════════════════════
 
+import ast
+import shutil
+
+async def execute_agent_actions(agent_response: str, agent_name: str, ticket_id: str):
+    """
+    Mengeksekusi aksi-aksi riil pada sistem (menulis file, membuat web)
+    yang dikirimkan oleh agen dalam format block khusus.
+    """
+    import re
+    # Cari blok kode ACTION yang dikirim AI (misal: ```json ACTION ...)
+    pattern = r"```json\s*([\s\S]*?)\s*```"
+    matches = re.findall(pattern, agent_response)
+    
+    actions_taken = []
+    
+    for match in matches:
+        try:
+            data = json.loads(match)
+            if "actions" in data:
+                for action in data["actions"]:
+                    action_type = action.get("type")
+                    
+                    if action_type == "write_file":
+                        file_path = action.get("path", "")
+                        content = action.get("content", "")
+                        if file_path and not file_path.startswith(".."):  # Keamanan dasar
+                            # Buat folder jika belum ada (Target: c:\Olivia\FUSION NEURAL\generated_workspaces)
+                            work_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "generated_workspaces")
+                            os.makedirs(work_dir, exist_ok=True)
+                            
+                            full_path = os.path.join(work_dir, os.path.basename(file_path))
+                            with open(full_path, "w", encoding="utf-8") as file:
+                                file.write(content)
+                            actions_taken.append(f"Berhasil membuat file: {file_path} di {full_path}")
+                            
+        except json.JSONDecodeError:
+            pass
+            
+    return actions_taken
+
 def has_zero_price(text: str) -> bool:
     """Deteksi apakah respons finance mengandung harga 0 yang tidak valid."""
     return bool(re.search(r"Rp\s*0[^,\.\d]|0\s*Rupiah|harga[:\s]*0|HPP[:\s]*0", text, re.IGNORECASE))
@@ -541,14 +643,14 @@ async def call_finance_agent(
     last_result, last_provider = "", "deepseek"
 
     for attempt in range(1, max_retries + 1):
-        result, provider = await call_with_fallback("deepseek", "groq", msgs, temperature=0.2)
+        result, provider = await call_with_fallback("deepseek", "gemini", msgs, temperature=0.2)
         last_result, last_provider = result, provider
 
         if not has_zero_price(result):
-            print(f"[finance] ✅ Valid pada attempt {attempt} via {provider}")
+            print(f"[finance] Valid pada attempt {attempt} via {provider}")
             return result, provider, attempt
 
-        print(f"[finance] ⚠️  Attempt {attempt}: harga 0 terdeteksi, retry...")
+        print(f"[finance]  Attempt {attempt}: harga 0 terdeteksi, retry...")
         # Inject konteks retry ke conversation
         msgs.append({"role": "assistant", "content": result})
         msgs.append({
@@ -559,7 +661,7 @@ async def call_finance_agent(
             ),
         })
 
-    print(f"[finance] ⚠️  Max retries tercapai, mengembalikan hasil terakhir.")
+    print(f"[finance]  Max retries tercapai, mengembalikan hasil terakhir.")
     return last_result, last_provider, max_retries
 
 # ═══════════════════════════════════════════════════════════════════
@@ -596,16 +698,57 @@ async def log_to_sheets(agent: str, output: str, session_id: str):
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.post(url, headers=headers, json=body)
             if r.status_code == 200:
-                print(f"[sheets] ✅ Berhasil mencatat log {agent} ke Google Sheets")
+                print(f"[sheets] Berhasil mencatat log {agent} ke Google Sheets")
             else:
-                print(f"[sheets] ⚠️ Gagal mencatat log: {r.text}")
+                print(f"[sheets] Gagal mencatat log: {r.text}")
     except Exception as e:
-        print(f"[sheets] ❌ Error: {e}")
+        print(f"[sheets] Error: {e}")
 
 
 async def set_agent_redis_status(agent: str, status: str):
     """Update status agen di Redis untuk animasi Agent HQ di frontend."""
     await redis_set_simple(f"agent_status:{agent}", status, ttl=60)
+
+async def chat_takeover_check_and_log(source: str, user_id: str, message: str, role: str) -> bool:
+    """Mengecek status Takeover di Firestore, dan mencatat history chat. Return True jika AI di-pause."""
+    if not db:
+        return False
+    try:
+        def _process():
+            doc_ref = db.collection("active_chats").document(user_id)
+            doc_snap = doc_ref.get()
+            
+            msg_obj = {"role": role, "content": message, "timestamp": datetime.now(timezone.utc).isoformat()}
+            
+            if not doc_snap.exists:
+                doc_ref.set({
+                    "platform": source,
+                    "last_message": message if role == "user" else "AI Reply",
+                    "ai_status": "ACTIVE",
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "chat_history": [msg_obj]
+                })
+                return False
+            
+            data = doc_snap.to_dict()
+            is_paused = data.get("ai_status") == "PAUSED"
+            
+            history = data.get("chat_history", [])
+            if not isinstance(history, list): history = []
+            history.append(msg_obj)
+            if len(history) > 50: history = history[-50:]
+            
+            doc_ref.update({
+                "last_message": message if role == "user" else data.get("last_message"),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "chat_history": history
+            })
+            return is_paused
+
+        return await asyncio.to_thread(_process)
+    except Exception as e:
+        print(f"[Takeover] Error: {e}")
+        return False
 
 # ═══════════════════════════════════════════════════════════════════
 # PYDANTIC MODELS (Request / Response)
@@ -655,79 +798,453 @@ async def health():
 # AUTONOMOUS ENGINE (The Heartbeat)
 # ═══════════════════════════════════════════════════════════════════
 
-autonomous_task = None
+# ── Agent Priority Weights ─────────────────────────────────────────────────────
+PRIORITY_WEIGHT = {"critical": 0, "high": 1, "normal": 2, "low": 3}
 
+# ── Default daily token budget per agent (in estimated tokens) ─────────────────
+DEFAULT_DAILY_BUDGET = 80_000
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPER: Firestore-Based Short-Term Memory (Poor Man's RAG)
+# ══════════════════════════════════════════════════════════════════════════════
+async def fetch_agent_memory(agent_name: str, limit: int = 3) -> str:
+    """
+    Membaca 3 run_transcript terbaru milik agen ini sebagai 'memori jangka pendek'.
+    Diinjeksikan ke system prompt sebelum AI mengerjakan task baru.
+    """
+    if not db:
+        return ""
+    try:
+        def _read():
+            docs = db.collection("run_transcripts").stream()
+            all_docs = [d.to_dict() for d in docs if d.to_dict().get("agentId") == agent_name and d.to_dict().get("status") == "Success"]
+            # Sort by timestamp descending
+            all_docs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            return all_docs[:limit]
+        recent = await asyncio.to_thread(_read)
+        if not recent:
+            return ""
+        memory_lines = []
+        for r in recent:
+            thought = r.get("thoughtProcess", "")[:300]
+            memory_lines.append(f"- [{r.get('action', '')}]: {thought}...")
+        return "\n\n[MEMORI AGEN - 3 Pekerjaan Terakhir]\n" + "\n".join(memory_lines)
+    except Exception as e:
+        print(f"[Memory] Gagal fetch memori {agent_name}: {e}")
+        return ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPER: Token Budget Enforcer
+# ══════════════════════════════════════════════════════════════════════════════
+async def check_and_deduct_budget(agent_key: str, estimated_tokens: int = 1500) -> bool:
+    """
+    Cek apakah agen masih punya budget harian.
+    Return True jika boleh jalan, False jika budget habis.
+    Otomatis reset jika hari sudah berganti.
+    """
+    if not db:
+        return True
+    try:
+        def _process():
+            doc_ref = db.collection("agent_health").document(agent_key)
+            doc = doc_ref.get()
+            now_str = datetime.now(pytz.timezone("Asia/Jakarta")).strftime("%Y-%m-%d")
+            if doc.exists:
+                data = doc.to_dict()
+                reset_at = data.get("budget_reset_at", "")
+                used = int(data.get("daily_tokens_used", 0))
+                budget = int(data.get("daily_token_budget", DEFAULT_DAILY_BUDGET))
+                
+                new_used = used + estimated_tokens
+                new_cost_rp = new_used * 15 # Asumsi Rp 15 per token LLM
+                
+                # Sync ke collection yang dibaca oleh UI Governance (FinOps)
+                try:
+                    db.collection("agent_budgets").document(agent_key).set({
+                        "currentSpend": new_cost_rp,
+                        "monthlyBudget": budget * 15 * 30, # Estimasi sebulan
+                        "status": "ACTIVE" if new_used <= budget else "EXHAUSTED",
+                        "companyId": "COMP-FUSION" # [Multi-Tenant Inject]
+                    }, merge=True)
+                except:
+                    pass
+
+                # Reset jika hari baru
+                if reset_at != now_str:
+                    doc_ref.update({"daily_tokens_used": 0, "budget_reset_at": now_str, "status": "IDLE"})
+                    return True
+                # Cek budget
+                if new_used > budget:
+                    doc_ref.update({"status": "BUDGET_EXHAUSTED"})
+                    return False
+                # Deduct tokens
+                doc_ref.update({"daily_tokens_used": new_used})
+                return True
+            else:
+                # Buat dokumen baru
+                doc_ref.set({
+                    "agent_id": agent_key,
+                    "status": "IDLE",
+                    "daily_tokens_used": estimated_tokens,
+                    "daily_token_budget": DEFAULT_DAILY_BUDGET,
+                    "budget_reset_at": now_str,
+                    "total_tasks_completed": 0,
+                    "average_latency_ms": 0,
+                    "last_active": datetime.now(timezone.utc).isoformat(),
+                    "companyId": "COMP-FUSION" # [Multi-Tenant Inject]
+                })
+                try:
+                    db.collection("agent_budgets").document(agent_key).set({
+                        "currentSpend": estimated_tokens * 15,
+                        "monthlyBudget": DEFAULT_DAILY_BUDGET * 15 * 30,
+                        "status": "ACTIVE",
+                        "companyId": "COMP-FUSION" # [Multi-Tenant Inject]
+                    }, merge=True)
+                except:
+                    pass
+                return True
+        return await asyncio.to_thread(_process)
+    except Exception as e:
+        print(f"[Budget] Error cek budget {agent_key}: {e}")
+        return True  # Fail-open: jika error, tetap izinkan jalan
+
+# ══════════════════════════════════════════════════════════════════════════════
+# WORKER: Process Ticket Task (Symphony-style isolated worker)
+# ══════════════════════════════════════════════════════════════════════════════
+async def process_ticket_task(t_data: dict, ticket_id: str):
+    """
+    Mengerjakan satu tiket secara independen dan asinkron (Symphony-style).
+    Pipeline: Budget Check → Memory Inject → AI Execute → Physical Actions → Review Queue
+    """
+    agent_name = t_data.get("agent", "Neural Marketing")
+    task_title = t_data.get("title", "No Title")
+    start_ts = time.time()
+
+    agent_id_map = {
+        "Neural Marketing": "marketing",
+        "Neural Finance": "finance",
+        "Neural Admin": "admin",
+        "Neural Manager": "manager"
+    }
+    agent_key = agent_id_map.get(agent_name, "marketing")
+
+    print(f"[Worker] [{ticket_id[:8]}] {agent_name}: '{task_title}'")
+
+    try:
+        # ── STEP 1: Budget Guard ────────────────────────────────────────────
+        budget_ok = await check_and_deduct_budget(agent_key, estimated_tokens=1800)
+        if not budget_ok:
+            print(f"[Worker] [{agent_name}] Budget habis hari ini, skip task.")
+            await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({
+                "status": "To Do",
+                "progress": 0,
+                "reviewNote": f"Ditunda: Budget token {agent_name} sudah habis hari ini. Reset besok pukul 00.00 WIB."
+            }))
+            return
+
+        # ── STEP 2: Inject Short-Term Memory ───────────────────────────────
+        memory_ctx = await fetch_agent_memory(agent_name, limit=3)
+        base_prompt = SYSTEM_PROMPTS.get(agent_key, "You are a helpful AI.")
+        enriched_prompt = base_prompt + memory_ctx
+
+        # ── STEP 3: Build Messages & Execute AI ────────────────────────────
+        msgs = [
+            {"role": "system", "content": enriched_prompt +
+             "\n\nKEMAMPUAN FISIK: Jika tugas memerlukan pembuatan file/kode, output JSON block:\n"
+             "```json\n{\"actions\": [{\"type\": \"write_file\", \"path\": \"output.html\", \"content\": \"...\"}]}\n```"},
+            {"role": "user", "content": f"Kerjakan task ini secara otonom dan profesional: {task_title}"}
+        ]
+
+        # Update progress ke 40% saat AI mulai berpikir
+        await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({"progress": 40}))
+
+        primary, backup = AGENT_MODELS.get(agent_key, ("mistral", "openrouter"))
+        result, provider = await call_with_fallback(primary, backup, msgs, temperature=0.7)
+
+        latency_ms = int((time.time() - start_ts) * 1000)
+        print(f"[Worker] [{ticket_id[:8]}] {agent_name} selesai via {provider} ({latency_ms}ms).")
+
+        # ── STEP 4: Execute Physical Actions ───────────────────────────────
+        actions_log = await execute_agent_actions(result, agent_name, ticket_id)
+        final_thought = result
+        if actions_log:
+            final_thought += "\n\n[SYSTEM LOG] Tindakan fisik:\n" + "\n".join(actions_log)
+
+        # ── STEP 5: Save Transcript (ML Training Log) ───────────────────────
+        await asyncio.to_thread(lambda: db.collection("run_transcripts").add({
+            "agentId": agent_name,
+            "agentKey": agent_key,
+            "ticketId": ticket_id,
+            "action": f"Executed: {task_title}",
+            "thoughtProcess": final_thought,
+            "provider": provider,
+            "latencyMs": latency_ms,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": "Success"
+        }))
+
+        # ── STEP 6: Move to Review (NOT Done yet — Manager will review) ────
+        await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({
+            "status": "Review",
+            "progress": 75,
+            "agentResult": final_thought[:600],  # Snippet hasil untuk UI
+            "completedAt": datetime.now(timezone.utc).isoformat(),
+        }))
+
+        # ── STEP 7: Update Agent EXP + Latency ─────────────────────────────
+        asyncio.create_task(update_agent_progress({"agent_id": agent_key, "latency_ms": latency_ms}))
+        asyncio.create_task(log_to_sheets(agent_key, f"[TASK] {task_title}: {result[:200]}", ticket_id))
+
+    except Exception as e:
+        print(f"[Worker Error] [{ticket_id[:8]}] {agent_name}: {e}")
+        if db:
+            await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({
+                "status": "To Do",
+                "progress": 0,
+                "reviewNote": f"Error: {str(e)[:150]}"
+            }))
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MANAGER REVIEW LOOP: Peer-Review hasil kerja agen lain
+# ══════════════════════════════════════════════════════════════════════════════
+async def manager_review_loop():
+    """
+    Neural Manager membaca semua task di kolom 'Review' dan mengevaluasinya.
+    Jika bagus → set Done. Jika perlu revisi → set To Do + catatan.
+    """
+    if not db:
+        return
+    try:
+        review_tasks = await asyncio.to_thread(lambda: [
+            t for t in db.collection("neural_tasks").stream()
+            if t.to_dict().get("status") == "Review"
+        ])
+
+        if not review_tasks:
+            return
+
+        print(f"[Manager Review] Meninjau {len(review_tasks)} task...")
+
+        for task_doc in review_tasks:
+            tid = task_doc.id
+            tdata = task_doc.to_dict()
+            title = tdata.get("title", "")
+            agent_result = tdata.get("agentResult", "")
+
+            if not agent_result:
+                # Tidak ada hasil untuk di-review, langsung approve
+                await asyncio.to_thread(lambda: db.collection("neural_tasks").document(tid).update({
+                    "status": "Done", "progress": 100, "reviewNote": "Auto-approved (no output to review)."
+                }))
+                continue
+
+            # Budget check untuk Manager
+            budget_ok = await check_and_deduct_budget("manager", estimated_tokens=500)
+            if not budget_ok:
+                print("[Manager Review] Manager budget habis, skip review.")
+                break
+
+            review_msgs = [
+                {"role": "system", "content": (
+                    "Kamu adalah AI Manager yang bertugas melakukan Quality Review terhadap hasil kerja agen lain. "
+                    "Berikan keputusan APPROVE atau REVISION dalam 1-2 kalimat. "
+                    "Format WAJIB: Mulai dengan 'APPROVED:' atau 'REVISION:' diikuti alasanmu. "
+                    "Jangan gunakan Markdown. Singkat dan tegas."
+                )},
+                {"role": "user", "content": f"Review hasil kerja berikut untuk task '{title}':\n\n{agent_result[:500]}"}
+            ]
+
+            review_result, _ = await call_with_fallback("gemini", "cerebras", review_msgs, temperature=0.3)
+
+            if review_result.upper().startswith("APPROVED"):
+                new_status = "Done"
+                new_progress = 100
+            else:
+                new_status = "To Do"  # Kembali ke queue untuk dikerjakan ulang
+                new_progress = 0
+
+            await asyncio.to_thread(lambda s=new_status, p=new_progress, rr=review_result, t=tid: db.collection("neural_tasks").document(t).update({
+                "status": s,
+                "progress": p,
+                "reviewNote": rr[:300],
+                "reviewedAt": datetime.now(timezone.utc).isoformat()
+            }))
+            print(f"[Manager Review] {'APPROVED' if new_status == 'Done' else 'REVISION'}: {title[:40]}")
+
+    except Exception as e:
+        print(f"[Manager Review] Error: {e}")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HEARTBEAT: Autonomous Loop Engine
+# ══════════════════════════════════════════════════════════════════════════════
 async def autonomous_loop():
-    """Detak Jantung AI. Membaca business_logic.json dan mengeksekusi agen secara otonom."""
-    print("[Autonomous] 🤖 Loop Engine started.")
+    """Detak Jantung AI. Orkestrasi penuh: Priority Queue → Symphony Workers → Peer Review."""
+    print("[Autonomous] Enterprise Loop Engine v2.0 started.")
     tz = pytz.timezone("Asia/Jakarta")
-    
+
     while True:
-        # Baca status autonomous dari Firebase system_config
+        # ── Baca status Autonomous dari Firestore ──────────────────────────
         try:
             if db:
-                def _get_mode() -> str:
-                    doc_ref = db.collection("system_config").document("autonomous_mode")
-                    doc = doc_ref.get()
-                    if doc.exists:
-                        return str(doc.to_dict().get("value", "OFF"))
-                    return "OFF"
-                status = await asyncio.to_thread(_get_mode)
+                status = await asyncio.to_thread(lambda: str(
+                    db.collection("system_config").document("autonomous_mode").get().to_dict().get("value", "OFF")
+                    if db.collection("system_config").document("autonomous_mode").get().exists else "OFF"
+                ))
             else:
                 status = "OFF"
         except Exception:
             status = "OFF"
+
         if status != "ON":
-            await asyncio.sleep(60)
+            await asyncio.sleep(30)  # Poll lebih cepat untuk responsif saat toggle ON
             continue
 
         now = datetime.now(tz)
         hour = now.hour
-        
-        # Load rules
+
+        # ── Load Business Hours ────────────────────────────────────────────
         try:
             with open("business_logic.json", "r") as f:
                 logic = json.load(f)
-            
             start_hour = int(logic["business_hours"]["start"].split(":")[0])
             end_hour = int(logic["business_hours"]["end"].split(":")[0])
             active_sleep = logic["business_hours"]["active_interval_minutes"] * 60
             idle_sleep = logic["business_hours"]["idle_interval_minutes"] * 60
         except Exception:
-            start_hour, end_hour = 8, 20
-            active_sleep, idle_sleep = 600, 7200
+            start_hour, end_hour = 8, 23
+            active_sleep, idle_sleep = 300, 3600
             logic = {}
 
-        if start_hour <= hour <= end_hour:
-            sleep_time = active_sleep
-        else:
-            sleep_time = idle_sleep
+        sleep_time = active_sleep if start_hour <= hour <= end_hour else idle_sleep
+        actual_sleep = sleep_time
 
-        print(f"[Autonomous] 💖 Heartbeat at {now.strftime('%H:%M:%S')}. Next tick in {sleep_time}s.")
-        
-        # Eksekusi Manager Agent untuk membaca situasi dan mendelegasikan tugas
-        sys_state = f"Waktu Sistem: {now.strftime('%H:%M:%S')}\nData Referensi Bisnis: {json.dumps(logic)}"
-        
-        msgs = [
-            {"role": "system", "content": SYSTEM_PROMPTS["manager"] + "\n\nIni adalah mode AUTONOMOUS LOOP. Cek referensi. Apakah ada agen yang perlu ditugaskan? Jawab singkat saja."},
-            {"role": "user", "content": sys_state}
-        ]
+        print(f"[Heartbeat] {now.strftime('%H:%M:%S')} | Mode: ON | Next in {sleep_time}s")
+
+        # ── FASE 0: Dead Letter Queue (DLQ) Sweeper ───────────────────────
+        # Temukan tugas "In Progress" yang sudah nyangkut > 10 menit (Zombie Task)
         try:
-            # Gunakan primary & backup dari config AGENT_MODELS
-            primary, backup = AGENT_MODELS.get("manager", ("groq", "deepseek"))
-            result, provider = await call_with_fallback(primary, backup, msgs, temperature=0.7)
-            print(f"[Autonomous Manager] {result[:100]} via {provider}")
-            
-            # Kirim sinyal global
-            asyncio.create_task(log_to_signals("manager", f"Berpikir otonom: {result[:80]}..."))
-            
-            # For now, it logs the Manager's autonomous thought to the sheets.
-            asyncio.create_task(log_to_sheets("manager", f"[AUTONOMOUS THOUGHT] {result}", "auto_loop"))
+            if db:
+                dlq_docs = await asyncio.to_thread(lambda: list(db.collection("neural_tasks").where("status", "==", "In Progress").stream()))
+                cutoff = datetime.now(timezone.utc)
+                for dlq_doc in dlq_docs:
+                    dlq_data = dlq_doc.to_dict()
+                    locked_at_str = dlq_data.get("lockedAt", "")
+                    if not locked_at_str:
+                        continue
+                    try:
+                        locked_at = datetime.fromisoformat(locked_at_str.replace("Z", "+00:00"))
+                        age_minutes = (cutoff - locked_at).total_seconds() / 60
+                        if age_minutes > 10:
+                            retry_count = int(dlq_data.get("retryCount", 0)) + 1
+                            if retry_count >= 3:
+                                # Max retries reached — mark as FAILED
+                                await asyncio.to_thread(lambda di=dlq_doc.id: db.collection("neural_tasks").document(di).update({
+                                    "status": "FAILED",
+                                    "failedAt": datetime.now(timezone.utc).isoformat(),
+                                    "failReason": f"Max retries (3) exceeded. Zombie for {age_minutes:.0f}m."
+                                }))
+                                print(f"[DLQ] Task {dlq_doc.id[:8]} FAILED after 3 retries.")
+                            else:
+                                # Reset ke To Do untuk dicoba ulang
+                                await asyncio.to_thread(lambda di=dlq_doc.id, rc=retry_count: db.collection("neural_tasks").document(di).update({
+                                    "status": "To Do",
+                                    "progress": 0,
+                                    "retryCount": rc,
+                                    "lockedAt": None,
+                                    "dlqRescuedAt": datetime.now(timezone.utc).isoformat()
+                                }))
+                                print(f"[DLQ] Zombie task {dlq_doc.id[:8]} rescued → To Do (retry #{retry_count})")
+                    except Exception as _dlq_e:
+                        print(f"[DLQ] Parse error for {dlq_doc.id}: {_dlq_e}")
+        except Exception as dlq_err:
+            print(f"[DLQ Sweeper] Error: {dlq_err}")
+
+        # ── FASE 1: Manager Review Loop (Prioritas tertinggi) ──────────────
+        asyncio.create_task(manager_review_loop())
+
+        # ── FASE 2: Process 'To Do' Tasks (Priority Queue) ─────────────────
+        try:
+            if db:
+                all_docs = await asyncio.to_thread(lambda: db.collection("neural_tasks").stream())
+                todo_tickets = [t for t in all_docs if t.to_dict().get("status") == "To Do"]
+
+                if todo_tickets:
+                    actual_sleep = 5  # Agresif saat ada antrean
+
+                    # ── Priority Sort (critical → high → normal → low) ──────
+                    def _sort_key(doc):
+                        d = doc.to_dict()
+                        p = PRIORITY_WEIGHT.get(d.get("priority", "normal"), 2)
+                        due = d.get("dueDate", "99d")
+                        due_hours = int("".join(filter(str.isdigit, due)) or 99) * (24 if "d" in due else 1)
+                        return (p, due_hours)
+                    todo_tickets.sort(key=_sort_key)
+
+                    print(f"[Heartbeat] {len(todo_tickets)} task antri (sorted by priority)")
+
+                    for active_ticket in todo_tickets:
+                        ticket_id = active_ticket.id
+                        t_data = active_ticket.to_dict()
+                        # Lock immediately (Atomic Checkout)
+                        await asyncio.to_thread(lambda ti=ticket_id: db.collection("neural_tasks").document(ti).update({
+                            "status": "In Progress",
+                            "progress": 10,
+                            "lockedAt": datetime.now(timezone.utc).isoformat()
+                        }))
+                        
+                        # [ENTERPRISE FEATURE] Lempar ke Celery/Redis Worker jika memungkinkan
+                        try:
+                            from worker import process_ticket
+                            process_ticket.delay(ticket_id, t_data)
+                            print(f"[Queue] Task {ticket_id[:8]} dilempar ke Redis Worker.")
+                        except ImportError:
+                            # Fallback ke Asyncio lokal jika Celery belum dinyalakan di terminal
+                            asyncio.create_task(process_ticket_task(t_data, ticket_id))
+
+                else:
+                    # ── IDLE AUDIT: Manager mengaudit keuangan jika tidak ada task ──
+                    try:
+                        finance_ref = db.collection("finance_transactions")
+                        recent_txs = await asyncio.to_thread(lambda: finance_ref.stream())
+                        txs_data = sorted(
+                            [t.to_dict() for t in recent_txs],
+                            key=lambda x: x.get("timestamp", ""), reverse=True
+                        )[:5]
+
+                        audit_budget_ok = await check_and_deduct_budget("manager", 600)
+                        if audit_budget_ok and txs_data:
+                            sys_state = f"Waktu: {now.strftime('%H:%M:%S')}\nTidak ada task antri.\n\n[5 Transaksi Terakhir]\n{json.dumps(txs_data, indent=2)}"
+                            audit_msgs = [
+                                {"role": "system", "content": SYSTEM_PROMPTS["manager"] +
+                                 "\n\nMode Otonom — Audit Kilat: Periksa 5 transaksi terakhir. Anomali? Beri instruksi maks 2 kalimat. Jika aman, tulis 'Status Stabil'."},
+                                {"role": "user", "content": sys_state}
+                            ]
+                            await broadcaster.send_agent_signal("Manager", "THINKING", "Melakukan Audit Keuangan Otonom...")
+                            audit_result, _ = await call_with_fallback("gemini", "cerebras", audit_msgs, temperature=0.5)
+
+                            if "Stabil" not in audit_result and "aman" not in audit_result.lower():
+                                await broadcaster.send_agent_signal("Manager", "ALERT", f"{audit_result[:150]}")
+                                await asyncio.to_thread(lambda: db.collection("run_transcripts").add({
+                                    "agentId": "Neural Manager",
+                                    "agentKey": "manager",
+                                    "ticketId": f"auto_audit_{int(time.time())}",
+                                    "action": "Autonomous Financial Audit — Anomaly Detected",
+                                    "thoughtProcess": audit_result,
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "status": "Warning"
+                                }))
+                            else:
+                                await broadcaster.send_agent_signal("Manager", "IDLE", "Sistem finansial stabil.")
+                    except Exception as ae:
+                        print(f"[Idle Audit] Error: {ae}")
+
         except Exception as e:
-            print(f"[Autonomous] Error executing manager loop: {e}")
+            print(f"[Heartbeat] Error: {e}")
 
-        await asyncio.sleep(sleep_time)
+        await asyncio.sleep(actual_sleep)
 
+
+autonomous_task = None
 
 
 @app.post("/api/autonomous/toggle")
@@ -744,6 +1261,33 @@ async def toggle_autonomous(req: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/api/agent/budget")
+async def get_agent_budget():
+    """Ambil sisa token budget harian semua agen dari agent_health."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    try:
+        def _fetch():
+            docs = db.collection("agent_health").stream()
+            return [d.to_dict() for d in docs]
+        agents = await asyncio.to_thread(_fetch)
+        today = datetime.now(pytz.timezone("Asia/Jakarta")).strftime("%Y-%m-%d")
+        result = []
+        for a in agents:
+            used = int(a.get("daily_tokens_used", 0)) if a.get("budget_reset_at") == today else 0
+            budget = int(a.get("daily_token_budget", DEFAULT_DAILY_BUDGET))
+            result.append({
+                "agent_id": a.get("agent_id", ""),
+                "used": used,
+                "budget": budget,
+                "remaining": max(0, budget - used),
+                "percent_used": round(used / budget * 100, 1) if budget > 0 else 0,
+                "status": a.get("status", "IDLE"),
+            })
+        return {"agents": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ── RPG Agent Progression System ──────────────────────────────────────────────
 
@@ -896,9 +1440,38 @@ async def trigger_agent(req: AgentRequest):
             system_prompt += f"\n\nKonteks Global Sesi:\n{global_ctx[-1500:]}"
 
         # 4. Susun messages (system + history + user)
+        # ── Prompt Injection Sanitization ──────────────────────────────────────
+        # Blokir pola prompt injection umum sebelum diteruskan ke LLM
+        INJECTION_PATTERNS = [
+            "ignore previous instructions",
+            "abaikan instruksi sebelumnya",
+            "forget your instructions",
+            "you are now",
+            "act as if you are",
+            "pretend you are",
+            "your new instructions",
+            "override system",
+            "system prompt",
+            "reveal your prompt",
+            "print your instructions",
+            "show me your prompt",
+            "what is your system prompt",
+        ]
+        user_input_lower = req.message.lower()
+        for pattern in INJECTION_PATTERNS:
+            if pattern in user_input_lower:
+                print(f"[security]  Prompt injection attempt blocked: '{pattern[:40]}'")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Input tidak valid. Permintaan mengandung pola yang tidak diizinkan."
+                )
+        # Batasi panjang input user maksimal 2000 karakter
+        sanitized_message = req.message[:2000].strip()
+        # ── End Sanitization ───────────────────────────────────────────────────
+
         messages: list[dict] = [{"role": "system", "content": system_prompt}]
         messages.extend(history[-20:])  # max 20 turns history
-        messages.append({"role": "user", "content": req.message})
+        messages.append({"role": "user", "content": sanitized_message})
 
         # 5. Panggil agen AI yang sesuai
         primary, backup = AGENT_MODELS.get(agent, ("groq", "cerebras"))
@@ -942,7 +1515,7 @@ async def trigger_agent(req: AgentRequest):
         raise
     except Exception as e:
         await set_agent_redis_status(agent, "IDLE")
-        print(f"[trigger-agent] ❌ Unexpected error: {e}")
+        print(f"[trigger-agent] Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1036,14 +1609,14 @@ async def _save_image_to_drive(prompt: str, image_bytes: bytes, mime_type: str):
             service.files().create(body=file_metadata, media_body=media, fields="id").execute()
             
         await asyncio.to_thread(_upload)
-        print(f"[Drive] ✅ Gambar AI berhasil disimpan ke Drive")
+        print(f"[Drive] Gambar AI berhasil disimpan ke Drive")
     except Exception as e:
-        print(f"[Drive] ❌ Gagal simpan gambar: {e}")
+        print(f"[Drive] Gagal simpan gambar: {e}")
 
 async def log_to_signals(agent: str, message: str, status: str = "THINKING"):
     """Kirim sinyal global ke Firebase (Tabel realtime_signals) agar ditangkap oleh Frontend."""
     if not db: 
-        print(f"[signals] ⚠️ Firebase belum siap, skip sinyal: {message[:30]}")
+        print(f"[signals] Firebase belum siap, skip sinyal: {message[:30]}")
         return
     try:
         data = {
@@ -1056,7 +1629,7 @@ async def log_to_signals(agent: str, message: str, status: str = "THINKING"):
             db.collection("realtime_signals").add(data)
         await asyncio.to_thread(_insert)
     except Exception as e:
-        print(f"[signals] ❌ Firebase Error: {e}")
+        print(f"[signals] Firebase Error: {e}")
 
 # ── Business Logic Config Endpoints ───────────────────────────────────────────
 @app.get("/api/business-logic")
@@ -1239,6 +1812,131 @@ async def inventory_stock_add(req: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── AI Orchestrator ───────────────────────────────────────────────────────────
+class OrchestrateRequest(BaseModel):
+    prompt: str
+    agent: str
+    aiModel: str
+    targetColumn: str = "To Do"
+
+@app.post("/api/orchestrate")
+async def handle_orchestration(req: OrchestrateRequest):
+    """
+    Menerima perintah kompleks dari UI Neural Tasks Manager.
+    Memecah perintah menjadi sub-task (kotak-kotak) dan mengeksekusi instruksi jika ada akses sistem.
+    """
+    if not db:
+        raise HTTPException(status_code=500, detail="Database belum terkonfigurasi.")
+
+    # Tentukan provider berdasarkan aiModel pilihan user
+    provider = "gemini"
+    if "Mistral" in req.aiModel: provider = "mistral"
+    elif "Groq" in req.aiModel: provider = "groq"
+    elif "Cerebras" in req.aiModel: provider = "cerebras"
+    elif "OpenRouter" in req.aiModel: provider = "openrouter"
+    elif "DeepSeek" in req.aiModel: provider = "deepseek"
+
+    system_prompt = (
+        "Kamu adalah AI Executive Orchestrator (Manager CMD) untuk ekosistem Fusion Neural B2B.\n"
+        "Tugas utama: Menganalisis instruksi *natural language* dari User/CEO dan membaginya menjadi tugas Kanban spesifik untuk sub-agen AI.\n\n"
+        "=== DOMAIN AGEN AI (JOBDESK) ===\n"
+        "1. 'Neural Admin': Menangani inventaris, pengecekan stok (restock), operasional gudang, pesanan fisik.\n"
+        "2. 'Neural Finance': Menangani pembukuan (ledger), pembuatan invoice, rekonsiliasi bank, pajak, dan audit anggaran.\n"
+        "3. 'Neural Marketing': Menulis copywriting kampanye, desain gambar (FLUX), penulisan email promosi, UI teks.\n"
+        "4. 'Neural Manager': Analisis strategis tingkat tinggi, merangkum laporan, koordinasi antar agen.\n\n"
+        "=== ATURAN DELEGASI ===\n"
+        "- Pecah instruksi yang kompleks menjadi langkah-langkah kecil (*micro-tasks*).\n"
+        "- Delegasikan setiap tugas ke *agent* yang BENAR berdasarkan domian di atas.\n"
+        "- Buat *title* yang berorientasi tindakan dan profesional (misal: 'Analisis defisit anggaran Q3').\n"
+        "- Tambahkan *labels* yang relevan (misal: ['Urgent', 'Finance'], ['Restock', 'Warehouse']).\n"
+        "- JIKA tugas berisiko tinggi (mengeluarkan dana, menghapus data, mengirim kontrak), wajib tambahkan payload ke 'approvals' untuk dikunci di Strategic Audit Hub.\n\n"
+        "=== OUTPUT FORMAT Wajib ===\n"
+        "Kembalikan HANYA JSON murni (tanpa ```json, tanpa markdown, tanpa teks lain). Format:\n"
+        "{\n"
+        '  "tasks": [\n'
+        '    {"title": "Draft proposal kampanye X", "client": "Internal", "agent": "Neural Marketing", "priority": "high", "labels": ["Campaign", "Urgent"], "dueDate": "2d", "progress": 0, "comments": 0, "attachments": 0}\n'
+        "  ],\n"
+        '  "approvals": [\n'
+        '    {"actionType": "Generate Invoice", "description": "Approval invoice vendor X", "jsonPayload": "{\\"amount\\": 5000000}"}\n'
+        "  ]\n"
+        "}\n"
+        "Note: priority harus bernilai salah satu dari: 'critical', 'high', 'normal', atau 'low'."
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": req.prompt}
+    ]
+
+    result = await call_llm(provider, messages, temperature=0.7, max_tokens=1500)
+    
+    # Initialize before try so they're always bound
+    tasks_to_create: list = []
+    approvals_to_create: list = []
+    try:
+        if result:
+            # Clean up markdown if AI includes it
+            json_str = result
+            if "```json" in result:
+                import re
+                match = re.search(r'```json\s*(.*?)\s*```', result, re.DOTALL)
+                if match: json_str = match.group(1)
+            elif "```" in result:
+                import re
+                match = re.search(r'```\s*(.*?)\s*```', result, re.DOTALL)
+                if match: json_str = match.group(1)
+
+            data = json.loads(json_str)
+            tasks_to_create = data.get("tasks", [])
+            approvals_to_create = data.get("approvals", [])
+    except Exception as e:
+        print(f"[Orchestrator] Gagal parsing JSON AI: {e}. Raw: {result}")
+
+    # Fallback: if no tasks parsed, create one from the raw prompt
+    if not tasks_to_create:
+        tasks_to_create = [{
+            "title": req.prompt[:60] + "...",
+            "client": "System",
+            "agent": req.agent,
+            "priority": "normal",
+            "labels": ["System", "Auto-Generated"],
+            "dueDate": "1d"
+        }]
+
+    # Simpan ke Firestore neural_tasks
+    import uuid
+    for t in tasks_to_create:
+        doc_data = {
+            "title": t.get("title", "Untitled Task"),
+            "client": t.get("client", "Internal"),
+            "agent": t.get("agent", req.agent),
+            "priority": t.get("priority", "normal").lower(),
+            "labels": t.get("labels", []),
+            "status": req.targetColumn,
+            "dueDate": t.get("dueDate", "1d"),
+            "comments": t.get("comments", 0),
+            "attachments": t.get("attachments", 0),
+            "progress": t.get("progress", 0),
+            "createdAt": datetime.now(timezone.utc).isoformat()
+        }
+        # Gunakan API post FirestoreRESTClient untuk men-generate random doc ID
+        await asyncio.to_thread(lambda: db.collection("neural_tasks").add(doc_data))
+
+    # Simpan ke Firestore pending_approvals jika ada
+    for a in approvals_to_create:
+        app_data = {
+            "agentId": req.agent,
+            "actionType": a.get("actionType", "System Action"),
+            "description": a.get("description", "Auto-generated action"),
+            "jsonPayload": a.get("jsonPayload", "{}"),
+            "status": "Pending",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        await asyncio.to_thread(lambda: db.collection("pending_approvals").add(app_data))
+
+    return {"status": "success", "message": f"Berhasil memecah menjadi {len(tasks_to_create)} tugas dan {len(approvals_to_create)} approval menunggu."}
+
+
 # ── Midtrans Snap Token ───────────────────────────────────────────────────────
 # Dipanggil dari OrderPage.tsx untuk membuat transaksi pembayaran.
 
@@ -1304,9 +2002,12 @@ async def create_midtrans_token(req: dict):
 
 
 app.include_router(integrations_router, prefix="/api")
+# ── WebSocket Router (Solusi #4 — Real-Time Signals tanpa polling Firestore) ──
+app.include_router(ws_router)
 
-# ── Wire integrations logger (harus setelah app & router siap) ────────────────
+# ── Wire integrations logger (harus setelah app.include_router(integrations_router)
 integrations.external_logger = log_to_sheets
+integrations.chat_takeover_handler = chat_takeover_check_and_log
 
 if __name__ == "__main__":
     import uvicorn
