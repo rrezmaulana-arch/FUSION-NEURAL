@@ -1,0 +1,14 @@
+{
+  "id": "BIG_SOFA",
+  "name": "Big Sofa",
+  "category": "chairs",
+  "type": "asset",
+  "file": "BIG_SOFA.png",
+  "width": 53,
+  "height": 38,
+  "footprintW": 3,
+  "footprintH": 2,
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": false,
+  "backgroundTiles": 0
+}

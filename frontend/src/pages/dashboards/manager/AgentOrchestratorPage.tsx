@@ -11,7 +11,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { db } from '../../../lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
 import InfrastructureView from './views/InfrastructureView';
-import WalkingCanvas from './views/WalkingCanvas';
+import WalkingCanvas from '../../../components/pixel-office/components/PixelOfficeCanvas';
 import { useAgentAudio } from '../../../hooks/useAgentAudio';
 import { useAgentSignals } from '../../../hooks/useAgentSignals';
 
@@ -46,10 +46,11 @@ interface Log { id: string; agent: string; details: string; timestamp: any; }
 const STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
 .ao-wrap { font-family: 'Outfit', sans-serif; background: transparent; min-height: 100vh; color: #e2e8f0; margin: -24px; padding: 0; user-select: none; cursor: default; }
-.ao-bg { background: transparent; }
-.ao-scroll::-webkit-scrollbar { width: 5px; } .ao-scroll::-webkit-scrollbar-track { background: transparent; } .ao-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 4px; }
-.ao-card { background: rgba(15,23,42,0.7); border: 1px solid rgba(255,255,255,0.07); backdrop-filter: blur(12px); transition: all 0.25s cubic-bezier(.4,0,.2,1); }
-.ao-card:hover { border-color: rgba(255,255,255,0.14); transform: translateY(-2px); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+.ao-bg { background: radial-gradient(circle at top right, rgba(99,102,241,0.05), transparent 60%), radial-gradient(circle at bottom left, rgba(16,185,129,0.05), transparent 60%); }
+.ao-scroll::-webkit-scrollbar { width: 5px; } .ao-scroll::-webkit-scrollbar-track { background: transparent; } .ao-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 10px; }
+.ao-card { background: rgba(10, 15, 30, 0.65); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: inset 0 1px 1px rgba(255,255,255,0.05), 0 8px 24px rgba(0,0,0,0.2); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+.ao-card:hover { background: rgba(15, 20, 35, 0.75); border-color: rgba(255,255,255,0.18); transform: translateY(-3px); box-shadow: inset 0 1px 1px rgba(255,255,255,0.1), 0 12px 32px rgba(0,0,0,0.4); }
+.ao-glass-panel { background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(16px); }
 .ao-mono { font-family: 'JetBrains Mono', monospace; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 @keyframes slide-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
@@ -579,45 +580,45 @@ function RoomCard({ room, logs, onClick, index }: { room: typeof ROOMS[0], logs:
 
       <div style={{ position:'relative', zIndex:1 }}>
         {/* Header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            <div style={{ width:46, height:46, borderRadius:12, background:`${room.accent}18`, border:`1px solid ${room.accent}35`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <room.icon size={22} color={room.accent} />
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:50, height:50, borderRadius:14, background:`linear-gradient(135deg, ${room.accent}20, ${room.accent}05)`, border:`1px solid ${room.accent}40`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow: `0 0 15px ${room.accent}15` }}>
+              <room.icon size={24} color={room.accent} />
             </div>
             <div>
-              <div style={{ fontSize:16, fontWeight:800, color:'#f8fafc', letterSpacing:'-0.01em' }}>{room.label}</div>
-              <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>{room.sublabel}</div>
+              <div style={{ fontSize:18, fontWeight:800, color:'#f8fafc', letterSpacing:'-0.01em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{room.label}</div>
+              <div style={{ fontSize:12, color:'#64748b', marginTop:4, fontWeight:500 }}>{room.sublabel}</div>
             </div>
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:20, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}` }}>
-            <div style={{ width:6, height:6, borderRadius:'50%', background: active ? '#10b981' : '#334155', animation: active ? 'blink 1.5s infinite' : 'none' }} />
-            <span style={{ fontSize:10, fontWeight:700, color: active ? '#10b981' : '#475569', letterSpacing:'0.5px' }}>{active ? 'LIVE' : 'IDLE'}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:24, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`, boxShadow: active ? '0 0 10px rgba(16,185,129,0.2)' : 'none' }}>
+            <div style={{ width:6, height:6, borderRadius:'50%', background: active ? '#10b981' : '#334155', animation: active ? 'blink 1.5s infinite' : 'none', boxShadow: active ? '0 0 8px #10b981' : 'none' }} />
+            <span style={{ fontSize:11, fontWeight:800, color: active ? '#10b981' : '#475569', letterSpacing:'0.5px' }}>{active ? 'LIVE' : 'IDLE'}</span>
           </div>
         </div>
 
         {/* Agent count */}
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:20 }}>
           {room.agents.map(a => (
-            <div key={a.id} className="ao-mono" style={{ fontSize:10, fontWeight:700, color: room.accent, background:`${room.accent}12`, border:`1px solid ${room.accent}25`, padding:'3px 9px', borderRadius:6 }}>
+            <div key={a.id} className="ao-mono" style={{ fontSize:11, fontWeight:700, color: room.accent, background:`linear-gradient(to right, ${room.accent}15, ${room.accent}05)`, border:`1px solid ${room.accent}30`, padding:'4px 10px', borderRadius:8 }}>
               {a.name}
             </div>
           ))}
         </div>
 
         {/* Last task */}
-        <div style={{ padding:'12px 14px', borderRadius:10, background:'rgba(0,0,0,0.35)', border:'1px solid rgba(255,255,255,0.05)', marginBottom:16, minHeight:44 }}>
-          <p className="ao-mono" style={{ margin:0, fontSize:11, color: lastLog ? '#94a3b8' : '#334155', lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+        <div className="ao-glass-panel" style={{ padding:'14px 16px', borderRadius:12, marginBottom:20, minHeight:52 }}>
+          <p className="ao-mono" style={{ margin:0, fontSize:12, color: lastLog ? '#cbd5e1' : '#475569', lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
             {lastLog ? lastLog.details : 'Awaiting task stream…'}
           </p>
         </div>
 
         {/* Footer */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <div className="ao-mono" style={{ fontSize:11, color:'#475569', display:'flex', alignItems:'center', gap:5 }}>
-            <Clock size={11} /> {lastLog ? timeAgo(lastLog.timestamp) : '—'}
+          <div className="ao-mono" style={{ fontSize:12, color:'#64748b', display:'flex', alignItems:'center', gap:6 }}>
+            <Clock size={12} /> {lastLog ? timeAgo(lastLog.timestamp) : '—'}
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:700, color: room.accent }}>
-            Enter Room <ChevronRight size={14} />
+          <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:13, fontWeight:800, color: room.accent, transition: 'all 0.2s', textShadow: `0 0 10px ${room.accent}40` }}>
+            Enter Room <ChevronRight size={16} />
           </div>
         </div>
       </div>
@@ -635,20 +636,21 @@ function MainView({ logs, onSelectRoom }: { logs: Log[], onSelectRoom:(id:string
   return (
     <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
       {/* Stats bar */}
-      <div id="ao-stats" style={{ display:'flex', gap:16, marginBottom:28 }}>
+      <div id="ao-stats" style={{ display:'flex', gap:20, marginBottom:32 }}>
         {[
           { icon: Network, label:'Total Zones', val: ROOMS.length, accent:'#6366f1' },
           { icon: Zap, label:'Active Now', val: totalActive, accent:'#10b981' },
           { icon: Activity, label:'Events Logged', val: logs.length, accent:'#f59e0b' },
           { icon: Cpu, label:'AI Models', val: ROOMS.reduce((s,r)=>s+r.agents.length,0), accent:'#3b82f6' },
         ].map(({ icon: Icon, label, val, accent }) => (
-          <div key={label} className="ao-card" style={{ flex:1, borderRadius:14, padding:'16px 20px', display:'flex', alignItems:'center', gap:14 }}>
-            <div style={{ width:38, height:38, borderRadius:10, background:`${accent}15`, border:`1px solid ${accent}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <Icon size={18} color={accent} />
+          <div key={label} className="ao-card" style={{ flex:1, borderRadius:20, padding:'20px 24px', display:'flex', alignItems:'center', gap:18, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: -30, right: -30, width: 80, height: 80, background: accent, filter: 'blur(40px)', opacity: 0.15 }} />
+            <div style={{ width:44, height:44, borderRadius:12, background:`${accent}15`, border:`1px solid ${accent}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow: `0 0 20px ${accent}20` }}>
+              <Icon size={20} color={accent} />
             </div>
-            <div>
-              <div style={{ fontSize:22, fontWeight:800, color:'#f8fafc', lineHeight:1 }}>{val}</div>
-              <div style={{ fontSize:11, color:'#64748b', marginTop:3 }}>{label}</div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize:28, fontWeight:800, color:'#f8fafc', lineHeight:1 }}>{val}</div>
+              <div style={{ fontSize:12, color:'#94a3b8', marginTop:4, fontWeight:500, letterSpacing: '0.5px' }}>{label}</div>
             </div>
           </div>
         ))}
@@ -668,40 +670,40 @@ function MainView({ logs, onSelectRoom }: { logs: Log[], onSelectRoom:(id:string
 function GlobalLogs({ logs }: { logs: Log[] }) {
   return (
     <motion.div id="ao-logs" initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2 }} className="ao-card" style={{ borderRadius:16, overflow:'hidden', marginTop:24 }}>
-      <div style={{ padding:'16px 22px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(0,0,0,0.2)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <Terminal size={16} color='#94a3b8' />
-          <span style={{ fontSize:14, fontWeight:700, color:'#f8fafc' }}>Global Network Activity</span>
+      <div style={{ padding:'18px 24px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <Terminal size={18} color='#94a3b8' />
+          <span style={{ fontSize:15, fontWeight:800, color:'#f8fafc', letterSpacing: '0.5px' }}>Global Network Activity</span>
         </div>
-        <div className="ao-mono" style={{ fontSize:11, color:'#64748b', background:'rgba(255,255,255,0.04)', padding:'4px 10px', borderRadius:8, border:'1px solid rgba(255,255,255,0.07)' }}>
+        <div className="ao-mono" style={{ fontSize:11, color:'#94a3b8', background:'rgba(255,255,255,0.05)', padding:'6px 12px', borderRadius:20, border:'1px solid rgba(255,255,255,0.1)', boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.05)' }}>
           {logs.length} EVENTS
         </div>
       </div>
-      <div className="ao-scroll" style={{ overflowX:'auto', maxHeight:280 }}>
+      <div className="ao-scroll" style={{ overflowX:'auto', maxHeight:320 }}>
         <table style={{ width:'100%', borderCollapse:'collapse', textAlign:'left' }}>
           <thead>
-            <tr style={{ background:'rgba(0,0,0,0.25)' }}>
+            <tr style={{ background:'rgba(255,255,255,0.02)' }}>
               {['Time', 'Agent', 'Zone', 'Status', 'Output'].map(h => (
-                <th key={h} style={{ padding:'12px 20px', fontSize:11, fontWeight:700, color:'#475569', letterSpacing:'1px', whiteSpace:'nowrap' }}>{h}</th>
+                <th key={h} style={{ padding:'14px 24px', fontSize:11, fontWeight:800, color:'#94a3b8', letterSpacing:'1px', whiteSpace:'nowrap', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>{h}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="ao-mono" style={{ fontSize:12 }}>
+          <tbody className="ao-mono" style={{ fontSize:13 }}>
             {logs.length === 0 ? (
               <tr><td colSpan={5} style={{ textAlign:'center', padding:48, color:'#334155' }}>Waiting for neural activity…</td></tr>
             ) : logs.map(log => {
               const zone = ROOMS.find(r => r.id === log.agent.toLowerCase()) || ROOMS.find(r => r.id === 'core')!;
               return (
-                <tr key={log.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                  <td style={{ padding:'12px 20px', color:'#64748b', whiteSpace:'nowrap' }}>{timeAgo(log.timestamp)}</td>
-                  <td style={{ padding:'12px 20px', color:'#f8fafc', fontWeight:700, textTransform:'capitalize' }}>{log.agent}</td>
-                  <td style={{ padding:'12px 20px' }}>
-                    <span style={{ color: zone.accent, background:`${zone.accent}15`, padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, border:`1px solid ${zone.accent}25` }}>{zone.label}</span>
+                <tr key={log.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s', cursor: 'default' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding:'14px 24px', color:'#94a3b8', whiteSpace:'nowrap' }}>{timeAgo(log.timestamp)}</td>
+                  <td style={{ padding:'14px 24px', color:'#f8fafc', fontWeight:700, textTransform:'capitalize' }}>{log.agent}</td>
+                  <td style={{ padding:'14px 24px' }}>
+                    <span style={{ color: zone.accent, background:`linear-gradient(to right, ${zone.accent}20, ${zone.accent}05)`, padding:'4px 10px', borderRadius:8, fontSize:11, fontWeight:800, border:`1px solid ${zone.accent}30` }}>{zone.label}</span>
                   </td>
-                  <td style={{ padding:'12px 20px' }}>
-                    <span style={{ color:'#10b981', background:'rgba(16,185,129,0.1)', padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, border:'1px solid rgba(16,185,129,0.25)' }}>SUCCESS</span>
+                  <td style={{ padding:'14px 24px' }}>
+                    <span style={{ color:'#10b981', display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700 }}><div style={{width:6,height:6,borderRadius:'50%',background:'#10b981',boxShadow:'0 0 8px #10b981'}}></div>SUCCESS</span>
                   </td>
-                  <td style={{ padding:'12px 20px', color:'#94a3b8', maxWidth:360, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{log.details}</td>
+                  <td style={{ padding:'14px 24px', color:'#cbd5e1', maxWidth:400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{log.details}</td>
                 </tr>
               );
             })}
@@ -1114,6 +1116,7 @@ export default function AgentOrchestratorPage() {
   const activeAgentIds = [...new Set([
     ...logs.filter(l => isRecent(l.timestamp)).map(l => l.agent.toLowerCase()),
     ...wsActiveIds,
+    'manager_1' // Permanent worker!
   ])];
 
   const handleToggleMute = () => {
@@ -1160,16 +1163,16 @@ export default function AgentOrchestratorPage() {
       <style>{STYLE}</style>
       <div style={{ maxWidth:1400, margin:'0 auto', padding:'28px 32px' }}>
         {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:28 }}>
-          <div style={{ width:44, height:44, borderRadius:12, background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.35)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <Network size={22} color='#6366f1' />
+        <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:32, paddingBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ width:52, height:52, borderRadius:14, background:'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(99,102,241,0.05) 100%)', border:'1px solid rgba(99,102,241,0.4)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow: '0 0 20px rgba(99,102,241,0.2)' }}>
+            <Network size={26} color='#818cf8' />
           </div>
           <div>
-            <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:'#f8fafc', letterSpacing:'-0.02em' }}>Neural AI Simulation</h1>
-            <p className="ao-mono" style={{ margin:0, fontSize:11, color:'#475569', marginTop:2 }}>AI ORCHESTRATOR COMMAND DASHBOARD</p>
+            <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:'#f8fafc', letterSpacing:'-0.03em', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>Neural AI Simulation</h1>
+            <p className="ao-mono" style={{ margin:0, fontSize:12, color:'#94a3b8', marginTop:4, letterSpacing: '1px' }}>AI ORCHESTRATOR COMMAND DASHBOARD</p>
           </div>
           
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16 }}>
             {/* Layer Toggle */}
             <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
               <button 
@@ -1204,9 +1207,9 @@ export default function AgentOrchestratorPage() {
             </div>
 
             {/* Live Task Indicator */}
-            <div className="ao-mono" style={{ fontSize: 11, fontWeight: 700, color: activeTasks.length > 0 ? '#f59e0b' : '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="ao-mono ao-card" style={{ fontSize: 12, fontWeight: 700, color: activeTasks.length > 0 ? '#fcd34d' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 12 }}>
               {activeTasks.length > 0 && (
-                <motion.div animate={{ scale: [1, 1.4, 1] }} transition={{ repeat: Infinity, duration: 0.8 }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
+                <motion.div animate={{ scale: [1, 1.5, 1], opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 10px #f59e0b' }} />
               )}
               {activeTasks.length > 0 ? `${activeTasks.length} AGENT(S) ON TASK` : 'ALL AGENTS IDLE'}
             </div>
@@ -1222,9 +1225,15 @@ export default function AgentOrchestratorPage() {
           ) : (
             <motion.div key="main" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
               {/* Walking Canvas — Operations Floor */}
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span className="ao-mono" style={{ fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: 2 }}>WALKING PATHS — LIVE CANVAS</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }} />
+                      <span className="ao-mono" style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', letterSpacing: 2 }}>NEURAL OFFICE — LIVE FLOOR VIEW</span>
+                    </div>
+                    <span style={{ fontSize: 9, color: '#334155', fontFamily: 'monospace' }}>44×26 GRID</span>
+                  </div>
                   <button onClick={() => setShowWalkingCanvas(v => !v)} style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'monospace' }}>
                     {showWalkingCanvas ? 'HIDE' : 'SHOW'}
                   </button>
@@ -1232,7 +1241,55 @@ export default function AgentOrchestratorPage() {
                 <AnimatePresence>
                   {showWalkingCanvas && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
-                      <WalkingCanvas activeAgents={activeAgentIds} />
+                      {/* Premium Canvas Frame */}
+                      <div style={{
+                        position: 'relative',
+                        borderRadius: 16,
+                        padding: 3,
+                        background: 'linear-gradient(135deg, rgba(99,102,241,0.8) 0%, rgba(10,15,30,0.4) 30%, rgba(10,15,30,0.4) 70%, rgba(99,102,241,0.6) 100%)',
+                        boxShadow: '0 0 60px rgba(99,102,241,0.12), inset 0 0 20px rgba(99,102,241,0.2)',
+                      }}>
+                        
+                        {/* Scrollable Container */}
+                        <div className="ao-scroll" style={{ borderRadius: 13, overflowX: 'auto', overflowY: 'hidden', background: '#050a14' }}>
+                          <div style={{ width: '100%', minWidth: '800px', maxWidth: '930px', margin: '0 auto', position: 'relative', aspectRatio: '44/26' }}>
+                            <WalkingCanvas key="layout-v3-refresh" activeAgents={activeAgentIds} />
+                            
+                            {/* Room Labels (Gamified Sci-Fi HUD Pointers) - Sticks to Map */}
+                            <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }} style={{ position: 'absolute', top: '25%', left: '26%', transform: 'translate(-50%, -50%)', background: 'rgba(245, 158, 11, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(245, 158, 11, 0.8)', borderLeft: '4px solid #f59e0b', borderRadius: '4px 12px 12px 4px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #f59e0b', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 6, height: 6, background: '#f59e0b', borderRadius: '50%', boxShadow: '0 0 8px #f59e0b' }} /> MANAGER CMD
+                            </motion.div>
+                            
+                            <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', delay: 0.5 }} style={{ position: 'absolute', top: '75%', left: '26%', transform: 'translate(-50%, -50%)', background: 'rgba(59, 130, 246, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(59, 130, 246, 0.8)', borderLeft: '4px solid #3b82f6', borderRadius: '4px 12px 12px 4px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #3b82f6', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(59, 130, 246, 0.4)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 6, height: 6, background: '#3b82f6', borderRadius: '50%', boxShadow: '0 0 8px #3b82f6' }} /> STRATEGIC AUDIT
+                            </motion.div>
+                            
+                            <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', delay: 1 }} style={{ position: 'absolute', top: '23%', left: '74%', transform: 'translate(-50%, -50%)', background: 'rgba(168, 85, 247, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(168, 85, 247, 0.8)', borderRight: '4px solid #a855f7', borderRadius: '12px 4px 4px 12px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #a855f7', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(168, 85, 247, 0.4)', display: 'flex', alignItems: 'center', gap: 6, flexDirection: 'row-reverse' }}>
+                              <div style={{ width: 6, height: 6, background: '#a855f7', borderRadius: '50%', boxShadow: '0 0 8px #a855f7' }} /> AI ADMIN
+                            </motion.div>
+                            
+                            <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', delay: 1.5 }} style={{ position: 'absolute', top: '53%', left: '74%', transform: 'translate(-50%, -50%)', background: 'rgba(236, 72, 153, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(236, 72, 153, 0.8)', borderRight: '4px solid #ec4899', borderRadius: '12px 4px 4px 12px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #ec4899', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(236, 72, 153, 0.4)', display: 'flex', alignItems: 'center', gap: 6, flexDirection: 'row-reverse' }}>
+                              <div style={{ width: 6, height: 6, background: '#ec4899', borderRadius: '50%', boxShadow: '0 0 8px #ec4899' }} /> AI MARKETING
+                            </motion.div>
+                            
+                            <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', delay: 2 }} style={{ position: 'absolute', top: '83%', left: '74%', transform: 'translate(-50%, -50%)', background: 'rgba(16, 185, 129, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(16, 185, 129, 0.8)', borderRight: '4px solid #10b981', borderRadius: '12px 4px 4px 12px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #10b981', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: 6, flexDirection: 'row-reverse' }}>
+                              <div style={{ width: 6, height: 6, background: '#10b981', borderRadius: '50%', boxShadow: '0 0 8px #10b981' }} /> AI FINANCE
+                            </motion.div>
+                          </div>
+                        </div>
+
+                        {/* Fixed Overlays (Scanline & Corners) */}
+                        <div style={{ position: 'absolute', inset: 3, pointerEvents: 'none', borderRadius: 13, overflow: 'hidden' }}>
+                          <div style={{
+                            position: 'absolute', inset: 0,
+                            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px)',
+                          }} />
+                          <div style={{ position: 'absolute', top: 6, left: 6, width: 12, height: 12, borderTop: '2px solid rgba(99,102,241,0.7)', borderLeft: '2px solid rgba(99,102,241,0.7)', borderRadius: '3px 0 0 0' }} />
+                          <div style={{ position: 'absolute', top: 6, right: 6, width: 12, height: 12, borderTop: '2px solid rgba(99,102,241,0.7)', borderRight: '2px solid rgba(99,102,241,0.7)', borderRadius: '0 3px 0 0' }} />
+                          <div style={{ position: 'absolute', bottom: 6, left: 6, width: 12, height: 12, borderBottom: '2px solid rgba(99,102,241,0.7)', borderLeft: '2px solid rgba(99,102,241,0.7)', borderRadius: '0 0 0 3px' }} />
+                          <div style={{ position: 'absolute', bottom: 6, right: 6, width: 12, height: 12, borderBottom: '2px solid rgba(99,102,241,0.7)', borderRight: '2px solid rgba(99,102,241,0.7)', borderRadius: '0 0 3px 0' }} />
+                        </div>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

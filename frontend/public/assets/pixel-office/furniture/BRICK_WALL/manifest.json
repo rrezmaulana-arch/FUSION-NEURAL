@@ -1,0 +1,14 @@
+{
+  "id": "BRICK_WALL",
+  "name": "Brick Wall",
+  "category": "wall",
+  "type": "asset",
+  "file": "BRICK_WALL.png",
+  "width": 36,
+  "height": 26,
+  "footprintW": 2,
+  "footprintH": 1,
+  "canPlaceOnWalls": true,
+  "canPlaceOnSurfaces": false,
+  "backgroundTiles": 0
+}

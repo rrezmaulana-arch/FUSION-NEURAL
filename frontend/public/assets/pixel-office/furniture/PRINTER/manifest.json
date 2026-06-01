@@ -1,0 +1,14 @@
+{
+  "id": "PRINTER",
+  "name": "Printer",
+  "category": "electronics",
+  "type": "asset",
+  "file": "PRINTER.png",
+  "width": 33,
+  "height": 32,
+  "footprintW": 2,
+  "footprintH": 1,
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 0
+}

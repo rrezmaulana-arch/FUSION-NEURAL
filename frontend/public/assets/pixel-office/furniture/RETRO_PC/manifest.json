@@ -1,0 +1,14 @@
+{
+  "id": "RETRO_PC",
+  "name": "Retro PC",
+  "category": "electronics",
+  "type": "asset",
+  "file": "RETRO_PC.png",
+  "width": 34,
+  "height": 36,
+  "footprintW": 2,
+  "footprintH": 1,
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 0
+}

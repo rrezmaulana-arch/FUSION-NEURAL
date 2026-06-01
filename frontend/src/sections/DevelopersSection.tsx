@@ -174,14 +174,18 @@ function TeamCarousel({ isDark }: { isDark: boolean }) {
       jobdesk: [
         'Lead Engineer',
         'Arsitek Sistem & Full-Stack Dev',
-        'Integrasi Database & Core Mesin AI',
-        'UI/UX & Infrastruktur Cloud',
+        'Integrasi Firestore & Cloud REST API',
+        'Pengembangan Core Mesin AI Backend',
+        'Desain UI/UX & Sistem Glassmorphism',
+        'Manajemen State & Animasi Reaktif',
       ],
       jobdeskEN: [
         'Lead Engineer',
         'System Architect & Full-Stack Dev',
-        'Database & Core AI Engine Integration',
-        'UI/UX & Cloud Infrastructure',
+        'Firestore & Cloud REST API Integration',
+        'Core AI Backend Engine Development',
+        'UI/UX Design & Glassmorphism System',
+        'State Management & Reactive Animations',
       ],
       instagram: 'https://www.instagram.com/rreza_.maulana'
     },
