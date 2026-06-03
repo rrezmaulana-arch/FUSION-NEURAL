@@ -72,11 +72,11 @@ SYSTEM_PROMPTS: dict[str, str] = {
 }
 
 AGENT_MODELS: dict[str, tuple[str, str]] = {
-    "admin":      ("openrouter", "cerebras"),
-    "finance":    ("deepseek",   "groq"),
-    "marketing":  ("mistral",    "openrouter"),
-    "manager":    ("groq",       "deepseek"),
-    "frontliner": ("cerebras",   "mistral"),
+    "admin":      ("groq",    "gemini"),
+    "finance":    ("deepseek", "gemini"),
+    "marketing":  ("mistral",  "groq"),
+    "manager":    ("gemini",   "groq"),
+    "frontliner": ("groq",     "mistral"),
 }
 
 TASK_CONTEXT: dict[str, str] = {

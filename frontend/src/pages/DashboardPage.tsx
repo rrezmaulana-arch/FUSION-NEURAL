@@ -13,7 +13,7 @@ import {
   ChevronLeft, ChevronRight, Bell, Cloud,
   TrendingUp, Flame, Package, Network, BookOpen,
   Activity, Shield, Sparkles, CalendarDays, Wallet,
-  ShoppingCart, Building2, Users, Calculator, Image, AlertTriangle, ClipboardList, Receipt, Tags
+  ShoppingCart, Building2, Users, Calculator, Image, AlertTriangle, ClipboardList, Receipt, Tags, Mail
 } from 'lucide-react';
 
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
@@ -41,6 +41,7 @@ import NeuralTasksPage from './dashboards/manager/NeuralTasksPage';
 import ImageStudioPage from './dashboards/marketing/ImageStudioPage';
 import MarketingAnalyticsPage from './dashboards/marketing/MarketingAnalyticsPage';
 import AudienceCRMPage from './dashboards/marketing/AudienceCRMPage';
+import EmailCampaignPage from './dashboards/marketing/EmailCampaignPage';
 import ShippingReturnsPage from './dashboards/admin/ShippingReturnsPage';
 import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
 import BankReconPage from './dashboards/finance/BankReconPage';
@@ -98,6 +99,7 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     theme: { gradient: 'from-[#A21CAF] to-[#86198F]', text: 'text-purple-600', glow: 'bg-purple-500/20' },
     menus: [
       { path: '/dashboard', label: 'Campaign Forge', icon: Sparkles },
+      { path: '/dashboard/email-campaigns', label: 'Email Campaigns', icon: Mail },
       { path: '/dashboard/generative-ui', label: 'Generative UI', icon: Sparkles },
       { path: '/dashboard/launchpad', label: 'Content Launchpad (Drafts)', icon: CalendarDays },
       { path: '/dashboard/image-studio', label: 'Image Studio', icon: Image },
@@ -482,6 +484,7 @@ export default function DashboardPage() {
                 <Route path="ap-ar" element={<AccountsPayablePage />} />
 
                 {/* Marketing Routes */}
+                <Route path="email-campaigns" element={<EmailCampaignPage />} />
                 <Route path="image-studio" element={<ImageStudioPage />} />
                 <Route path="launchpad" element={<ContentLaunchpadPage />} />
                 <Route path="generative-ui" element={<GenerativeUIPage />} />

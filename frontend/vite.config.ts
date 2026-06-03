@@ -206,7 +206,7 @@ export default defineConfig(({ mode }) => {
                 try {
                   const payload = JSON.parse(body);
                   const agentId = payload.agent || 'frontliner';
-                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8001';
+                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8011';
                   
                   const agentPayload = { ...payload, action: 'chat', agent: agentId };
                   
@@ -243,7 +243,7 @@ export default defineConfig(({ mode }) => {
               req.on('end', async () => {
                 try {
                   const payload = JSON.parse(body);
-                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8001';
+                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8011';
                   
                   const action = payload.action || 'trigger';
                   const response = await fetch(`${pythonBackend}/simulator/${action}`, {
@@ -262,6 +262,39 @@ export default defineConfig(({ mode }) => {
                 }
               });
             }
+          });
+
+          // ── Email Campaign & Leads Proxy ─────────────────────────────────
+          // Forward /api/campaign/*, /api/campaigns, /api/leads to Python backend
+          // The Resend API key never touches the frontend — all calls go via Python.
+          const EMAIL_PATHS = ['/api/campaign', '/api/campaigns', '/api/leads', '/api/webhooks/resend'];
+          server.middlewares.use((req, res, next) => {
+            const matched = EMAIL_PATHS.some(p => req.url?.startsWith(p));
+            if (!matched) { next(); return; }
+
+            const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8011';
+            let body = '';
+            req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+            req.on('end', async () => {
+              try {
+                const targetUrl = `${pythonBackend}${req.url}`;
+                const fetchOptions: RequestInit = {
+                  method: req.method,
+                  headers: { 'Content-Type': 'application/json' },
+                };
+                if (req.method !== 'GET' && body) {
+                  fetchOptions.body = body;
+                }
+                const response = await fetch(targetUrl, fetchOptions);
+                const data = await response.json();
+                res.setHeader('Content-Type', 'application/json');
+                res.statusCode = response.status;
+                res.end(JSON.stringify(data));
+              } catch (e: any) {
+                res.statusCode = 503;
+                res.end(JSON.stringify({ error: 'Python Backend tidak dapat dihubungi', detail: e.message }));
+              }
+            });
           });
         }
       }

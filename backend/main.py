@@ -336,7 +336,7 @@ PROVIDERS: dict[str, dict] = {
     "cerebras": {
         "key":   os.getenv("CEREBRAS_API_KEY", ""),
         "base":  "https://api.cerebras.ai/v1",
-        "model": "llama-3.3-70b",
+        "model": "gpt-oss-120b",
     },
     "openrouter": {
         "key":   os.getenv("OPENROUTER_API_KEY", ""),
@@ -355,12 +355,14 @@ PROVIDERS: dict[str, dict] = {
 }
 
 # ── Agent → (primary, backup) ─────────────────────────────────────────────────
+# NOTE: openrouter free model 'gpt-oss-120b:free' is unreliable (503).
+# Admin switched to groq (confirmed working) + gemini as backup.
 AGENT_MODELS: dict[str, tuple[str, str]] = {
-    "admin":      ("openrouter", "cerebras"),
-    "finance":    ("deepseek",   "gemini"),
-    "marketing":  ("mistral",    "openrouter"),
-    "manager":    ("gemini",     "cerebras"),
-    "frontliner": ("cerebras",   "mistral"),
+    "admin":      ("groq",    "gemini"),
+    "finance":    ("deepseek", "gemini"),
+    "marketing":  ("mistral",  "groq"),
+    "manager":    ("gemini",   "groq"),
+    "frontliner": ("groq",     "mistral"),
 }
 
 # ── Agent System Prompts (disinkronkan dari NeuralCore.ts DEFAULT_PROMPTS) ────
@@ -621,6 +623,54 @@ async def execute_agent_actions(agent_response: str, agent_name: str, ticket_id:
                                 file.write(content)
                             actions_taken.append(f"Berhasil membuat file: {file_path} di {full_path}")
                             
+                    elif action_type == "create_email_campaign":
+                        campaign_name = action.get("campaignName", "AI Campaign")
+                        subject = action.get("subject", "AI Draft Subject")
+                        html_body = action.get("htmlBody", "")
+                        recipients = action.get("recipients", [])
+                        
+                        if db and recipients:
+                            import uuid
+                            from datetime import datetime, timezone
+                            camp_id = str(uuid.uuid4())
+                            
+                            camp_data = {
+                                "id": camp_id,
+                                "campaignName": campaign_name,
+                                "subject": subject,
+                                "status": "Draft",
+                                "totalRecipients": len(recipients),
+                                "sentCount": 0,
+                                "failedCount": 0,
+                                "opens": 0,
+                                "clicks": 0,
+                                "sendProgress": 0,
+                                "createdAt": datetime.now(timezone.utc).isoformat(),
+                                "agentId": agent_name,
+                                "htmlBody": html_body,
+                            }
+                            
+                            def _save_camp_sync():
+                                db.collection("marketing_campaigns").document(camp_id).set(camp_data)
+                                
+                                approval_id = str(uuid.uuid4())
+                                approval_data = {
+                                    "id": approval_id,
+                                    "title": f"Review AI Campaign: {campaign_name}",
+                                    "description": f"AI Marketing menyiapkan campaign baru via text prompt. Review subject & HTML sebelum dikirim.",
+                                    "agent": "marketing",
+                                    "type": "email_campaign",
+                                    "payload": {
+                                        "campaignId": camp_id,
+                                        "recipients": recipients
+                                    },
+                                    "status": "pending",
+                                    "timestamp": datetime.now(timezone.utc).isoformat()
+                                }
+                                db.collection("pending_approvals").document(approval_id).set(approval_data)
+                            
+                            await asyncio.to_thread(_save_camp_sync)
+                            actions_taken.append(f"Email campaign '{campaign_name}' (Draft) berhasil disiapkan dan dikirim ke Strategic Audit Hub.")
         except json.JSONDecodeError:
             pass
             
@@ -865,7 +915,7 @@ async def check_and_deduct_budget(agent_key: str, estimated_tokens: int = 1500) 
                         "monthlyBudget": budget * 15 * 30, # Estimasi sebulan
                         "status": "ACTIVE" if new_used <= budget else "EXHAUSTED",
                         "companyId": "COMP-FUSION" # [Multi-Tenant Inject]
-                    }, merge=True)
+                    })
                 except:
                     pass
 
@@ -899,7 +949,7 @@ async def check_and_deduct_budget(agent_key: str, estimated_tokens: int = 1500) 
                         "monthlyBudget": DEFAULT_DAILY_BUDGET * 15 * 30,
                         "status": "ACTIVE",
                         "companyId": "COMP-FUSION" # [Multi-Tenant Inject]
-                    }, merge=True)
+                    })
                 except:
                     pass
                 return True
@@ -930,12 +980,15 @@ async def process_ticket_task(t_data: dict, ticket_id: str):
 
     print(f"[Worker] [{ticket_id[:8]}] {agent_name}: '{task_title}'")
 
+    _db = db
+    if not _db: return
+
     try:
         # ── STEP 1: Budget Guard ────────────────────────────────────────────
         budget_ok = await check_and_deduct_budget(agent_key, estimated_tokens=1800)
         if not budget_ok:
             print(f"[Worker] [{agent_name}] Budget habis hari ini, skip task.")
-            await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({
+            await asyncio.to_thread(lambda: _db.collection("neural_tasks").document(ticket_id).update({
                 "status": "To Do",
                 "progress": 0,
                 "reviewNote": f"Ditunda: Budget token {agent_name} sudah habis hari ini. Reset besok pukul 00.00 WIB."
@@ -956,9 +1009,9 @@ async def process_ticket_task(t_data: dict, ticket_id: str):
         ]
 
         # Update progress ke 40% saat AI mulai berpikir
-        await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({"progress": 40}))
+        await asyncio.to_thread(lambda: _db.collection("neural_tasks").document(ticket_id).update({"progress": 40}))
 
-        primary, backup = AGENT_MODELS.get(agent_key, ("mistral", "openrouter"))
+        primary, backup = AGENT_MODELS.get(agent_key, ("groq", "gemini"))
         result, provider = await call_with_fallback(primary, backup, msgs, temperature=0.7)
 
         latency_ms = int((time.time() - start_ts) * 1000)
@@ -971,7 +1024,7 @@ async def process_ticket_task(t_data: dict, ticket_id: str):
             final_thought += "\n\n[SYSTEM LOG] Tindakan fisik:\n" + "\n".join(actions_log)
 
         # ── STEP 5: Save Transcript (ML Training Log) ───────────────────────
-        await asyncio.to_thread(lambda: db.collection("run_transcripts").add({
+        await asyncio.to_thread(lambda: _db.collection("run_transcripts").add({
             "agentId": agent_name,
             "agentKey": agent_key,
             "ticketId": ticket_id,
@@ -984,7 +1037,7 @@ async def process_ticket_task(t_data: dict, ticket_id: str):
         }))
 
         # ── STEP 6: Move to Review (NOT Done yet — Manager will review) ────
-        await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({
+        await asyncio.to_thread(lambda: _db.collection("neural_tasks").document(ticket_id).update({
             "status": "Review",
             "progress": 75,
             "agentResult": final_thought[:600],  # Snippet hasil untuk UI
@@ -997,8 +1050,8 @@ async def process_ticket_task(t_data: dict, ticket_id: str):
 
     except Exception as e:
         print(f"[Worker Error] [{ticket_id[:8]}] {agent_name}: {e}")
-        if db:
-            await asyncio.to_thread(lambda: db.collection("neural_tasks").document(ticket_id).update({
+        if _db:
+            await asyncio.to_thread(lambda: _db.collection("neural_tasks").document(ticket_id).update({
                 "status": "To Do",
                 "progress": 0,
                 "reviewNote": f"Error: {str(e)[:150]}"
@@ -1063,12 +1116,12 @@ async def manager_review_loop():
                 new_status = "To Do"  # Kembali ke queue untuk dikerjakan ulang
                 new_progress = 0
 
-            await asyncio.to_thread(lambda s=new_status, p=new_progress, rr=review_result, t=tid: db.collection("neural_tasks").document(t).update({
+            await asyncio.to_thread(lambda s, p, rr, t: db.collection("neural_tasks").document(t).update({
                 "status": s,
                 "progress": p,
                 "reviewNote": rr[:300],
                 "reviewedAt": datetime.now(timezone.utc).isoformat()
-            }))
+            }), new_status, new_progress, review_result, tid)
             print(f"[Manager Review] {'APPROVED' if new_status == 'Done' else 'REVISION'}: {title[:40]}")
 
     except Exception as e:
@@ -1124,7 +1177,10 @@ async def autonomous_loop():
         # Temukan tugas "In Progress" yang sudah nyangkut > 10 menit (Zombie Task)
         try:
             if db:
-                dlq_docs = await asyncio.to_thread(lambda: list(db.collection("neural_tasks").where("status", "==", "In Progress").stream()))
+                dlq_docs = await asyncio.to_thread(lambda: [
+                    d for d in db.collection("neural_tasks").stream()
+                    if d.to_dict().get("status") == "In Progress"
+                ])
                 cutoff = datetime.now(timezone.utc)
                 for dlq_doc in dlq_docs:
                     dlq_data = dlq_doc.to_dict()
@@ -1138,21 +1194,22 @@ async def autonomous_loop():
                             retry_count = int(dlq_data.get("retryCount", 0)) + 1
                             if retry_count >= 3:
                                 # Max retries reached — mark as FAILED
-                                await asyncio.to_thread(lambda di=dlq_doc.id: db.collection("neural_tasks").document(di).update({
+                                fail_reason = f"Max retries (3) exceeded. Zombie for {age_minutes:.0f}m."
+                                await asyncio.to_thread(lambda di, fr: db.collection("neural_tasks").document(di).update({
                                     "status": "FAILED",
                                     "failedAt": datetime.now(timezone.utc).isoformat(),
-                                    "failReason": f"Max retries (3) exceeded. Zombie for {age_minutes:.0f}m."
-                                }))
+                                    "failReason": fr
+                                }), dlq_doc.id, fail_reason)
                                 print(f"[DLQ] Task {dlq_doc.id[:8]} FAILED after 3 retries.")
                             else:
                                 # Reset ke To Do untuk dicoba ulang
-                                await asyncio.to_thread(lambda di=dlq_doc.id, rc=retry_count: db.collection("neural_tasks").document(di).update({
+                                await asyncio.to_thread(lambda di, rc: db.collection("neural_tasks").document(di).update({
                                     "status": "To Do",
                                     "progress": 0,
                                     "retryCount": rc,
                                     "lockedAt": None,
                                     "dlqRescuedAt": datetime.now(timezone.utc).isoformat()
-                                }))
+                                }), dlq_doc.id, retry_count)
                                 print(f"[DLQ] Zombie task {dlq_doc.id[:8]} rescued → To Do (retry #{retry_count})")
                     except Exception as _dlq_e:
                         print(f"[DLQ] Parse error for {dlq_doc.id}: {_dlq_e}")
@@ -1186,15 +1243,15 @@ async def autonomous_loop():
                         ticket_id = active_ticket.id
                         t_data = active_ticket.to_dict()
                         # Lock immediately (Atomic Checkout)
-                        await asyncio.to_thread(lambda ti=ticket_id: db.collection("neural_tasks").document(ti).update({
+                        await asyncio.to_thread(lambda ti: db.collection("neural_tasks").document(ti).update({
                             "status": "In Progress",
                             "progress": 10,
                             "lockedAt": datetime.now(timezone.utc).isoformat()
-                        }))
+                        }), ticket_id)
                         
                         # [ENTERPRISE FEATURE] Lempar ke Celery/Redis Worker jika memungkinkan
                         try:
-                            from worker import process_ticket
+                            from worker import process_ticket  # type: ignore
                             process_ticket.delay(ticket_id, t_data)
                             print(f"[Queue] Task {ticket_id[:8]} dilempar ke Redis Worker.")
                         except ImportError:
@@ -1474,7 +1531,7 @@ async def trigger_agent(req: AgentRequest):
         messages.append({"role": "user", "content": sanitized_message})
 
         # 5. Panggil agen AI yang sesuai
-        primary, backup = AGENT_MODELS.get(agent, ("groq", "cerebras"))
+        primary, backup = AGENT_MODELS.get(agent, ("groq", "gemini"))
         attempts = 1
 
         if agent == "finance":
@@ -1935,6 +1992,405 @@ async def handle_orchestration(req: OrchestrateRequest):
         await asyncio.to_thread(lambda: db.collection("pending_approvals").add(app_data))
 
     return {"status": "success", "message": f"Berhasil memecah menjadi {len(tasks_to_create)} tugas dan {len(approvals_to_create)} approval menunggu."}
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EMAIL MARKETING ENGINE — Powered by Resend (Human-in-the-Loop)
+# ══════════════════════════════════════════════════════════════════════════════
+# Arsitektur Keamanan:
+#   1. AI Marketing menyiapkan kampanye → simpan ke pending_approvals
+#   2. Manager APPROVE di Strategic Audit Hub
+#   3. Endpoint /api/campaign/approve-and-send mengirim BATCH email via Resend
+#   4. Webhook /api/webhooks/resend mencatat opens/clicks ke marketing_analytics
+# API Key RESEND tidak pernah menyentuh frontend (only backend).
+# ══════════════════════════════════════════════════════════════════════════════
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM    = "Neural Marketing <onboarding@resend.dev>"  # Ganti dengan domain terverifikasi
+
+async def _resend_send_single(to_email: str, subject: str, html: str, campaign_id: str) -> dict:
+    """Kirim satu email via Resend API. Return dict hasil."""
+    if not RESEND_API_KEY:
+        return {"email": to_email, "status": "failed", "error": "RESEND_API_KEY tidak dikonfigurasi"}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type":  "application/json",
+                },
+                json={
+                    "from":    RESEND_FROM,
+                    "to":      [to_email],
+                    "subject": subject,
+                    "html":    html,
+                    "tags": [
+                        {"name": "campaign_id", "value": campaign_id},
+                    ]
+                }
+            )
+        if r.status_code in (200, 201):
+            data = r.json()
+            return {"email": to_email, "status": "sent", "resend_id": data.get("id", "")}
+        else:
+            return {"email": to_email, "status": "failed", "error": r.text[:200]}
+    except Exception as e:
+        return {"email": to_email, "status": "failed", "error": str(e)}
+
+
+async def _send_campaign_batch(campaign_id: str, subject: str, html_body: str, recipients: list[str]):
+    """Background task: kirim email ke ratusan penerima secara bertahap (rate-limited)."""
+    _db = db
+    if not _db:
+        return
+
+    print(f"[Email] Mulai kirim kampanye '{campaign_id}' ke {len(recipients)} penerima...")
+    sent_count = 0
+    failed_count = 0
+    
+    # Rate limit: Resend free = 100 email/hari, paid = 50.000/hari
+    # Kirim 5 email per detik (aman untuk semua plan)
+    BATCH_SIZE = 5
+    BATCH_DELAY = 1.0  # seconds
+
+    for i in range(0, len(recipients), BATCH_SIZE):
+        batch = recipients[i:i + BATCH_SIZE]
+        tasks = [_resend_send_single(email, subject, html_body, campaign_id) for email in batch]
+        results = await asyncio.gather(*tasks)
+        
+        for res in results:
+            if res["status"] == "sent":
+                sent_count += 1
+            else:
+                failed_count += 1
+                print(f"[Email] Gagal kirim ke {res['email']}: {res.get('error', '')}")
+
+        # Update progress di Firestore setiap batch
+        progress_pct = min(99, int((i + BATCH_SIZE) / len(recipients) * 100))
+        try:
+            def _update_prog():
+                _db.collection("marketing_campaigns").document(campaign_id).update({
+                    "sentCount": sent_count,
+                    "failedCount": failed_count,
+                    "sendProgress": progress_pct,
+                })
+            await asyncio.to_thread(_update_prog)
+        except Exception:
+            pass
+
+        if i + BATCH_SIZE < len(recipients):
+            await asyncio.sleep(BATCH_DELAY)
+
+    # Tandai selesai
+    try:
+        await asyncio.to_thread(lambda: _db.collection("marketing_campaigns").document(campaign_id).update({
+            "status": "Sent",
+            "sentCount": sent_count,
+            "failedCount": failed_count,
+            "sendProgress": 100,
+            "sentAt": datetime.now(timezone.utc).isoformat(),
+        }))
+    except Exception:
+        pass
+
+    print(f"[Email] Kampanye '{campaign_id}' selesai: {sent_count} terkirim, {failed_count} gagal.")
+
+
+class CampaignDraftRequest(BaseModel):
+    """Payload dari AI Marketing untuk membuat draft kampanye baru."""
+    campaignName: str
+    subject:      str
+    htmlBody:     str
+    recipients:   list[str]  # list email langsung, atau nanti bisa segment name
+    agentId:      str = "Neural Marketing"
+    notes:        str = ""
+
+@app.post("/api/campaign/draft")
+async def create_campaign_draft(req: CampaignDraftRequest):
+    """
+    AI Marketing mengirim draft kampanye ke sini.
+    Draft akan LANGSUNG masuk ke pending_approvals — TIDAK akan dikirim dulu.
+    Manager harus APPROVE terlebih dahulu di Strategic Audit Hub.
+    """
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    if not req.recipients:
+        raise HTTPException(status_code=400, detail="Daftar penerima (recipients) tidak boleh kosong")
+
+    import uuid as _uuid
+    campaign_id = f"camp_{_uuid.uuid4().hex[:12]}"
+
+    # 1. Simpan kampanye ke marketing_campaigns sebagai Draft
+    campaign_doc = {
+        "id":           campaign_id,
+        "campaignName": req.campaignName,
+        "subject":      req.subject,
+        "htmlBody":     req.htmlBody,
+        "recipients":   req.recipients,
+        "totalRecipients": len(req.recipients),
+        "agentId":      req.agentId,
+        "status":       "Draft",
+        "sentCount":    0,
+        "failedCount":  0,
+        "sendProgress": 0,
+        "opens":        0,
+        "clicks":       0,
+        "notes":        req.notes,
+        "createdAt":    datetime.now(timezone.utc).isoformat(),
+    }
+    await asyncio.to_thread(lambda: db.collection("marketing_campaigns").document(campaign_id).set(campaign_doc))
+
+    # 2. Buat pending_approval agar Manager bisa mereview & menyetujui
+    approval_doc = {
+        "agentId":     req.agentId,
+        "actionType":  "Send Email Campaign",
+        "description": f"Kampanye '{req.campaignName}' siap dikirim ke {len(req.recipients)} penerima. Subject: {req.subject}",
+        "jsonPayload": json.dumps({
+            "campaign_id": campaign_id,
+            "campaignName": req.campaignName,
+            "subject": req.subject,
+            "totalRecipients": len(req.recipients),
+            "previewBody": req.htmlBody[:500],
+        }),
+        "campaignId":  campaign_id,
+        "status":      "Pending",
+        "timestamp":   datetime.now(timezone.utc).isoformat(),
+    }
+    await asyncio.to_thread(lambda: db.collection("pending_approvals").add(approval_doc))
+
+    print(f"[Email] Draft kampanye '{campaign_id}' dibuat oleh {req.agentId} — menunggu approval.")
+    return {
+        "status":      "draft_created",
+        "campaign_id": campaign_id,
+        "message":     f"Kampanye '{req.campaignName}' telah disiapkan untuk {len(req.recipients)} penerima. Menunggu persetujuan Manager di Strategic Audit Hub."
+    }
+
+
+@app.post("/api/campaign/approve-and-send")
+async def approve_and_send_campaign(req: dict):
+    """
+    Dipanggil dari Strategic Audit Hub saat Manager menekan APPROVE.
+    Akan langsung menjalankan pengiriman email ke semua penerima di background.
+    """
+    campaign_id = req.get("campaign_id", "")
+    if not campaign_id or not db:
+        raise HTTPException(status_code=400, detail="campaign_id wajib diisi")
+
+    # Ambil data kampanye dari Firestore
+    def _fetch():
+        doc = db.collection("marketing_campaigns").document(campaign_id).get()
+        if not doc.exists:
+            raise ValueError(f"Kampanye '{campaign_id}' tidak ditemukan")
+        return doc.to_dict()
+
+    try:
+        camp_data = await asyncio.to_thread(_fetch)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+
+    if camp_data.get("status") == "Sent":
+        raise HTTPException(status_code=409, detail="Kampanye ini sudah dikirim sebelumnya.")
+
+    # Tandai sebagai 'Sending' agar UI menampilkan progress bar
+    await asyncio.to_thread(lambda: db.collection("marketing_campaigns").document(campaign_id).update({
+        "status": "Sending",
+        "approvedAt": datetime.now(timezone.utc).isoformat(),
+    }))
+
+    # Jalankan pengiriman di background (non-blocking)
+    asyncio.create_task(_send_campaign_batch(
+        campaign_id = campaign_id,
+        subject     = camp_data.get("subject", ""),
+        html_body   = camp_data.get("htmlBody", ""),
+        recipients  = camp_data.get("recipients", []),
+    ))
+
+    return {
+        "status":     "sending",
+        "campaign_id": campaign_id,
+        "message":    f"Kampanye '{camp_data.get('campaignName')}' mulai dikirim ke {len(camp_data.get('recipients', []))} penerima di background."
+    }
+
+
+@app.get("/api/campaigns")
+async def list_campaigns():
+    """Ambil semua kampanye email dari Firestore (untuk UI EmailCampaignPage)."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    try:
+        def _fetch():
+            docs = db.collection("marketing_campaigns").stream()
+            return [d.to_dict() for d in docs]
+        campaigns = await asyncio.to_thread(_fetch)
+        campaigns.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        return {"campaigns": campaigns}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/leads")
+async def list_leads():
+    """Ambil semua leads/kontak dari koleksi leads_contacts."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    try:
+        def _fetch():
+            docs = db.collection("leads_contacts").stream()
+            return [{"id": d.id, **d.to_dict()} for d in docs]
+        leads = await asyncio.to_thread(_fetch)
+        return {"leads": leads, "total": len(leads)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/leads/add")
+async def add_lead(req: dict):
+    """Tambahkan kontak/lead baru ke database."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+    email = str(req.get("email", "")).strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Email tidak valid")
+    data = {
+        "email":     email,
+        "name":      str(req.get("name", "")),
+        "segment":   str(req.get("segment", "General")),
+        "source":    str(req.get("source", "Manual")),
+        "status":    "Active",
+        "addedAt":   datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        await asyncio.to_thread(lambda: db.collection("leads_contacts").add(data))
+        return {"status": "ok", "email": email}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/webhooks/resend")
+async def resend_webhook(request: Request):
+    """
+    Webhook dari Resend: menerima notifikasi email.opened, email.clicked, email.bounced.
+    Daftarkan URL ini di Dashboard Resend → Webhooks.
+    """
+    try:
+        payload = await request.json()
+        event_type = payload.get("type", "")
+        data       = payload.get("data", {})
+        campaign_id_tag = next(
+            (t["value"] for t in data.get("tags", []) if t.get("name") == "campaign_id"),
+            None
+        )
+
+        if not campaign_id_tag or not db:
+            return {"status": "ignored"}
+
+        # Simpan event ke marketing_analytics
+        analytics_doc = {
+            "campaignId": campaign_id_tag,
+            "event":      event_type,
+            "email":      data.get("to", [""])[0] if isinstance(data.get("to"), list) else data.get("to", ""),
+            "timestamp":  datetime.now(timezone.utc).isoformat(),
+        }
+        await asyncio.to_thread(lambda: db.collection("marketing_analytics").add(analytics_doc))
+
+        # Update counter di campaign doc
+        if event_type == "email.opened":
+            def _inc_open():
+                doc_ref = db.collection("marketing_campaigns").document(campaign_id_tag)
+                doc = doc_ref.get()
+                if doc.exists:
+                    doc_ref.update({"opens": int(doc.to_dict().get("opens", 0)) + 1})
+            await asyncio.to_thread(_inc_open)
+        elif event_type == "email.clicked":
+            def _inc_click():
+                doc_ref = db.collection("marketing_campaigns").document(campaign_id_tag)
+                doc = doc_ref.get()
+                if doc.exists:
+                    doc_ref.update({"clicks": int(doc.to_dict().get("clicks", 0)) + 1})
+            await asyncio.to_thread(_inc_click)
+
+        print(f"[Email Webhook] {event_type} → campaign {campaign_id_tag}")
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"[Email Webhook] Error: {e}")
+        return {"status": "error", "detail": str(e)}
+
+
+@app.post("/api/campaign/ai-draft")
+async def ai_generate_campaign_draft(req: dict):
+    """
+    AI Marketing secara otonom membuat HTML email berdasarkan brief dari user.
+    Hasilnya akan langsung tersimpan sebagai draft (pending approval).
+    Endpoint ini dipanggil dari frontend CampaignForgePage / EmailCampaignPage.
+    """
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+
+    brief          = str(req.get("brief", ""))
+    campaign_name  = str(req.get("campaignName", "AI Campaign"))
+    recipients     = req.get("recipients", [])   # list email atau segment name
+
+    if not brief:
+        raise HTTPException(status_code=400, detail="Brief kampanye tidak boleh kosong")
+
+    # Jika recipients berupa segment string, fetch dari leads_contacts
+    if recipients and isinstance(recipients[0], str) and "@" not in recipients[0]:
+        segment_name = recipients[0]
+        def _fetch_segment(seg=segment_name):
+            docs = db.collection("leads_contacts").stream()
+            return [d.to_dict().get("email", "") for d in docs if d.to_dict().get("segment") == seg and d.to_dict().get("status") == "Active"]
+        recipients = await asyncio.to_thread(_fetch_segment)
+
+    if not recipients:
+        raise HTTPException(status_code=400, detail="Tidak ada penerima untuk kampanye ini. Tambahkan leads terlebih dahulu.")
+
+    # AI Marketing membuat isi email
+    ai_msgs = [
+        {"role": "system", "content": (
+            "Kamu adalah AI Marketing Email Designer untuk Fusion Neural. "
+            "Tugasmu: membuat email HTML yang cantik, persuasif, dan profesional berdasarkan brief yang diberikan. "
+            "WAJIB: Output hanya berisi dua bagian terpisah: "
+            "1. Baris pertama: Subject email (tanpa prefix apapun). "
+            "2. Baris ketiga dan seterusnya: HTML email lengkap (mulai dari <html>). "
+            "Gunakan inline CSS untuk styling. Buat email yang mobile-friendly. "
+            "Gunakan warna brand Fusion Neural (ungu gelap #1a0033 dan pink #e91e8c). "
+            "Tidak ada markdown, tidak ada penjelasan tambahan."
+        )},
+        {"role": "user", "content": f"Buat email marketing untuk kampanye ini:\n\n{brief}\n\nNama Kampanye: {campaign_name}"}
+    ]
+
+    primary, backup = AGENT_MODELS.get("marketing", ("mistral", "groq"))
+    ai_result, provider = await call_with_fallback(primary, backup, ai_msgs, temperature=0.8)
+
+    # Parse subject dan HTML dari output AI
+    lines = ai_result.strip().split("\n")
+    subject  = lines[0].strip() if lines else campaign_name
+    html_body = "\n".join(lines[2:]).strip() if len(lines) > 2 else ai_result
+
+    # Fallback jika HTML tidak dihasilkan dengan benar
+    if not html_body.strip().startswith("<"):
+        html_body = f"""<html><body style="font-family:sans-serif;background:#1a0033;color:#fff;padding:40px;">
+        <h1 style="color:#e91e8c;">{campaign_name}</h1>
+        <div style="white-space:pre-wrap;">{ai_result}</div>
+        <p style="color:#aaa;font-size:12px;">© 2026 Fusion Neural. All rights reserved.</p>
+        </body></html>"""
+
+    # Buat draft
+    draft_req = CampaignDraftRequest(
+        campaignName=campaign_name,
+        subject=subject,
+        htmlBody=html_body,
+        recipients=recipients,
+        agentId="Neural Marketing",
+        notes=f"Auto-generated via AI. Provider: {provider}. Brief: {brief[:200]}"
+    )
+    result = await create_campaign_draft(draft_req)
+    result["subject"] = subject
+    result["provider"] = provider
+    result["recipientCount"] = str(len(recipients))
+    return result
 
 
 # ── Midtrans Snap Token ───────────────────────────────────────────────────────
