@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { Building2, Plus, Star, Truck, FileText, X, Search, Sparkles, TrendingUp, Factory } from 'lucide-react';
+import { Building2, Plus, Star, Truck, FileText, X, Search, Sparkles, TrendingUp, Factory, Brain } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -40,6 +40,8 @@ export default function SupplierHubPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
+  const [analyzingSupplier, setAnalyzingSupplier] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<Record<string, string>>({});
 
   // Theme Effects
   const [placeholderText, setPlaceholderText] = useState('');
@@ -76,14 +78,22 @@ export default function SupplierHubPage() {
     setAiRecommendations([]);
     try {
       const context = `Kamu adalah AI Supplier Scout di Indonesia. User mencari rekomendasi pabrik/supplier untuk: "${searchQuery}".
-Tolong berikan 3 rekomendasi supplier/vendor (fiktif namun sangat realistis seperti nama perusahaan asli) yang relevan.
-WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan apapun. Format JSON yang wajib:
+Tolong berikan 3 rekomendasi supplier/vendor ASLI dan NYATA (real companies/factories) yang ada di dunia nyata yang relevan. Jangan buat nama fiktif. Gunakan data riil perusahaan yang beroperasi di industri tersebut.
+WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan apapun. Pastikan JSON Valid (gunakan koma antar object). Format JSON yang wajib:
 [
-  { "name": "PT Contoh Maju", "contact": "08123456789", "product_category": "Kategori relevan", "last_price": 50000, "lead_time_days": 3, "performance_score": 9, "address": "Kota, Provinsi", "track_record": "Konsisten, barang berkualitas" }
+  { "name": "PT Contoh Maju", "contact": "08123456789", "product_category": "Kategori relevan", "last_price": 50000, "lead_time_days": 3, "performance_score": 9, "address": "Kota, Provinsi", "track_record": "Konsisten, barang berkualitas" },
+  { "name": "PT Vendor Dua", "contact": "08123456780", "product_category": "Kategori relevan", "last_price": 45000, "lead_time_days": 4, "performance_score": 8, "address": "Kota, Provinsi", "track_record": "Bagus" }
 ]`;
       const response = await NeuralCore.askAgent('admin', 'supplier_research', `Konteks: ${context}\n\nUser Query: ${searchQuery}`);
       
-      const cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
+      let cleanJson = response;
+      const startIdx = response.indexOf('[');
+      const endIdx = response.lastIndexOf(']');
+      if (startIdx !== -1 && endIdx !== -1) {
+        cleanJson = response.substring(startIdx, endIdx + 1);
+      } else {
+        cleanJson = response.replace(/```json/gi, '').replace(/```/g, '').trim();
+      }
       const data = JSON.parse(cleanJson);
       setAiRecommendations(Array.isArray(data) ? data : []);
       await FirebaseLogger.logAgentAction('Admin', 'AI_SUPPLIER_SCOUT', `Mencari rekomendasi untuk: ${searchQuery}`);
@@ -92,6 +102,22 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
       alert('Gagal mengambil data rekomendasi dari AI. Harap coba lagi dengan kata kunci lain.');
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handleDeepAnalyze = async (rec: any) => {
+    setAnalyzingSupplier(rec.name);
+    try {
+      const prompt = `Lakukan analisis risiko vendor (Deep Analyze) untuk supplier bernama "${rec.name}" di industri "${rec.product_category}".
+Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risiko potensial bekerja sama dengan perusahaan ini.`;
+      const response = await NeuralCore.askAgent('admin', 'supplier_risk_analysis', prompt);
+      setAnalysisResult(prev => ({ ...prev, [rec.name]: response }));
+      await FirebaseLogger.logAgentAction('Admin', 'SUPPLIER_DEEP_ANALYZE', `Menganalisis profil risiko vendor ${rec.name}`);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal menganalisis supplier.');
+    } finally {
+      setAnalyzingSupplier(null);
     }
   };
 
@@ -192,7 +218,7 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
             <h3 className="text-base font-black text-slate-800">AI Supplier Scout</h3>
           </div>
           <p className="text-sm text-slate-600 mb-4 max-w-2xl">
-            Kesulitan mencari vendor? Ketik apa yang Anda butuhkan, dan AI kami akan mencari referensi vendor fiktif namun realistis beserta track record performanya untuk Anda tambahkan ke hub.
+            Kesulitan mencari vendor? Ketik apa yang Anda butuhkan, dan AI kami akan mencari referensi vendor asli dan terpercaya beserta track record performanya untuk Anda tambahkan ke hub.
           </p>
           
             <div className="flex gap-3 max-w-2xl relative">
@@ -264,12 +290,28 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
                         </div>
                       </div>
 
-                      <button 
-                        onClick={() => handleAddFromAI(rec)}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-colors mt-auto"
-                      >
-                        <Plus size={14} /> Tambahkan ke Hub
-                      </button>
+                      {analysisResult[rec.name] && (
+                        <div className="bg-purple-50 text-purple-700 p-2 rounded-lg text-[10px] mb-3 border border-purple-100">
+                          <div className="font-bold flex items-center gap-1 mb-1"><Brain size={10} /> Deep Analysis Result</div>
+                          <p>{analysisResult[rec.name]}</p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 mt-auto">
+                        <button 
+                          onClick={() => handleDeepAnalyze(rec)}
+                          disabled={analyzingSupplier === rec.name}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <Brain size={12} /> {analyzingSupplier === rec.name ? 'Analyzing...' : 'Deep Analyze'}
+                        </button>
+                        <button 
+                          onClick={() => handleAddFromAI(rec)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold rounded-lg transition-colors"
+                        >
+                          <Plus size={12} /> Add to Hub
+                        </button>
+                      </div>
                     </motion.div>
                   ))}
                 </div>

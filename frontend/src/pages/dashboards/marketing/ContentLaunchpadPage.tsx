@@ -409,15 +409,16 @@ export default function ContentLaunchpadPage() {
             <div className="grid grid-cols-7 grid-rows-2">
               {Array.from({length: 14}).map((_, i) => {
                 const dayNum = i + 1;
-                const isToday = dayNum === 11; // Demo today
-                // Dummy scheduled posts
-                let dayEvent = null;
-                if (dayNum === 2) dayEvent = { title: 'Q4 Earnings A...', type: 'purple' };
-                if (dayNum === 4) dayEvent = { title: 'Product Teaser...', type: 'gray' };
-                if (dayNum === 6) dayEvent = { title: 'Blog: Top 10 T...', type: 'purple' };
-                if (dayNum === 10) dayEvent = { title: 'Webinar Invite', type: 'purple' };
-                if (dayNum === 11) dayEvent = { title: 'Behind the Sc...', type: 'gray' };
-                if (dayNum === 13) dayEvent = { title: 'Friday Poll', type: 'teal' };
+                // Since this is a demo layout, we map posts to days. 
+                // We'll simulate 'today' is the 11th.
+                const isToday = dayNum === 11; 
+                
+                // Find actual posts from Firestore scheduled on this demo day
+                const dayPosts = posts.filter(post => {
+                   const dateParts = post.scheduledAt.split(' ');
+                   const dayStr = dateParts[0].split('-').pop(); // e.g. "01"
+                   return parseInt(dayStr || '0', 10) === dayNum;
+                });
 
                 return (
                   <div key={i} className={`min-h-[120px] p-2 border-r border-b border-slate-100 last:border-r-0 ${isToday ? 'bg-teal-50/30' : ''}`}>
@@ -425,22 +426,12 @@ export default function ContentLaunchpadPage() {
                       <span className={`text-xs font-bold ${isToday ? 'text-teal-600' : 'text-slate-600'}`}>{dayNum}</span>
                       {isToday && <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1 mr-1"/>}
                     </div>
-                    {dayEvent && (
-                      <div className={`text-[10px] font-bold px-2 py-1.5 rounded-md mb-1 truncate flex items-center gap-1.5 border
-                        ${dayEvent.type === 'purple' ? 'bg-purple-50 text-purple-700 border-purple-100' : 
-                          dayEvent.type === 'teal' ? 'bg-teal-50 text-teal-700 border-teal-100' : 
-                          'bg-slate-50 text-slate-600 border-slate-200'}
-                      `}>
+                    {dayPosts.map((post, idx) => (
+                      <div key={post.id || idx} className={`text-[10px] font-bold px-2 py-1.5 rounded-md mb-1 truncate flex items-center gap-1.5 border bg-purple-50 text-purple-700 border-purple-100`}>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        {dayEvent.title}
+                        {post.content.substring(0, 15)}...
                       </div>
-                    )}
-                    {dayNum === 4 && (
-                      <div className="text-[10px] font-bold px-2 py-1.5 rounded-md truncate flex items-center gap-1.5 border bg-teal-50 text-teal-700 border-teal-100">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
-                        Team Retreat ...
-                      </div>
-                    )}
+                    ))}
                   </div>
                 );
               })}
@@ -543,7 +534,7 @@ export default function ContentLaunchpadPage() {
                          </div>
                       ) : post.status === 'approved' ? (
                          <button 
-                           onClick={() => alert(`Memanggil API ${post.platform} untuk auto-posting...\n(Fitur Dummy Beta)`)}
+                           onClick={() => alert(`Memanggil API Oauth ${post.platform} untuk auto-posting...\n(Dalam fase integrasi)`)}
                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-colors ml-auto"
                          >
                            <Globe size={12} /> Auto Publish

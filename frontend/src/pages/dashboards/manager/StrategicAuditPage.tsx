@@ -6,13 +6,14 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, query, orderBy, limit, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, setDoc, addDoc, updateDoc, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Brain, AlertTriangle, CheckCircle2, RefreshCw, Zap, Terminal, Shield, FileJson, MessageSquareWarning } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
 import { triggerSimulator } from '../../../services/apiClient';
 import PageHeader from '../../../components/ui/PageHeader';
+import { useVoiceAI } from '../../../hooks/useVoiceAI';
 
 interface ActivityLog {
   id: string;
@@ -35,6 +36,7 @@ interface PendingApproval {
   jsonPayload?: string;
   status: string;
   timestamp: string;
+  sourceTask?: string;
 }
 
 export default function StrategicAuditPage() {
@@ -45,6 +47,8 @@ export default function StrategicAuditPage() {
   const [customPrompt, setCustomPrompt] = useState('');
   const [isInjecting, setIsInjecting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const resultRef = useRef<HTMLDivElement>(null);
+  const { speak } = useVoiceAI();
 
   useEffect(() => {
     const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(50));
@@ -67,9 +71,6 @@ export default function StrategicAuditPage() {
     }, 20000); // 20 detik setelah masuk halaman Manager
     return () => clearTimeout(timer);
   }, []);
-
-  const resultRef = useRef<HTMLDivElement>(null);
-
   // The Big Button — Evaluate & Re-Align
   const handleAudit = async () => {
     setIsEvaluating(true);
@@ -92,11 +93,20 @@ export default function StrategicAuditPage() {
 
       setEvalResult(normalized);
       await FirebaseLogger.logAgentAction('Manager', 'STRATEGIC_AUDIT', `Audit selesai. Target: ${normalized.target_agent}`);
+      
+      // Voice AI
+      if (normalized.target_agent !== 'none') {
+        speak(`Audit completed. Anomaly detected in ${normalized.target_agent.replace('Neural ', '')}. Realigning protocol.`, 'manager');
+      } else {
+        speak('Audit completed. All neural agents are operating normally.', 'manager');
+      }
+
       // Scroll result into view
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     } catch (error) {
       console.error(error);
       setEvalResult({ target_agent: 'error', new_prompt: 'Gagal menghubungi Manager AI. Periksa koneksi Groq API.' });
+      speak('Failed to contact Neural Core.', 'manager');
     } finally {
       setIsEvaluating(false);
     }
@@ -126,12 +136,60 @@ export default function StrategicAuditPage() {
     return 'bg-slate-500/20 text-slate-400';
   };
 
-  const handleApprove = async (id: string, agent: string, actionType: string) => {
+  const handleApprove = async (app: PendingApproval) => {
     try {
-      await setDoc(doc(db, 'pending_approvals', id), { status: 'Approved', managerFeedback: 'OK' }, { merge: true });
-      await FirebaseLogger.logAgentAction('Manager', 'APPROVE_AI_ACTION', `Menyetujui eksekusi ${actionType} oleh ${agent}. CI/CD Auto-Reload Triggered.`);
-      setSuccessMsg(`Tindakan ${agent} berhasil di-approve! Eksekusi berjalan.`);
+      if (app.jsonPayload) {
+        const payload = JSON.parse(app.jsonPayload);
+        if (payload.action === 'CREATE_INVOICE') {
+          // Eksekusi nyata ke ledger finance
+          await addDoc(collection(db, payload.collection), {
+            ...payload.data,
+            timestamp: new Date().toISOString(),
+          });
+        } else if (payload.action === 'RESTOCK_INVENTORY') {
+          // Cari produk berdasarkan nama untuk di-update stoknya
+          const qInv = query(collection(db, 'inventory'), where('name', '==', payload.product));
+          const snap = await getDocs(qInv);
+          if (!snap.empty) {
+            const prodDoc = snap.docs[0];
+            const oldQty = prodDoc.data().quantity || 0;
+            const price = prodDoc.data().price || 150000;
+            const restockQty = parseInt(payload.quantity) || 50;
+            const cost = price * 0.6 * restockQty; // Harga beli grosir = 60% harga jual
+
+            // 1. Tambah Stok (Restock)
+            await updateDoc(doc(db, 'inventory', prodDoc.id), {
+              quantity: oldQty + restockQty
+            });
+
+            // 2. Catat Pengeluaran (Uang keluar untuk bayar supplier)
+            await addDoc(collection(db, 'finance_transactions'), {
+              amount: cost,
+              transaction_type: 'EXPENSE',
+              category: 'Procurement',
+              description: `Restock PO: ${payload.product} (${restockQty} unit)`,
+              created_at: new Date().toISOString()
+            });
+          } else {
+            console.warn(`Produk ${payload.product} tidak ditemukan di inventory.`);
+          }
+        }
+      }
+
+      await setDoc(doc(db, 'pending_approvals', app.id), { status: 'Approved', managerFeedback: 'OK' }, { merge: true });
+      await FirebaseLogger.logAgentAction('Manager', 'APPROVE_AI_ACTION', `Menyetujui eksekusi ${app.actionType} oleh ${app.agentId}. CI/CD Auto-Reload Triggered.`);
+      setSuccessMsg(`Tindakan ${app.agentId} berhasil di-approve! Eksekusi berjalan.`);
+      speak(`${app.agentId} proposal approved. Executing deployment.`, 'manager');
       setTimeout(() => setSuccessMsg(''), 3000);
+
+      // Tutup siklus Task jika ada
+      if (app.sourceTask) {
+        await updateDoc(doc(db, 'neural_tasks', app.sourceTask), {
+          progress: 100,
+          status: 'Done',
+          agentResult: `✅ [DISETUJUI MANAGER]\nEksekusi ${app.actionType} telah selesai dilakukan dan terverifikasi oleh Strategic Audit Hub.`
+        });
+      }
     } catch(e) { console.error(e); }
   };
 
@@ -140,6 +198,7 @@ export default function StrategicAuditPage() {
     if (reason) {
       await setDoc(doc(db, 'pending_approvals', id), { status: 'Rejected', managerFeedback: reason }, { merge: true });
       await FirebaseLogger.logAgentAction('Manager', 'REJECT_SCOLD_AI', `Menolak tindakan ${agent}. Alasan: ${reason}`);
+      speak(`Proposal rejected. Feedback sent to ${agent}.`, 'manager');
     }
   };
 
@@ -178,7 +237,7 @@ export default function StrategicAuditPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handleApprove(app.id, app.agentId, app.actionType)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all">
+                    <button onClick={() => handleApprove(app)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all">
                       <CheckCircle2 size={14} /> Approve & Deploy
                     </button>
                     <button onClick={() => handleRejectScold(app.id, app.agentId)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 rounded-lg text-xs font-bold transition-all">

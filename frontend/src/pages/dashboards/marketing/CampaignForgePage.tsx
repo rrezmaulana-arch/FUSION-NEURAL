@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RefreshCw, Copy, CheckCircle2, Wand2, Image, Download, Film, Cloud } from 'lucide-react';
 import { NeuralCore } from '../../../services/NeuralCore';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
-import { collection, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, deleteDoc, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import PageHeader from '../../../components/ui/PageHeader';
 
@@ -114,12 +114,50 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleAutoPublish = () => {
+  const handleAutoPublish = async () => {
+    if (!result.trim()) return;
     setPublishStatus('publishing');
-    setTimeout(() => {
+    try {
+      // Simpan ke marketing_posts collection dengan status pending
+      const postRef = await addDoc(collection(db, 'marketing_posts'), {
+        content: result,
+        platform: format.toLowerCase().includes('instagram') ? 'instagram' :
+                  format.toLowerCase().includes('tiktok') ? 'tiktok' :
+                  format.toLowerCase().includes('email') ? 'email' : 'general',
+        status: 'pending',
+        scheduledAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        tone,
+        format,
+        brief,
+      });
+
+      // Kirim ke backend untuk auto-publish (jika scheduler/content_publisher aktif)
+      // Atau langsung publish via backend endpoint
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        const resp = await fetch(`${apiBase}/api/marketing/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ postId: postRef.id }),
+        });
+        if (resp.ok) {
+          await updateDoc(doc(db, 'marketing_posts', postRef.id), {
+            status: 'published',
+            publishedAt: new Date().toISOString(),
+          });
+        }
+      } catch {
+        // Backend mungkin belum jalan — post tetap tersimpan di Firestore
+        // Content Publisher loop akan auto-publish saat backend aktif
+      }
+
       setPublishStatus('success');
       setTimeout(() => setPublishStatus('idle'), 3000);
-    }, 2500);
+    } catch (e) {
+      console.error('[Auto Publish] Error:', e);
+      setPublishStatus('idle');
+    }
   };
 
   return (

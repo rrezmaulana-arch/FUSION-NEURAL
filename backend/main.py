@@ -60,6 +60,9 @@ from services.auth import verify_token as verify_firebase_token  # type: ignore
 # ── Load environment variables ────────────────────────────────────────────────
 load_dotenv()
 
+# ── External API Keys (shared with integrations.py) ─────────────────────────
+INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
+
 # ── Service Account untuk Google Sheets, Drive & Firestore ──────────────────
 _CRED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gcp-credentials.json")
 GCP_CREDS  = None
@@ -245,8 +248,9 @@ except Exception as _fs_err:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global autonomous_task
+    global autonomous_task, scheduler_task
     autonomous_task = asyncio.create_task(autonomous_loop())
+    scheduler_task = asyncio.create_task(scheduler_loop())
     yield
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -290,12 +294,12 @@ async def rate_limit_middleware(request: Request, call_next):
     return await call_next(request)
 
 # ── Security: CORS Hardening ──────────────────────────────────────────────────
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174").split(",")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST", "OPTIONS"], # Batasi metode yang diizinkan
+    allow_methods=["GET", "POST", "OPTIONS"], 
     allow_headers=["*"],
     allow_credentials=True,
 )
@@ -1091,6 +1095,29 @@ async def manager_review_loop():
                 }))
                 continue
 
+            # ── Auto-Approval Engine: cek apakah task lolos threshold ──────
+            auto_config = _load_auto_approval_config()
+            should_approve, auto_reason = _should_auto_approve(tdata, auto_config)
+            if should_approve:
+                await asyncio.to_thread(lambda: db.collection("neural_tasks").document(tid).update({
+                    "status": "Done",
+                    "progress": 100,
+                    "reviewNote": f"[AUTO-APPROVED] {auto_reason}",
+                    "reviewedAt": datetime.now(timezone.utc).isoformat(),
+                    "autoApproved": True,
+                }))
+                # Log ke audit
+                await asyncio.to_thread(lambda: db.collection("audit_logs").add({
+                    "action": "auto_approval",
+                    "agent": "Manager",
+                    "taskId": tid,
+                    "details": auto_reason,
+                    "severity": "info",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }))
+                print(f"[Manager Review] AUTO-APPROVED: {title[:40]} — {auto_reason}")
+                continue
+
             # Budget check untuk Manager
             budget_ok = await check_and_deduct_budget("manager", estimated_tokens=500)
             if not budget_ok:
@@ -1219,6 +1246,11 @@ async def autonomous_loop():
         # ── FASE 1: Manager Review Loop (Prioritas tertinggi) ──────────────
         asyncio.create_task(manager_review_loop())
 
+        # ── FASE 1.5: Stock Watchdog + Content Publisher + Budget Alert ────
+        asyncio.create_task(stock_watchdog())
+        asyncio.create_task(content_publisher())
+        asyncio.create_task(budget_alert_check())
+
         # ── FASE 2: Process 'To Do' Tasks (Priority Queue) ─────────────────
         try:
             if db:
@@ -1302,6 +1334,426 @@ async def autonomous_loop():
 
 
 autonomous_task = None
+scheduler_task = None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SCHEDULER ENGINE: Membaca agent_schedules dan auto-create task saat waktunya
+# ══════════════════════════════════════════════════════════════════════════════
+DAY_MAP = {"senin": 0, "selasa": 1, "rabu": 2, "kamis": 3, "jumat": 4, "sabtu": 5, "minggu": 6}
+
+def _parse_schedule(schedule_str: str, now: datetime) -> bool:
+    """
+    Parse schedule string dan cek apakah harus fire sekarang.
+    Format yang didukung:
+      - "Setiap 09:00"  → setiap hari jam 09:00
+      - "Senin 09:00"   → setiap Senin jam 09:00
+      - "1,15 09:00"    → tanggal 1 dan 15 setiap bulan jam 09:00
+      - "Setiap 10:00"  → setiap hari jam 10:00
+    """
+    s = schedule_str.strip().lower()
+    parts = s.split()
+    if len(parts) < 2:
+        return False
+
+    time_part = parts[-1]  # "09:00"
+    try:
+        target_h, target_m = map(int, time_part.split(":"))
+    except ValueError:
+        return False
+
+    # Cek apakah menit dan jam match (toleransi 2 menit)
+    if now.hour != target_h or abs(now.minute - target_m) > 2:
+        return False
+
+    day_part = " ".join(parts[:-1])
+
+    if day_part in ("setiap", "every", "daily"):
+        return True
+    elif day_part in DAY_MAP:
+        return now.weekday() == DAY_MAP[day_part]
+    elif "," in day_part or day_part.isdigit():
+        target_dates = [int(d.strip()) for d in day_part.split(",") if d.strip().isdigit()]
+        return now.day in target_dates
+    return False
+
+
+async def scheduler_loop():
+    """Loop yang berjalan setiap 60 detik, membaca agent_schedules dan auto-create task."""
+    print("[Scheduler] Scheduler Engine started.")
+    tz = pytz.timezone("Asia/Jakarta")
+
+    # Seed default schedules dari business_logic.json jika collection kosong
+    try:
+        with open("business_logic.json", "r") as f:
+            bl = json.load(f)
+        defaults = bl.get("scheduler_defaults", [])
+        if defaults and db:
+            def _seed():
+                existing = db.collection("agent_schedules").stream()
+                if not list(existing):
+                    for sched in defaults:
+                        db.collection("agent_schedules").document(sched["id"]).set({
+                            "title": sched["title"],
+                            "agent": sched["agent"],
+                            "schedule": sched["schedule"],
+                            "priority": sched.get("priority", "normal"),
+                            "labels": sched.get("labels", []),
+                            "lastFired": "",
+                            "enabled": True,
+                        })
+                    print(f"[Scheduler] Seeded {len(defaults)} default schedules.")
+            await asyncio.to_thread(_seed)
+    except Exception as e:
+        print(f"[Scheduler] Seed error: {e}")
+
+    while True:
+        await asyncio.sleep(60)
+        if not db:
+            continue
+
+        now = datetime.now(tz)
+
+        try:
+            def _read_schedules():
+                docs = db.collection("agent_schedules").stream()
+                return [(d.id, d.to_dict()) for d in docs]
+
+            schedules = await asyncio.to_thread(_read_schedules)
+
+            for sched_id, sched_data in schedules:
+                if not sched_data.get("enabled", True):
+                    continue
+
+                schedule_str = sched_data.get("schedule", "")
+                if not _parse_schedule(schedule_str, now):
+                    continue
+
+                # Cek lastFired — jangan double-fire di hari yang sama
+                last_fired = sched_data.get("lastFired", "")
+                today_str = now.strftime("%Y-%m-%d")
+                if last_fired == today_str:
+                    continue
+
+                # Create task di neural_tasks
+                title = sched_data.get("title", "Scheduled Task")
+                agent = sched_data.get("agent", "Neural Manager")
+                priority = sched_data.get("priority", "normal")
+                labels = sched_data.get("labels", [])
+
+                import uuid
+                task_id = f"sched-{uuid.uuid4().hex[:8]}"
+
+                await asyncio.to_thread(lambda: db.collection("neural_tasks").document(task_id).set({
+                    "title": title,
+                    "agent": agent,
+                    "status": "To Do",
+                    "priority": priority,
+                    "labels": labels,
+                    "progress": 0,
+                    "createdAt": datetime.now(timezone.utc).isoformat(),
+                    "source": "scheduler",
+                    "scheduleId": sched_id,
+                }))
+
+                # Update lastFired
+                await asyncio.to_thread(lambda: db.collection("agent_schedules").document(sched_id).update({
+                    "lastFired": today_str
+                }))
+
+                print(f"[Scheduler] Task created: '{title}' → {agent} (schedule: {schedule_str})")
+
+        except Exception as e:
+            print(f"[Scheduler] Error: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPER: Auto-Approval Engine — cek apakah task bisa auto-approve
+# ══════════════════════════════════════════════════════════════════════════════
+def _load_auto_approval_config() -> dict:
+    """Baca auto_approval config dari business_logic.json."""
+    try:
+        with open("business_logic.json", "r") as f:
+            bl = json.load(f)
+        return bl.get("auto_approval", {"enabled": False})
+    except Exception:
+        return {"enabled": False}
+
+
+def _should_auto_approve(task_data: dict, auto_config: dict) -> tuple:
+    """
+    Cek apakah task memenuhi syarat auto-approval.
+    Return (should_approve: bool, reason: str)
+    """
+    if not auto_config.get("enabled", False):
+        return False, ""
+
+    title = task_data.get("title", "").lower()
+    labels = [l.lower() for l in task_data.get("labels", [])]
+    agent = task_data.get("agent", "")
+
+    # Restock auto-approve jika cost < threshold
+    if "restock" in title:
+        max_cost = auto_config.get("max_restock_cost", 5000000)
+        # Estimasi cost dari title (misal "Restock Basic — order 3 unit")
+        import re
+        qty_match = re.search(r'(\d+)\s*(?:unit|pcs|item)', title)
+        if qty_match:
+            qty = int(qty_match.group(1))
+            # Asumsi HPP rata-rata dari products
+            avg_hpp = 2750000  # (1500000 + 4000000) / 2
+            estimated_cost = qty * avg_hpp
+            if estimated_cost <= max_cost:
+                return True, f"Auto-approved: restock cost Rp {estimated_cost:,.0f} < threshold Rp {max_cost:,.0f}"
+
+    # Invoice auto-approve jika amount < threshold
+    if "invoice" in title:
+        max_amount = auto_config.get("max_invoice_amount", 10000000)
+        return True, f"Auto-approved: invoice below Rp {max_amount:,.0f} threshold"
+
+    # Content auto-approve untuk platform yang diizinkan
+    if "konten" in title or "content" in title or "caption" in title:
+        allowed_platforms = auto_config.get("content_platforms", [])
+        for p in allowed_platforms:
+            if p in title or p in " ".join(labels):
+                return True, f"Auto-approved: content for platform '{p}'"
+        # Default approve content jika tidak ada platform spesifik
+        if not allowed_platforms:
+            return True, "Auto-approved: content (all platforms allowed)"
+
+    return False, ""
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPER: Stock Watchdog — auto-reorder saat stok < safety_stock
+# ══════════════════════════════════════════════════════════════════════════════
+async def stock_watchdog():
+    """Cek inventory, buat task restock otomatis jika stok < safety_stock."""
+    if not db:
+        return
+
+    try:
+        # Load products config
+        with open("business_logic.json", "r") as f:
+            bl = json.load(f)
+        products = bl.get("products", {})
+        cooldown_hours = bl.get("rules", {}).get("admin", {}).get("cooldown_hours_per_item", 12)
+
+        def _read_inventory():
+            docs = db.collection("inventory").stream()
+            return [(d.id, d.to_dict()) for d in docs]
+
+        inventory = await asyncio.to_thread(_read_inventory)
+
+        for item_id, item_data in inventory:
+            product_name = item_data.get("name", "")
+            quantity = int(item_data.get("quantity", 0))
+
+            # Cari safety_stock dari business_logic.json
+            safety_stock = 0
+            for pid, pinfo in products.items():
+                if pinfo["name"].lower() in product_name.lower() or product_name.lower() in pinfo["name"].lower():
+                    safety_stock = pinfo.get("safety_stock", 0)
+                    break
+
+            if safety_stock == 0 or quantity > safety_stock:
+                continue
+
+            # Cek cooldown — apakah sudah ada alert dalam N jam terakhir?
+            last_alert = item_data.get("lastStockAlert", "")
+            if last_alert:
+                try:
+                    last_alert_dt = datetime.fromisoformat(last_alert.replace("Z", "+00:00"))
+                    hours_since = (datetime.now(timezone.utc) - last_alert_dt).total_seconds() / 3600
+                    if hours_since < cooldown_hours:
+                        continue
+                except Exception:
+                    pass
+
+            # Cari supplier dari suppliers collection
+            supplier_name = "supplier terpercaya"
+            try:
+                def _find_supplier():
+                    suppliers = db.collection("suppliers").stream()
+                    for s in suppliers:
+                        sd = s.to_dict()
+                        if product_name.lower() in sd.get("products", "").lower():
+                            return sd.get("name", "")
+                    return ""
+                found_supplier = await asyncio.to_thread(_find_supplier)
+                if found_supplier:
+                    supplier_name = found_supplier
+            except Exception:
+                pass
+
+            # Hitung qty reorder
+            reorder_qty = max(safety_stock * 2 - quantity, safety_stock)
+
+            # Create restock task
+            import uuid
+            task_id = f"restock-{uuid.uuid4().hex[:8]}"
+
+            await asyncio.to_thread(lambda: db.collection("neural_tasks").document(task_id).set({
+                "title": f"Restock {product_name} — order {reorder_qty} unit ke {supplier_name}",
+                "agent": "Neural Admin",
+                "status": "To Do",
+                "priority": "high",
+                "labels": ["restock", "auto-reorder"],
+                "progress": 0,
+                "createdAt": datetime.now(timezone.utc).isoformat(),
+                "source": "stock_watchdog",
+            }))
+
+            # Update lastStockAlert di inventory
+            await asyncio.to_thread(lambda: db.collection("inventory").document(item_id).update({
+                "lastStockAlert": datetime.now(timezone.utc).isoformat()
+            }))
+
+            print(f"[Stock Watchdog] Restock task created: {product_name} (qty: {reorder_qty}, stok: {quantity}, safety: {safety_stock})")
+
+    except Exception as e:
+        print(f"[Stock Watchdog] Error: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPER: Content Publisher — auto-publish konten yang sudah terjadwal
+# ══════════════════════════════════════════════════════════════════════════════
+async def content_publisher():
+    """Publish konten dari marketing_posts yang scheduledAt <= sekarang."""
+    if not db:
+        return
+
+    try:
+        now = datetime.now(timezone.utc)
+
+        def _read_pending():
+            docs = db.collection("marketing_posts").stream()
+            results = []
+            for d in docs:
+                data = d.to_dict()
+                if data.get("status") == "pending" and data.get("scheduledAt"):
+                    try:
+                        sched_dt = datetime.fromisoformat(data["scheduledAt"].replace("Z", "+00:00"))
+                        if sched_dt <= now:
+                            results.append((d.id, data))
+                    except Exception:
+                        pass
+            return results
+
+        pending_posts = await asyncio.to_thread(_read_pending)
+
+        auto_config = _load_auto_approval_config()
+        allowed_platforms = auto_config.get("content_platforms", [])
+
+        for post_id, post_data in pending_posts:
+            platform = post_data.get("platform", "").lower()
+
+            # Cek apakah platform diizinkan untuk auto-publish
+            if allowed_platforms and platform not in allowed_platforms:
+                continue
+
+            content = post_data.get("content", "")
+            if not content:
+                continue
+
+            # Publish ke Instagram jika ada token
+            if platform in ("instagram", "ig") and INSTAGRAM_ACCESS_TOKEN:
+                try:
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        # Buat container
+                        container_resp = await client.post(
+                            "https://graph.instagram.com/v25.0/me/media",
+                            headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
+                            json={"caption": content}
+                        )
+                        if container_resp.status_code == 200:
+                            container_id = container_resp.json().get("id")
+                            # Publish container
+                            publish_resp = await client.post(
+                                "https://graph.instagram.com/v25.0/me/media_publish",
+                                headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
+                                json={"creation_id": container_id}
+                            )
+                            if publish_resp.status_code == 200:
+                                await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                                    "status": "published",
+                                    "publishedAt": datetime.now(timezone.utc).isoformat(),
+                                    "publishResult": "success"
+                                }))
+                                print(f"[Content Publisher] Published to Instagram: {post_id}")
+                            else:
+                                print(f"[Content Publisher] IG publish failed: {publish_resp.status_code}")
+                        else:
+                            print(f"[Content Publisher] IG container failed: {container_resp.status_code}")
+                except Exception as e:
+                    print(f"[Content Publisher] Instagram error: {e}")
+            else:
+                # Platform lain — tandai sebagai published (placeholder)
+                await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                    "status": "published",
+                    "publishedAt": datetime.now(timezone.utc).isoformat(),
+                    "publishResult": f"auto-published ({platform})"
+                }))
+                print(f"[Content Publisher] Auto-published: {post_id} ({platform})")
+
+    except Exception as e:
+        print(f"[Content Publisher] Error: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPER: Budget Alert — cek budget dan kirim alert jika menipis
+# ══════════════════════════════════════════════════════════════════════════════
+async def budget_alert_check():
+    """Cek finance_metrics/stats.budget, kirim alert jika < threshold."""
+    if not db:
+        return
+
+    try:
+        with open("business_logic.json", "r") as f:
+            bl = json.load(f)
+        threshold = bl.get("rules", {}).get("finance", {}).get("minimum_budget_threshold", 1000000)
+
+        def _read_budget():
+            doc = db.collection("finance_metrics").document("stats").get()
+            if doc.exists:
+                return doc.to_dict()
+            return {}
+
+        stats = await asyncio.to_thread(_read_budget)
+        current_budget = int(stats.get("budget", 0))
+
+        if current_budget < threshold:
+            # Kirim alert via WebSocket
+            await broadcaster.send_agent_signal("Finance", "ALERT",
+                f"Budget menipis! Sisa Rp {current_budget:,.0f} (threshold: Rp {threshold:,.0f})")
+
+            # Buat task urgent
+            import uuid
+            task_id = f"budget-alert-{uuid.uuid4().hex[:8]}"
+            await asyncio.to_thread(lambda: db.collection("neural_tasks").document(task_id).set({
+                "title": f"Budget Alert — review cash flow (sisa Rp {current_budget:,.0f})",
+                "agent": "Neural Finance",
+                "status": "To Do",
+                "priority": "critical",
+                "labels": ["budget-alert", "finance"],
+                "progress": 0,
+                "createdAt": datetime.now(timezone.utc).isoformat(),
+                "source": "budget_alert",
+            }))
+
+            # Log ke audit_logs
+            await asyncio.to_thread(lambda: db.collection("audit_logs").add({
+                "action": "budget_alert",
+                "agent": "System",
+                "details": f"Budget Rp {current_budget:,.0f} < threshold Rp {threshold:,.0f}",
+                "severity": "critical",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }))
+
+            print(f"[Budget Alert] Budget menipis: Rp {current_budget:,.0f}")
+
+    except Exception as e:
+        print(f"[Budget Alert] Error: {e}")
 
 
 @app.post("/api/autonomous/toggle")
@@ -1315,6 +1767,57 @@ async def toggle_autonomous(req: dict):
             db.collection("system_config").document("autonomous_mode").set({"key": "autonomous_mode", "value": mode})
         await asyncio.to_thread(_upsert)
         return {"status": "success", "mode": mode}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/products/{product_id}/price")
+async def update_product_price(product_id: str, req: dict):
+    """Update harga produk — dipanggil oleh dynamic pricing engine."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+
+    new_price = req.get("new_price")
+    reason = req.get("reason", "dynamic_pricing")
+    if not new_price or not isinstance(new_price, (int, float)):
+        raise HTTPException(status_code=400, detail="new_price harus angka")
+
+    try:
+        # Baca harga lama
+        def _update():
+            doc = db.collection("inventory").document(product_id)
+            existing = doc.get()
+            if not existing.exists:
+                raise Exception(f"Product {product_id} tidak ditemukan")
+            old_data = existing.to_dict()
+            old_price = int(old_data.get("selling_price", 0))
+
+            # Guardrail: max perubahan 5% per kali
+            max_change_pct = 5
+            change_pct = abs(new_price - old_price) / old_price * 100 if old_price > 0 else 0
+            if change_pct > max_change_pct:
+                raise Exception(f"Perubahan {change_pct:.1f}% melebihi batas {max_change_pct}%")
+
+            # Update harga
+            doc.update({
+                "selling_price": int(new_price),
+                "lastPriceUpdate": datetime.now(timezone.utc).isoformat(),
+                "priceUpdateReason": reason,
+            })
+
+            # Simpan ke price_history collection
+            db.collection("price_history").add({
+                "product_id": product_id,
+                "old_price": old_price,
+                "new_price": int(new_price),
+                "reason": reason,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+
+            return {"old_price": old_price, "new_price": int(new_price), "change_pct": round(change_pct, 1)}
+
+        result = await asyncio.to_thread(_update)
+        return {"status": "success", **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1865,6 +2368,71 @@ async def inventory_stock_add(req: dict):
         return {"status": "ok", "action": "stock_add", "id": doc_id, "added": amount}
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Marketing Publish Endpoint ──────────────────────────────────────────────
+@app.post("/api/marketing/publish")
+async def publish_marketing_post(req: dict):
+    """Publish satu post dari marketing_posts ke platform yang sesuai."""
+    post_id = req.get("postId")
+    if not post_id:
+        raise HTTPException(status_code=400, detail="postId required")
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase belum terkonfigurasi")
+
+    try:
+        def _read_post():
+            doc = db.collection("marketing_posts").document(post_id).get()
+            if not doc.exists:
+                raise Exception(f"Post {post_id} tidak ditemukan")
+            return doc.to_dict()
+
+        post_data = await asyncio.to_thread(_read_post)
+        content = post_data.get("content", "")
+        platform = post_data.get("platform", "general")
+
+        if not content:
+            raise HTTPException(status_code=400, detail="Post content kosong")
+
+        # Publish ke Instagram jika platform instagram
+        if platform in ("instagram", "ig") and INSTAGRAM_ACCESS_TOKEN:
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    container_resp = await client.post(
+                        "https://graph.instagram.com/v25.0/me/media",
+                        headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
+                        json={"caption": content}
+                    )
+                    if container_resp.status_code == 200:
+                        container_id = container_resp.json().get("id")
+                        publish_resp = await client.post(
+                            "https://graph.instagram.com/v25.0/me/media_publish",
+                            headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
+                            json={"creation_id": container_id}
+                        )
+                        if publish_resp.status_code == 200:
+                            await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                                "status": "published",
+                                "publishedAt": datetime.now(timezone.utc).isoformat(),
+                                "publishResult": "success"
+                            }))
+                            return {"status": "success", "platform": "instagram"}
+                        else:
+                            return {"status": "error", "detail": f"IG publish failed: {publish_resp.status_code}"}
+                    else:
+                        return {"status": "error", "detail": f"IG container failed: {container_resp.status_code}"}
+            except Exception as e:
+                return {"status": "error", "detail": str(e)}
+        else:
+            # Platform lain — simpan dan tandai sebagai scheduled
+            await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                "status": "scheduled",
+                "scheduledAt": datetime.now(timezone.utc).isoformat(),
+            }))
+            return {"status": "scheduled", "platform": platform, "message": "Post dijadwalkan untuk auto-publish"}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

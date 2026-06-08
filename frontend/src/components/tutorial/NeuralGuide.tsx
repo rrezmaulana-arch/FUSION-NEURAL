@@ -62,7 +62,7 @@ const TUTORIAL_DATA: Record<string, TutorialStep[]> = {
     // ─ Supplier Hub ─
     { targetId: 'nav-suppliers', title: '④ Supplier Hub', text: 'Kelola rantai pasok. AI Scout mencari supplier baru dengan harga terbaik menggunakan database eksternal.', isAction: true },
     // ─ Marketplace Simulator ─
-    { targetId: 'nav-marketplace-sim', title: '⑤ Marketplace Simulator', text: 'Simulasi penjualan multi-platform (TikTok Shop, Tokopedia, Shopee). AI menggenerasi pesanan fiktif untuk stress-test.', isAction: true },
+    { targetId: 'nav-marketplace-sim', title: '⑤ Marketplace Simulator', text: 'Simulasi penjualan multi-platform (TikTok Shop, Tokopedia, Shopee). AI menggenerasi pesanan simulasi dinamis untuk stress-test.', isAction: true },
     // ─ System Logs ─
     { targetId: 'nav-logs', title: '⑥ System Logs', text: 'Riwayat traffic dan event log sistem. Bisa diekspor ke Google Drive sebagai dokumen.', isAction: true },
   ],

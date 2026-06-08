@@ -39,6 +39,25 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 external_logger = None
 chat_takeover_handler = None
 
+# ── Handoff Keyword Checker ─────────────────────────────────────────────────
+def _check_handoff_keywords(message: str) -> str:
+    """
+    Cek apakah pesan mengandung keyword yang memicu handoff ke manusia.
+    Return keyword yang match, atau string kosong jika tidak ada.
+    """
+    try:
+        bl_path = os.path.join(os.path.dirname(__file__), "business_logic.json")
+        with open(bl_path, "r") as f:
+            bl = json.load(f)
+        keywords = bl.get("rules", {}).get("frontliner", {}).get("human_handoff_keywords", [])
+        msg_lower = message.lower()
+        for kw in keywords:
+            if kw.lower() in msg_lower:
+                return kw
+    except Exception:
+        pass
+    return ""
+
 async def _log_social_interaction(source: str, user_id: str, user_text: str, ai_text: str):
     if external_logger:
         try:
@@ -202,6 +221,28 @@ async def _ai_whatsapp_reply(to_number: str, user_message: str, twilio_number: s
         if is_paused:
             print(f"[Twilio] Mode PAUSED. Mengabaikan chat dari {to_number}")
             return
+
+    # ── Handoff Keyword Enforcement ───────────────────────────────────────
+    matched_kw = _check_handoff_keywords(user_message)
+    if matched_kw:
+        fallback_msg = "Baik Kak, saya hubungkan dengan tim kami ya. Mohon tunggu sebentar."
+        print(f"[Twilio] Handoff keyword '{matched_kw}' terdeteksi dari {to_number}. Mengalihkan ke manusia.")
+        # Set chat ke PAUSED agar AI berhenti merespons
+        if chat_takeover_handler:
+            await chat_takeover_handler("WhatsApp", to_number, user_message, "user")
+            await chat_takeover_handler("WhatsApp", to_number, fallback_msg, "ai")
+        # Kirim fallback message
+        if TWILIO_AUTH_TOKEN and TWILIO_AUTH_TOKEN not in ("", "[AuthToken]"):
+            sender = twilio_number if twilio_number else "whatsapp:+14155238886"
+            url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+            try:
+                async with httpx.AsyncClient() as client:
+                    await client.post(url, data={"From": sender, "To": to_number, "Body": fallback_msg},
+                                      auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN))
+            except Exception as e:
+                print(f"[Twilio] Gagal kirim fallback: {e}")
+        await _log_social_interaction("WhatsApp (Twilio)", to_number, user_message, fallback_msg)
+        return
 
     if not GROQ_API_KEY:
         print("[Twilio Bot] GROQ_API_KEY tidak ada, tidak bisa generate reply.")
@@ -377,6 +418,27 @@ async def _ai_instagram_dm_reply(sender_id: str, text: str):
             print(f"[Instagram DM] Mode PAUSED. Mengabaikan chat dari {sender_id}")
             return
 
+    # ── Handoff Keyword Enforcement ───────────────────────────────────────
+    matched_kw = _check_handoff_keywords(text)
+    if matched_kw:
+        fallback_msg = "Baik Kak, saya hubungkan dengan tim kami ya. Mohon tunggu sebentar."
+        print(f"[Instagram DM] Handoff keyword '{matched_kw}' terdeteksi dari {sender_id}.")
+        if chat_takeover_handler:
+            await chat_takeover_handler("Instagram", sender_id, text, "user")
+            await chat_takeover_handler("Instagram", sender_id, fallback_msg, "ai")
+        if INSTAGRAM_ACCESS_TOKEN:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    await client.post(
+                        "https://graph.instagram.com/v25.0/me/messages",
+                        headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
+                        json={"recipient": {"id": sender_id}, "message": {"text": fallback_msg}},
+                    )
+            except Exception as e:
+                print(f"[Instagram DM] Gagal kirim fallback: {e}")
+        await _log_social_interaction("Instagram (DM)", sender_id, text, fallback_msg)
+        return
+
     ai_reply = "Halo Kak! Ada yang bisa kami bantu terkait layanan FusionNeural? ðŸ˜Š"
 
     # Coba generate AI reply
@@ -456,6 +518,26 @@ async def _ai_telegram_reply(chat_id: int, text: str):
         if is_paused:
             print(f"[Telegram] Mode PAUSED. Mengabaikan chat dari {chat_id}")
             return
+
+    # ── Handoff Keyword Enforcement ───────────────────────────────────────
+    matched_kw = _check_handoff_keywords(text)
+    if matched_kw:
+        fallback_msg = "Baik Kak, saya hubungkan dengan tim kami ya. Mohon tunggu sebentar."
+        print(f"[Telegram] Handoff keyword '{matched_kw}' terdeteksi dari {chat_id}.")
+        if chat_takeover_handler:
+            await chat_takeover_handler("Telegram", str(chat_id), text, "user")
+            await chat_takeover_handler("Telegram", str(chat_id), fallback_msg, "ai")
+        if TELEGRAM_BOT_TOKEN:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    await client.post(
+                        f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage',
+                        json={'chat_id': chat_id, 'text': fallback_msg}
+                    )
+            except Exception as e:
+                print(f"[Telegram] Gagal kirim fallback: {e}")
+        await _log_social_interaction("Telegram", str(chat_id), text, fallback_msg)
+        return
 
     if not GROQ_API_KEY:
         print('[Telegram Bot] GROQ_API_KEY tidak ada.')

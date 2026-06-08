@@ -28,6 +28,7 @@ interface Product {
   warehouse?: string;
   photo_url?: string;
   image?: string; // fallback field dari seed data lama
+  price?: number;
 }
 
 interface ChatMessage {
@@ -211,12 +212,15 @@ RINGKASAN STOK:
 - Kritis/Habis: ${stats.kritis}
 
 ATURAN RESPONS:
-1. Jawab dalam Bahasa Indonesia yang singkat dan actionable
-2. Gunakan emoji secukupnya untuk keterbacaan
-3. JIKA DAN HANYA JIKA user secara eksplisit meminta MENAMBAH/RESTOCK produk, WAJIB sertakan text command ini: [RESTOCK|nama_produk|jumlah]. Contoh: [RESTOCK|Tas Kulit|50]. Sertakan kalimat bahwa kamu telah berkoordinasi dengan agen Finance untuk memotong anggaran restock.
-4. JIKA DAN HANYA JIKA user secara eksplisit meminta MENGURANGI stok produk, WAJIB sertakan text command ini: [KURANGI|nama_produk|jumlah]. Contoh: [KURANGI|Tas Kulit|10].
-5. PENTING: Jika user HANYA BERTANYA saran atau rekomendasi, JANGAN PERNAH mengeluarkan command [RESTOCK] atau [KURANGI] tersebut!
-6. Sistem otomatis akan mengeksekusi command tersebut ke database dan memotong saldo Finance.
+1. Jawab dalam Bahasa Indonesia yang singkat dan actionable.
+2. Gunakan emoji secukupnya untuk keterbacaan.
+3. PREDIKSI OTOMATIS: Jika ada barang yang statusnya Menipis, berikan peringatan proaktif tentang estimasi waktu habis berdasarkan tren (misal: "Barang X diprediksi habis dalam 3 hari").
+4. COMMAND [RESTOCK]: JIKA DAN HANYA JIKA user meminta MENAMBAH/RESTOCK produk, WAJIB sertakan text command ini: [RESTOCK|nama_produk|jumlah]. Contoh: [RESTOCK|Tas Kulit|50]. Sertakan kalimat bahwa Anda telah berkoordinasi dengan agen Finance.
+5. COMMAND [KURANGI]: JIKA user meminta MENGURANGI stok, sertakan: [KURANGI|nama_produk|jumlah].
+6. COMMAND [UBAH_HARGA]: JIKA user meminta MENGUBAH HARGA, sertakan: [UBAH_HARGA|nama_produk|harga_baru]. Contoh: [UBAH_HARGA|Sepatu Kets|250000].
+7. COMMAND [UBAH_MIN_STOK]: JIKA user meminta MENGUBAH BATAS MINIMUM STOK, sertakan: [UBAH_MIN_STOK|nama_produk|angka]. Contoh: [UBAH_MIN_STOK|Dompet|20].
+8. PENTING: Jika user HANYA BERTANYA, JANGAN PERNAH mengeluarkan command bracket [] di atas!
+9. Sistem otomatis mengeksekusi command ke database secara real-time.
 
 PERINTAH DARI ADMIN: ${cmd}`;
 
@@ -288,6 +292,44 @@ PERINTAH DARI ADMIN: ${cmd}`;
          }
       }
 
+      const ubahHargaMatch = response.match(/\[UBAH_HARGA\|([^|]+)\|(\d+)\]/i);
+      if (ubahHargaMatch) {
+         finalResponse = finalResponse.replace(ubahHargaMatch[0], '').trim();
+         const queryName = ubahHargaMatch[1].trim().toLowerCase();
+         const newPrice = parseInt(ubahHargaMatch[2], 10);
+         
+         const targetProduct = products.find(p => p.name?.toLowerCase().includes(queryName) || p.sku?.toLowerCase().includes(queryName));
+         if (targetProduct) {
+             try {
+                await updateDoc(doc(db, 'inventory', targetProduct.id), { price: newPrice });
+                finalResponse += `\n\n✅ [SYSTEM]: Harga ${targetProduct.name} berhasil diubah menjadi Rp ${newPrice.toLocaleString('id-ID')}.`;
+             } catch (e) {
+                finalResponse += `\n\n❌ [SYSTEM]: Gagal mengubah harga. API Error.`;
+             }
+         } else {
+             finalResponse += `\n\n❌ [SYSTEM]: Produk "${queryName}" tidak ditemukan.`;
+         }
+      }
+
+      const ubahMinStokMatch = response.match(/\[UBAH_MIN_STOK\|([^|]+)\|(\d+)\]/i);
+      if (ubahMinStokMatch) {
+         finalResponse = finalResponse.replace(ubahMinStokMatch[0], '').trim();
+         const queryName = ubahMinStokMatch[1].trim().toLowerCase();
+         const newMin = parseInt(ubahMinStokMatch[2], 10);
+         
+         const targetProduct = products.find(p => p.name?.toLowerCase().includes(queryName) || p.sku?.toLowerCase().includes(queryName));
+         if (targetProduct) {
+             try {
+                await updateDoc(doc(db, 'inventory', targetProduct.id), { min_stock: newMin });
+                finalResponse += `\n\n✅ [SYSTEM]: Batas minimum stok ${targetProduct.name} berhasil diubah menjadi ${newMin}.`;
+             } catch (e) {
+                finalResponse += `\n\n❌ [SYSTEM]: Gagal mengubah batas minimum stok.`;
+             }
+         } else {
+             finalResponse += `\n\n❌ [SYSTEM]: Produk "${queryName}" tidak ditemukan.`;
+         }
+      }
+
       setChatMessages(p => [...p, { role: 'ai', content: finalResponse || "Perintah berhasil dieksekusi.", timestamp: new Date() }]);
     } catch {
       setChatMessages(p => [...p, { role: 'ai', content: 'Gagal terhubung ke AI. Periksa koneksi API Groq.', timestamp: new Date() }]);
@@ -319,21 +361,61 @@ PERINTAH DARI ADMIN: ${cmd}`;
 
   const [pricingLogs, setPricingLogs] = useState<{ id: number, text: string, type: 'up'|'down' }[]>([]);
 
-  // Simulator Dynamic Pricing
+  // Simulator Dynamic Pricing — ACTUAL write-back ke Firestore
   useEffect(() => {
     if (products.length === 0) return;
-    const interval = setInterval(() => {
+    const priceChangeCooldown: Record<string, number> = {}; // product_id -> last change timestamp
+
+    const interval = setInterval(async () => {
       const randomProduct = products[Math.floor(Math.random() * products.length)];
       const qty = getQty(randomProduct);
       const isCritical = qty <= (randomProduct.min_stock || 5);
       const isOverstock = qty > (randomProduct.max_stock || 100) * 0.8;
-      
+
+      // Cooldown: max 1 perubahan per produk per jam
+      const now = Date.now();
+      const lastChange = priceChangeCooldown[randomProduct.id] || 0;
+      if (now - lastChange < 3600000) return; // 1 jam cooldown
+
+      const currentPrice = randomProduct.price || 0;
+      if (currentPrice <= 0) return;
+
       if (isCritical) {
-        setPricingLogs(prev => [{ id: Date.now(), text: `📈 AI menaikkan harga ${randomProduct.name} +5% karena stok kritis (Surge Pricing).`, type: 'up' as const }, ...prev].slice(0, 3));
+        const newPrice = Math.round(currentPrice * 1.05); // +5% surge
+        try {
+          await updateDoc(doc(db, 'inventory', randomProduct.id), {
+            price: newPrice,
+            lastPriceUpdate: new Date().toISOString(),
+            priceUpdateReason: 'surge_pricing',
+          });
+          priceChangeCooldown[randomProduct.id] = now;
+          setPricingLogs(prev => [{
+            id: Date.now(),
+            text: `📈 ${randomProduct.name}: Rp ${currentPrice.toLocaleString()} → Rp ${newPrice.toLocaleString()} (+5% surge pricing)`,
+            type: 'up' as const
+          }, ...prev].slice(0, 5));
+        } catch (e) {
+          console.error('[Dynamic Pricing] Gagal update harga:', e);
+        }
       } else if (isOverstock) {
-        setPricingLogs(prev => [{ id: Date.now(), text: `📉 AI memberi diskon kilat -10% untuk ${randomProduct.name} untuk mencegah overstock.`, type: 'down' as const }, ...prev].slice(0, 3));
+        const newPrice = Math.round(currentPrice * 0.90); // -10% flash discount
+        try {
+          await updateDoc(doc(db, 'inventory', randomProduct.id), {
+            price: newPrice,
+            lastPriceUpdate: new Date().toISOString(),
+            priceUpdateReason: 'flash_discount',
+          });
+          priceChangeCooldown[randomProduct.id] = now;
+          setPricingLogs(prev => [{
+            id: Date.now(),
+            text: `📉 ${randomProduct.name}: Rp ${currentPrice.toLocaleString()} → Rp ${newPrice.toLocaleString()} (-10% flash discount)`,
+            type: 'down' as const
+          }, ...prev].slice(0, 5));
+        } catch (e) {
+          console.error('[Dynamic Pricing] Gagal update harga:', e);
+        }
       }
-    }, 15000); // setiap 15 detik simulasi
+    }, 15000);
     return () => clearInterval(interval);
   }, [products]);
 

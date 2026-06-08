@@ -264,12 +264,11 @@ export default defineConfig(({ mode }) => {
             }
           });
 
-          // ── Email Campaign & Leads Proxy ─────────────────────────────────
-          // Forward /api/campaign/*, /api/campaigns, /api/leads to Python backend
-          // The Resend API key never touches the frontend — all calls go via Python.
-          const EMAIL_PATHS = ['/api/campaign', '/api/campaigns', '/api/leads', '/api/webhooks/resend'];
+          // ── Python Backend Proxies ───────────────────────────────────────
+          // Forward requests to Python backend
+          const PYTHON_PATHS = ['/api/campaign', '/api/campaigns', '/api/leads', '/api/webhooks/resend', '/api/orchestrate', '/api/autonomous'];
           server.middlewares.use((req, res, next) => {
-            const matched = EMAIL_PATHS.some(p => req.url?.startsWith(p));
+            const matched = PYTHON_PATHS.some(p => req.url?.startsWith(p));
             if (!matched) { next(); return; }
 
             const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8011';

@@ -35,5 +35,31 @@
       "tax_rate_ppn": 0.12,
       "tax_rate_pph": 0.005
     }
-  }
+  },
+  "auto_approval": {
+    "enabled": true,
+    "max_restock_cost": 5000000,
+    "max_invoice_amount": 10000000,
+    "content_platforms": ["instagram", "tiktok"],
+    "max_dynamic_price_change_pct": 5,
+    "price_change_cooldown_hours": 1
+  },
+  "scheduler_defaults": [
+    {
+      "id": "monthly-finance-report",
+      "title": "Generate Laporan Keuangan Bulanan",
+      "agent": "Neural Finance",
+      "schedule": "1 09:00",
+      "priority": "high",
+      "labels": ["auto-report", "finance"]
+    },
+    {
+      "id": "weekly-strategy-review",
+      "title": "Review Strategi Mingguan — Analisis Performa Semua Agen",
+      "agent": "Neural Manager",
+      "schedule": "Senin 09:00",
+      "priority": "normal",
+      "labels": ["auto-report", "strategy"]
+    }
+  ]
 }

@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, onSnapshot, orderBy, limit, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, limit, updateDoc, doc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutGrid, List, Clock, MessageSquare, Paperclip, CheckCircle2,
-  Plus, RefreshCw, Zap, Power, Terminal, ChevronRight, AlertTriangle,
-  TrendingUp, Activity, Shield, X
+  Plus, RefreshCw, Zap, Power, Terminal, ChevronRight, ChevronLeft, AlertTriangle,
+  TrendingUp, Activity, Shield, X, Trash2, GripVertical
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { executeTask, validateTaskDomain } from '../../../services/TaskExecutor';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface NeuralTask {
@@ -72,6 +73,9 @@ export default function NeuralTasksPage() {
   const [activeTab, setActiveTab] = useState<'board' | 'list'>('board');
   const [showFeed, setShowFeed] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ title: '', agent: 'Neural Admin', priority: 'normal' as 'critical'|'high'|'normal'|'low', labels: '' });
+  const [isSaving, setIsSaving] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
   const auth = useAuth();
   const user = auth?.currentUser;
@@ -106,6 +110,14 @@ export default function NeuralTasksPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleOrchestrate = async () => {
     if (!prompt.trim()) return;
+    
+    // Validasi domain bisnis sebelum lempar ke AI Orchestrator
+    const validationError = validateTaskDomain(prompt);
+    if (validationError) {
+      setErrorMsg(validationError.split('\n')[0]);
+      return;
+    }
+
     setIsProcessing(true); setErrorMsg('');
     try {
       const res = await fetch('/api/orchestrate', {
@@ -130,7 +142,72 @@ export default function NeuralTasksPage() {
   };
 
   const moveTask = async (id: string, status: NeuralTask['status']) => {
-    try { await updateDoc(doc(db, 'neural_tasks', id), { status }); } catch {}
+    try {
+      await updateDoc(doc(db, 'neural_tasks', id), { status });
+      // Jika task dipindahkan ke "In Progress", jalankan eksekutor nyata
+      if (status === 'In Progress') {
+        const task = tasks.find(t => t.id === id);
+        if (task) {
+          executeTask({ ...task, status: 'In Progress' });
+        }
+      }
+    } catch {}
+  };
+
+  // ── Auto-Loop Engine (Self-Driving Kanban) ───────────────────────────────────
+  useEffect(() => {
+    if (!autonomousOn) return;
+    const interval = setInterval(() => {
+      // Hanya eksekusi jika tidak ada task yang sedang 'In Progress'
+      const inProgress = tasks.filter(t => t.status === 'In Progress');
+      if (inProgress.length > 0) return;
+
+      // Ambil task tertua di 'To Do' (karena disortir desc, ambil elemen terakhir)
+      const todos = tasks.filter(t => t.status === 'To Do');
+      if (todos.length > 0) {
+        const oldestTodo = todos[todos.length - 1];
+        console.log('[Auto-Loop Engine] Menggerakkan task:', oldestTodo.title);
+        moveTask(oldestTodo.id, 'In Progress');
+      }
+    }, 15000); // 15 detik jeda
+
+    return () => clearInterval(interval);
+  }, [autonomousOn, tasks]);
+
+  const deleteTask = async (id: string) => {
+    if (!window.confirm('Hapus task ini?')) return;
+    try { await deleteDoc(doc(db, 'neural_tasks', id)); } catch {}
+  };
+
+  const handleAddTask = async () => {
+    if (!addForm.title.trim()) return;
+
+    // Validasi domain bisnis untuk task manual
+    const validationError = validateTaskDomain(addForm.title);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await addDoc(collection(db, 'neural_tasks'), {
+        title: addForm.title.trim(),
+        agent: addForm.agent,
+        priority: addForm.priority,
+        status: 'To Do',
+        labels: addForm.labels ? addForm.labels.split(',').map(l => l.trim()).filter(Boolean) : [],
+        progress: 0,
+        comments: 0,
+        attachments: 0,
+        dueDate: '3d',
+        createdAt: serverTimestamp(),
+        client: user?.email || 'Manager',
+      });
+      setAddForm({ title: '', agent: 'Neural Admin', priority: 'normal', labels: '' });
+      setShowAddModal(false);
+    } catch(e) { console.error(e); }
+    finally { setIsSaving(false); }
   };
 
   // ── Computed ─────────────────────────────────────────────────────────────────
@@ -247,7 +324,9 @@ export default function NeuralTasksPage() {
                           <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400">{colTasks.length}</span>
                         </div>
                         {col === 'To Do' && (
-                          <button className="text-slate-600 hover:text-white transition-colors"><Plus size={14} /></button>
+                          <button onClick={() => setShowAddModal(true)} className="text-slate-600 hover:text-white transition-colors">
+                            <Plus size={14} />
+                          </button>
                         )}
                       </div>
 
@@ -255,7 +334,7 @@ export default function NeuralTasksPage() {
                       <div className="flex flex-col gap-3 p-3 flex-1">
                         <AnimatePresence>
                           {colTasks.map(task => (
-                            <TaskCard key={task.id} task={task} col={col} cfg={cfg} onMove={moveTask} />
+                            <TaskCard key={task.id} task={task} col={col} cfg={cfg} onMove={moveTask} onDelete={deleteTask} />
                           ))}
                         </AnimatePresence>
                         {colTasks.length === 0 && (
@@ -390,21 +469,99 @@ export default function NeuralTasksPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* ── Add Task Modal ── */}
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAddModal(false)}
+          >
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6"
+              style={{ background: '#0d1321' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="text-white font-bold text-base">Tambah Neural Task</h3>
+                <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-white"><X size={16} /></button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Judul Task</label>
+                  <input
+                    value={addForm.title}
+                    onChange={e => setAddForm(p => ({ ...p, title: e.target.value }))}
+                    placeholder="Contoh: Restock barang kategori fashion..."
+                    className="w-full bg-slate-800/60 border border-slate-700 text-slate-100 text-sm rounded-xl px-4 py-2.5 outline-none focus:ring-2 ring-indigo-500/50"
+                    autoFocus
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Agent</label>
+                    <select value={addForm.agent} onChange={e => setAddForm(p => ({ ...p, agent: e.target.value }))}
+                      className="w-full bg-slate-800/60 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 outline-none">
+                      <option>Neural Admin</option>
+                      <option>Neural Finance</option>
+                      <option>Neural Marketing</option>
+                      <option>Neural Manager</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Priority</label>
+                    <select value={addForm.priority} onChange={e => setAddForm(p => ({ ...p, priority: e.target.value as any }))}
+                      className="w-full bg-slate-800/60 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 outline-none">
+                      <option value="critical">🔴 Critical</option>
+                      <option value="high">🟠 High</option>
+                      <option value="normal">🔵 Normal</option>
+                      <option value="low">⚪ Low</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Labels (pisah koma)</label>
+                  <input
+                    value={addForm.labels}
+                    onChange={e => setAddForm(p => ({ ...p, labels: e.target.value }))}
+                    placeholder="Contoh: finance, urgent, Q2"
+                    className="w-full bg-slate-800/60 border border-slate-700 text-slate-100 text-sm rounded-xl px-4 py-2.5 outline-none focus:ring-2 ring-indigo-500/50"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Batal</button>
+                <button onClick={handleAddTask} disabled={!addForm.title.trim() || isSaving}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-colors">
+                  {isSaving ? 'Menyimpan...' : '+ Tambah Task'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 // ── Task Card Component ────────────────────────────────────────────────────────
-function TaskCard({ task, col, cfg, onMove }: {
+const COLUMN_SEQUENCE: NeuralTask['status'][] = ['To Do', 'In Progress', 'Review', 'Done'];
+
+function TaskCard({ task, col, cfg, onMove, onDelete }: {
   task: NeuralTask;
   col: string;
   cfg: { color: string; glow: string };
   onMove: (id: string, status: NeuralTask['status']) => void;
+  onDelete: (id: string) => void;
 }) {
   const agentColor = AGENT_COLORS[task.agent] || '#64748b';
   const pCfg = PRIORITY_CONFIG[task.priority || 'normal'];
   const isActive = col === 'In Progress';
   const isReview = col === 'Review';
+
+  const colIdx = COLUMN_SEQUENCE.indexOf(col as NeuralTask['status']);
+  const prevCol = colIdx > 0 ? COLUMN_SEQUENCE[colIdx - 1] : null;
+  const nextCol = colIdx < COLUMN_SEQUENCE.length - 1 ? COLUMN_SEQUENCE[colIdx + 1] : null;
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -412,7 +569,6 @@ function TaskCard({ task, col, cfg, onMove }: {
       style={{
         background: '#0c1628',
         border: `1px solid ${isActive ? 'rgba(245,158,11,0.4)' : isReview ? 'rgba(168,85,247,0.4)' : 'rgba(30,41,59,0.8)'}`,
-        boxShadow: isActive ? 'none' : isReview ? 'none' : 'none',
       }}>
 
       {/* Active/Review top glow bar */}
@@ -421,22 +577,27 @@ function TaskCard({ task, col, cfg, onMove }: {
           style={{ background: `linear-gradient(90deg, transparent, ${isActive ? '#f59e0b' : '#a855f7'}, transparent)` }} />
       )}
 
+      {/* Delete button */}
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(task.id); }}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-700 hover:text-rose-500 z-10"
+      >
+        <Trash2 size={12} />
+      </button>
+
       {/* Header row */}
       <div className="flex items-start justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Priority badge */}
           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border uppercase"
             style={{ color: pCfg.color, background: pCfg.bg, borderColor: pCfg.border }}>
             {pCfg.label}
           </span>
-          {/* ON TASK badge */}
           {isActive && (
             <span className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase">
               <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />
               On Task
             </span>
           )}
-          {/* REVIEW badge */}
           {isReview && (
             <span className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/30 uppercase">
               <span className="w-1 h-1 rounded-full bg-purple-400 animate-pulse" />
@@ -444,7 +605,7 @@ function TaskCard({ task, col, cfg, onMove }: {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-slate-500 text-[10px] flex-shrink-0">
+        <div className="flex items-center gap-1 text-slate-500 text-[10px] flex-shrink-0 pr-5">
           <Clock size={10} />
           {task.dueDate || '1d'}
         </div>
@@ -473,6 +634,21 @@ function TaskCard({ task, col, cfg, onMove }: {
         </div>
       )}
 
+      {/* AI Execution Result */}
+      {task.agentResult && (
+        <div className="mb-2.5 p-2 rounded-lg text-[10px] leading-relaxed border"
+          style={{
+            background: task.agentResult.startsWith('✅') ? 'rgba(16,185,129,0.06)' : task.agentResult.startsWith('⚙️') ? 'rgba(59,130,246,0.06)' : 'rgba(249,115,22,0.06)',
+            color: task.agentResult.startsWith('✅') ? '#6ee7b7' : task.agentResult.startsWith('⚙️') ? '#93c5fd' : '#fdba74',
+            borderColor: task.agentResult.startsWith('✅') ? 'rgba(16,185,129,0.15)' : task.agentResult.startsWith('⚙️') ? 'rgba(59,130,246,0.15)' : 'rgba(249,115,22,0.15)',
+          }}>
+          <div className="font-bold mb-1">
+            {task.agentResult.startsWith('⚙️') ? '⚙️ Sedang diproses...' : '🤖 Hasil AI:'}
+          </div>
+          <p className="whitespace-pre-line line-clamp-5">{task.agentResult}</p>
+        </div>
+      )}
+
       {/* Progress bar */}
       {task.progress !== undefined && (
         <div className="mb-3">
@@ -494,7 +670,6 @@ function TaskCard({ task, col, cfg, onMove }: {
           <span className="flex items-center gap-1 hover:text-indigo-400 transition-colors"><MessageSquare size={10} /> {task.comments || 0}</span>
           <span className="flex items-center gap-1 hover:text-indigo-400 transition-colors"><Paperclip size={10} /> {task.attachments || 0}</span>
         </div>
-        {/* Agent avatar */}
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold"
           style={{ background: `${agentColor}25`, border: `1.5px solid ${agentColor}50`, color: agentColor }}
           title={task.agent}>
@@ -502,18 +677,18 @@ function TaskCard({ task, col, cfg, onMove }: {
         </div>
       </div>
 
-      {/* Hover quick actions */}
-      <div className="absolute bottom-2 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-        {col !== 'To Do' && (
-          <button onClick={e => { e.stopPropagation(); onMove(task.id, 'To Do'); }}
+      {/* Hover quick move actions */}
+      <div className="absolute bottom-2 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+        {prevCol && (
+          <button onClick={e => { e.stopPropagation(); onMove(task.id, prevCol); }}
             className="text-[10px] text-slate-600 hover:text-slate-300 flex items-center gap-0.5 transition-colors">
-            ← Back
+            <ChevronLeft size={10} /> {prevCol}
           </button>
         )}
-        {col !== 'Done' && (
-          <button onClick={e => { e.stopPropagation(); onMove(task.id, 'Done'); }}
+        {nextCol && (
+          <button onClick={e => { e.stopPropagation(); onMove(task.id, nextCol); }}
             className="text-[10px] text-slate-600 hover:text-green-400 flex items-center gap-0.5 transition-colors ml-auto">
-            Done <ChevronRight size={10} />
+            {nextCol} <ChevronRight size={10} />
           </button>
         )}
       </div>

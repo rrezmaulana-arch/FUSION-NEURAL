@@ -46,6 +46,7 @@ import ShippingReturnsPage from './dashboards/admin/ShippingReturnsPage';
 import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
 import BankReconPage from './dashboards/finance/BankReconPage';
 import AccountsPayablePage from './dashboards/finance/AccountsPayablePage';
+import GlobalNeuralNotifier from '../components/ui/GlobalNeuralNotifier';
 
 
 // --- TYPESCRIPT INTERFACES ---
@@ -210,6 +211,7 @@ export default function DashboardPage() {
     <div className={`min-h-screen font-sans flex flex-col md:flex-row overflow-hidden relative ${safeRole === 'manager' ? 'bg-[#060b18] text-slate-200' : 'bg-[#F8F9FA] text-slate-800'}`}>
       {safeRole === 'manager' && <MicrochipCursor />}
       
+      <GlobalNeuralNotifier />
       {/* Interactive Game Guide */}
       <NeuralGuide />
 

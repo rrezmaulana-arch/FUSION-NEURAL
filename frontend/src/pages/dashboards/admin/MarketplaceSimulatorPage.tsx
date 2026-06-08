@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Snail, ChevronRight, ChevronsRight, Package, TrendingUp, Zap, Clock, ShoppingCart } from 'lucide-react';
 import { db } from '../../../lib/firebase';
-import { collection, addDoc, updateDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, getDocs, query, onSnapshot } from 'firebase/firestore';
 import PageHeader from '../../../components/ui/PageHeader';
 
 interface InventoryProduct {
@@ -39,6 +39,22 @@ export default function MarketplaceSimulatorPage() {
   const [orders, setOrders] = useState<SimulatedOrder[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [products, setProducts] = useState<InventoryProduct[]>([]);
+  const [autonomousOn, setAutonomousOn] = useState(false);
+  
+  // Listen to Autonomous Mode
+  useEffect(() => {
+    const q = query(collection(db, 'system_config'));
+    return onSnapshot(q, snap => {
+      snap.docs.forEach(d => {
+        if (d.id === 'autonomous_mode') {
+           const isOn = d.data().value === 'ON';
+           setAutonomousOn(isOn);
+           // Auto-Start or Stop Simulator based on Autonomous Mode
+           setIsRunning(isOn);
+        }
+      });
+    });
+  }, []);
   
   // Stats
   const [platformStats, setPlatformStats] = useState(PLATFORMS.map(p => ({ ...p, count: 0, revenue: 0 })));
@@ -155,30 +171,36 @@ export default function MarketplaceSimulatorPage() {
             campaign: `Auto Campaign ${platform.name}`,
             timestamp: new Date().toISOString()
           });
+
+          // Trigger Neural Marketing to optimize ads if we just spent money
+          if (Math.random() > 0.7) {
+            await addDoc(collection(db, 'neural_tasks'), {
+              title: `OPTIMIZE ADS: Traffic masuk dari ${platform.name}. Buat copy A/B Testing baru.`,
+              agent: 'Neural Marketing',
+              client: 'E-commerce Simulator',
+              status: 'To Do',
+              progress: 0,
+              dueDate: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+              createdAt: new Date().toISOString(),
+              priority: 'normal',
+              labels: ['Ads', 'Optimization']
+            });
+          }
         }
 
-        // E. Auto-Procurement & AP if stock gets low
+        // E. Auto-Procurement -> Send Task to Neural Admin instead of hardcoding
         const newStock = product.quantity - actualQty;
         if (newStock <= 5) {
-          const poId = 'PO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-          const poAmount = Math.floor(Math.random() * 10000000) + 5000000;
-          await addDoc(collection(db, 'procurement'), {
-            po_id: poId,
-            supplier: 'Supplier ' + product.name,
-            items: `100 unit (${product.name})`,
-            total: poAmount,
-            status: 'DRAFT',
-            date: new Date().toLocaleDateString('id-ID'),
-            timestamp: new Date().getTime()
-          });
-          
-          await addDoc(collection(db, 'accounts_payable'), {
-            invoice_id: 'INV-' + poId,
-            entity: 'Supplier ' + product.name,
-            due: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('id-ID'), // 7 days
-            amount: poAmount,
-            status: 'UNPAID',
-            timestamp: new Date().getTime()
+          await addDoc(collection(db, 'neural_tasks'), {
+            title: `RESTOCK URGENT: ${product.name} (Sisa ${newStock} unit). Segera hubungi supplier dan buat PO.`,
+            agent: 'Neural Admin',
+            client: 'E-commerce Simulator',
+            status: 'To Do',
+            progress: 0,
+            dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date().toISOString(),
+            priority: 'high',
+            labels: ['Procurement', 'Restock']
           });
         }
 
@@ -235,6 +257,32 @@ export default function MarketplaceSimulatorPage() {
               <div className={`text-lg font-black ${p.text}`}>{p.count}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className={`p-6 rounded-2xl border flex items-center justify-between ${autonomousOn ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-[#0f172a] border-white/5'}`}>
+          <div>
+            <h3 className="font-bold text-slate-200 flex items-center gap-2">
+              <Zap size={16} className={isRunning ? "text-amber-400 animate-pulse" : "text-slate-500"} /> 
+              {autonomousOn ? 'Autonomous Traffic Engine' : 'Traffic Engine'}
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              {autonomousOn ? 'Digerakkan otomatis oleh Autonomous Mode' : 'Inject pesanan fiktif secara live ke database'}
+            </p>
+          </div>
+          <button 
+            onClick={() => !autonomousOn && setIsRunning(!isRunning)}
+            disabled={autonomousOn}
+            className={`px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all ${
+              isRunning 
+                ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20' 
+                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 shadow-lg shadow-emerald-500/20'
+            } ${autonomousOn ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isRunning ? <><Square size={16} /> Stop</> : <><Play size={16} fill="currentColor" /> Start</>}
+          </button>
         </div>
       </div>
 
