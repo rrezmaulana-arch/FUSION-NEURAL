@@ -79,7 +79,7 @@ export default function DevicesSection() {
             >
               {isEnglish
                 ? 'Monitor your AI agents, review cash flow, and execute executive commands seamlessly from your MacBook, iPad, or iPhone. The entire ecosystem syncs in real-time.'
-                : 'Monitor agen AI Kak, tinjau arus kas, dan jalankan perintah eksekutif dengan mulus dari MacBook, iPad, atau iPhone. Seluruh ekosistem tersinkronisasi secara real-time.'}
+                : 'Monitor agen AI Anda, tinjau arus kas, dan jalankan perintah eksekutif dengan mulus dari MacBook, iPad, atau iPhone. Seluruh ekosistem tersinkronisasi secara real-time.'}
             </p>
 
             <div

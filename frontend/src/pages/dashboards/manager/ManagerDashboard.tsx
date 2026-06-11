@@ -39,6 +39,12 @@ export default function ManagerDashboard() {
   const [evalResult, setEvalResult] = useState<any>(null);
   const [customInstruction, setCustomInstruction] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(30));
@@ -80,14 +86,22 @@ export default function ManagerDashboard() {
 
   return (
     <div className="space-y-6 pb-10">
-      
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       {/* ─── Floating Action Buttons ─── */}
       <div className="fixed bottom-28 right-6 z-40 flex flex-col gap-3 items-end">
         <button
           onClick={async () => {
             if (confirm("Apakah Kakak yakin ingin mereset history simulator? Data tidak dapat dikembalikan.")) {
               await resetSimulator();
-              alert("History simulator berhasil direset!");
+              showFeedback('success', 'History simulator berhasil direset!');
             }
           }}
           className="flex items-center gap-2 px-5 py-3 bg-rose-600 text-white text-sm font-bold rounded-2xl shadow-xl hover:bg-rose-700 transition-all"
@@ -186,7 +200,7 @@ export default function ManagerDashboard() {
                           <textarea
                             value={customInstruction}
                             onChange={e => setCustomInstruction(e.target.value)}
-                            placeholder="Biarkan kosong untuk pakai rekomendasi AI, atau ketik instruksi Kak..."
+                            placeholder="Biarkan kosong untuk pakai rekomendasi AI, atau ketik instruksi Anda..."
                             rows={4}
                             className="w-full text-xs text-slate-300 bg-[#1e293b] border border-white/10 rounded-xl p-3 outline-none focus:border-indigo-500/50 resize-none transition-colors"
                           />

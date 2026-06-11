@@ -88,7 +88,7 @@ export default function CrossIndustrySection() {
           >
             {isEnglish
               ? "Whether you're in e-commerce, agriculture, logistics, or services, FUSION NEURAL's autonomous workflow adapts to your industry — eliminating inefficiencies and unlocking scalable growth."
-              : 'Apakah bisnis Kak bergerak di e-commerce, pertanian, logistik, atau jasa — alur kerja otonom FusionNeural beradaptasi dengan industri Kak dan membuka pertumbuhan yang tak terbatas.'}
+              : 'Apakah bisnis Anda bergerak di e-commerce, pertanian, logistik, atau jasa — alur kerja otonom FusionNeural beradaptasi dengan industri Anda dan membuka pertumbuhan yang tak terbatas.'}
           </p>
         </div>
 

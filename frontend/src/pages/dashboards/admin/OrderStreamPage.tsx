@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, type ReactElement } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { ShoppingCart, Package, Truck, CheckCircle2, Clock, AlertTriangle, ChevronRight, Brain, Printer } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
@@ -30,7 +30,7 @@ const ChartTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+type OrderStatus = 'pending' | 'PAID' | 'PREPARING' | 'needs_approval' | 'shipped' | 'delivered' | 'cancelled' | 'RETURN_REQUESTED';
 
 interface Order {
   id: string;
@@ -42,22 +42,30 @@ interface Order {
   tracking?: string;
   riskScore?: number;
   aiNotes?: string;
+  priority?: string;
+  courier?: string;
+  city?: string;
+  note?: string;
+  returnReason?: string;
 }
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: ReactElement }> = {
-  pending: { label: 'Pending', color: 'bg-amber-100 text-amber-700', icon: <Clock size={11} /> },
-  processing: { label: 'Diproses', color: 'bg-blue-100 text-blue-700', icon: <Brain size={11} /> },
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: ReactElement }> = {
+  pending: { label: 'Menunggu Bayar', color: 'bg-amber-100 text-amber-700', icon: <Clock size={11} /> },
+  PAID: { label: 'Dibayar', color: 'bg-blue-100 text-blue-700', icon: <Package size={11} /> },
+  PREPARING: { label: 'Disiapkan', color: 'bg-indigo-100 text-indigo-700', icon: <Package size={11} /> },
+  needs_approval: { label: 'Perlu Approval', color: 'bg-orange-100 text-orange-700', icon: <AlertTriangle size={11} /> },
   shipped: { label: 'Dikirim', color: 'bg-purple-100 text-purple-700', icon: <Truck size={11} /> },
-  delivered: { label: 'Terima', color: 'bg-emerald-100 text-emerald-700', icon: <CheckCircle2 size={11} /> },
+  delivered: { label: 'Selesai', color: 'bg-emerald-100 text-emerald-700', icon: <CheckCircle2 size={11} /> },
   cancelled: { label: 'Batal', color: 'bg-rose-100 text-rose-700', icon: <AlertTriangle size={11} /> },
+  RETURN_REQUESTED: { label: 'Return', color: 'bg-rose-100 text-rose-700', icon: <AlertTriangle size={11} /> },
 };
 
-const PIPELINE: OrderStatus[] = ['pending', 'processing', 'shipped', 'delivered'];
+const PIPELINE: string[] = ['pending', 'PAID', 'PREPARING', 'needs_approval', 'shipped', 'delivered'];
 
 export default function OrderStreamPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [validating, setValidating] = useState<string | null>(null);
-  const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
+  const [filter, setFilter] = useState<string>('all');
   const [autonomousOn, setAutonomousOn] = useState(false);
 
   // ── Listen to Autonomous Mode ──
@@ -79,11 +87,43 @@ export default function OrderStreamPage() {
   }, []);
 
   const handleAdvance = async (order: Order) => {
-    const idx = PIPELINE.indexOf(order.status as OrderStatus);
+    const idx = PIPELINE.indexOf(order.status as string);
     if (idx < 0 || idx >= PIPELINE.length - 1) return;
     const nextStatus = PIPELINE[idx + 1];
     await updateDoc(doc(db, 'orders', order.id), { status: nextStatus });
     await FirebaseLogger.logAgentAction('Admin', 'ORDER_ADVANCED', `Order #${order.id.slice(0, 8)} → ${nextStatus}`);
+  };
+
+  const [packingId, setPackingId] = useState<string | null>(null);
+
+  const handleConfirmPacking = async (order: Order) => {
+    setPackingId(order.id);
+    try {
+      // 1. Update order status to PREPARING
+      await updateDoc(doc(db, 'orders', order.id), {
+        status: 'PREPARING',
+        preparingAt: new Date().toISOString(),
+        preparedBy: 'Admin'
+      });
+
+      // 2. Create approval request for manager
+      await addDoc(collection(db, 'pending_approvals'), {
+        actionType: 'Approve Shipment',
+        description: `${(order.priority || 'standard').toUpperCase()} order dari ${order.customer || '-'} (${order.platform || '-'}): ${order.items?.map(i => i.name).join(', ') || '-'} → ${order.city || '-'}`,
+        role: 'manager',
+        status: 'Pending',
+        orderId: order.id,
+        priority: order.priority || 'standard',
+        estimatedCost: order.total || 0,
+        timestamp: new Date().toISOString()
+      });
+
+      await FirebaseLogger.logAgentAction('Admin', 'PACKING_CONFIRMED', `Order #${order.id.slice(0, 8)} — barang dikemas, menunggu approval manager`);
+    } catch (e) {
+      console.error('Gagal konfirmasi packing:', e);
+    } finally {
+      setPackingId(null);
+    }
   };
 
   const handleAutoValidate = async (order: Order) => {
@@ -141,7 +181,6 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
       if (pendingOrders.length > 0) {
         // Ambil order paling lama yang pending (biasanya di akhir list karena sort desc)
         const oldestPending = pendingOrders[pendingOrders.length - 1];
-        console.log('[Auto-Loop Engine] Memvalidasi otomatis pesanan:', oldestPending.id);
         handleAutoValidate(oldestPending);
       }
     }, 12000); // Cek tiap 12 detik
@@ -180,7 +219,7 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
             <p className="text-slate-400 text-xs mt-1">Real-time dari {orders.length} pesanan tersimpan di database</p>
           </div>
         </div>
-        <div className="h-52 w-full relative z-10">
+        <div className="h-56 w-full relative z-10">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={Object.values(
@@ -195,29 +234,23 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
               margin={{ top: 5, right: 10, bottom: 5, left: 0 }}
               barGap={8}
             >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569' }} />
+              <defs>
+                <linearGradient id="ordersGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.85} />
+                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                </linearGradient>
+                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.7} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.15} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} />
               <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569' }} />
-              <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569' }} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar yAxisId="left" dataKey="orders" radius={[8, 8, 0, 0]} name="Total Pesanan" maxBarSize={48}>
-                {orders.reduce((acc: any, o) => {
-                  const plat = o.platform || 'Direct';
-                  if (!acc.find((x: any) => x === plat)) acc.push(plat);
-                  return acc;
-                }, []).map((_: any, i: number) => (
-                  <Cell key={i} fill={['#8b5cf6', '#ec4899', '#3b82f6', '#10b981'][i % 4]} fillOpacity={0.8} />
-                ))}
-              </Bar>
-              <Bar yAxisId="right" dataKey="revenue" radius={[8, 8, 0, 0]} name="Revenue (Rp)" maxBarSize={48}>
-                {orders.reduce((acc: any, o) => {
-                  const plat = o.platform || 'Direct';
-                  if (!acc.find((x: any) => x === plat)) acc.push(plat);
-                  return acc;
-                }, []).map((_: any, i: number) => (
-                  <Cell key={i} fill={['#10b981', '#14b8a6', '#06b6d4', '#a855f7'][i % 4]} fillOpacity={0.5} />
-                ))}
-              </Bar>
+              <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569' }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)', radius: 8 }} />
+              <Bar yAxisId="left" dataKey="orders" fill="url(#ordersGrad)" radius={[12, 12, 4, 4]} name="Total Pesanan" maxBarSize={60} />
+              <Bar yAxisId="right" dataKey="revenue" fill="url(#revenueGrad)" radius={[12, 12, 4, 4]} name="Revenue (Rp)" maxBarSize={60} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -271,9 +304,17 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
                       <span className={`inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full ${cfg.color}`}>
                         {cfg.icon}{cfg.label}
                       </span>
+                      {order.priority === 'express' && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700">⚡ EXPRESS</span>
+                      )}
+                      {order.priority === 'bulk' && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">BULK</span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-500">{order.customer || 'Pelanggan tidak diketahui'}</p>
-                    {order.tracking && <p className="text-[10px] text-purple-600 font-bold mt-0.5">Resi: {order.tracking}</p>}
+                    <p className="text-xs text-slate-500">{order.customer || 'Pelanggan tidak diketahui'} {order.city ? `• ${order.city}` : ''} {order.platform ? `• ${order.platform}` : ''}</p>
+                    {order.courier && <p className="text-[10px] text-blue-600 font-bold mt-0.5">{order.courier} {order.tracking ? `• ${order.tracking}` : ''}</p>}
+                    {order.note && <p className="text-[10px] text-amber-600 font-bold mt-0.5">{order.note}</p>}
+                    {order.returnReason && <p className="text-[10px] text-rose-600 font-bold mt-0.5">Alasan return: {order.returnReason}</p>}
                     
                     {order.aiNotes && (
                       <div className={`mt-2 p-2 rounded-lg text-[10px] border ${
@@ -307,7 +348,20 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
                         {validating === order.id ? 'Validasi...' : 'AI Validate'}
                       </button>
                     )}
-                    {canAdvance && status !== 'pending' && (
+                    {status === 'PAID' && (
+                      <button onClick={() => handleConfirmPacking(order)} disabled={packingId === order.id}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-black rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-colors"
+                      >
+                        <Package size={11} className={packingId === order.id ? 'animate-spin' : ''} />
+                        {packingId === order.id ? 'Memproses...' : 'Barang Sudah Dikemas'}
+                      </button>
+                    )}
+                    {status === 'PREPARING' && (
+                      <span className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 text-[10px] font-black rounded-xl">
+                        <Clock size={11} /> Menunggu Approval Manager
+                      </span>
+                    )}
+                    {canAdvance && status !== 'pending' && status !== 'PAID' && status !== 'PREPARING' && (
                       <button onClick={() => handleAdvance(order)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-xl"
                       >
@@ -315,7 +369,50 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
                       </button>
                     )}
                     {status !== 'pending' && status !== 'cancelled' && (
-                      <button onClick={() => alert(`Sedang memproses dan mencetak Resi Ekspedisi untuk Order #${order.id}...`)}
+                      <button onClick={() => {
+                        const w = window.open('', '_blank', 'width=420,height=650');
+                        if (w) {
+                          const items = order.items?.map(i => `${i.name} x${i.qty}`).join(', ') || '-';
+                          const priorityLabel = order.priority === 'express' ? '⚡ EXPRESS' : order.priority === 'bulk' ? 'BULK' : 'STANDARD';
+                          w.document.write(`<!DOCTYPE html><html><head><title>Resi ${order.id}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;padding:28px;font-size:13px;color:#1e293b;background:#f8fafc}
+.card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:380px;margin:0 auto}
+.header{text-align:center;padding-bottom:16px;border-bottom:2px dashed #e2e8f0;margin-bottom:16px}
+.header h1{font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-0.02em}
+.header p{font-size:11px;color:#64748b;margin-top:4px;letter-spacing:1px;text-transform:uppercase}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.row:last-child{border:none}
+.label{color:#64748b;font-size:12px}.val{font-weight:700;font-size:13px;color:#0f172a}
+.badge{display:inline-block;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:800;letter-spacing:0.5px}
+.badge-express{background:#fef2f2;color:#dc2626}.badge-standard{background:#eff6ff;color:#2563eb}.badge-bulk{background:#f5f3ff;color:#7c3aed}
+.tracking-box{background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:12px;padding:16px;text-align:center;margin:16px 0}
+.tracking-box .no{font-size:20px;font-weight:900;color:#fff;letter-spacing:2px;font-family:monospace}
+.tracking-box .courier{font-size:11px;color:#94a3b8;margin-top:4px}
+.footer{text-align:center;margin-top:16px;font-size:10px;color:#94a3b8}
+</style></head><body>
+<div class="card">
+<div class="header">
+<h1>📦 RESI PENGIRIMAN</h1>
+<p>Fusion Neural Logistics</p>
+</div>
+<div class="row"><span class="label">Order ID</span><span class="val">#${order.id.slice(0,10)}</span></div>
+<div class="row"><span class="label">Pelanggan</span><span class="val">${order.customer || '-'}</span></div>
+<div class="row"><span class="label">Tujuan</span><span class="val">${order.city || '-'}</span></div>
+<div class="row"><span class="label">Produk</span><span class="val">${items}</span></div>
+<div class="row"><span class="label">Total</span><span class="val">Rp ${(order.total||0).toLocaleString('id-ID')}</span></div>
+<div class="row"><span class="label">Prioritas</span><span class="badge badge-${order.priority||'standard'}">${priorityLabel}</span></div>
+<div class="row"><span class="label">Status</span><span class="val">${(order.status||'').toUpperCase()}</span></div>
+<div class="tracking-box">
+<div class="no">${order.tracking || '—'}</div>
+<div class="courier">${order.courier || 'J&T Express'}</div>
+</div>
+<div class="row"><span class="label">Platform</span><span class="val">${order.platform || '-'}</span></div>
+<div class="row"><span class="label">Tanggal Cetak</span><span class="val">${new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span></div>
+<div class="footer">Dicetak oleh Fusion Neural AI • ${new Date().toLocaleTimeString('id-ID')}</div>
+</div>
+<script>window.print()</script></body></html>`);
+                        }
+                      }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[10px] font-black rounded-xl transition-colors mt-1"
                       >
                         <Printer size={11} /> Cetak Resi

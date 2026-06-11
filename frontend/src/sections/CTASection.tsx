@@ -129,17 +129,18 @@ export default function CTASection() {
             <span className="relative z-10">
               {currentUser
                 ? (isEnglish ? 'Enter Neural Dashboard' : 'Masuk ke Dashboard')
-                : (isEnglish ? 'Begin Your Evolution' : 'Mulai Evolusi Bisnis Kak')}
+                : (isEnglish ? 'Begin Your Evolution' : 'Mulai Evolusi Bisnis Anda')}
             </span>
             <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors" />
           </Link>
 
-          <button
+          <Link
+            to="/pemesanan"
             data-cursor
-            className="px-10 py-4 rounded-full font-space font-semibold text-fn-navy text-base glass border border-fn-navy/15 hover:border-fn-emerald/40 hover:text-fn-emerald transition-all"
+            className="px-10 py-4 rounded-full font-space font-semibold text-fn-navy text-base glass border border-fn-navy/15 hover:border-fn-emerald/40 hover:text-fn-emerald transition-all inline-block"
           >
-            {isEnglish ? 'View Full Documentation' : 'Lihat Dokumentasi Lengkap'}
-          </button>
+            {isEnglish ? 'View Pricing Plans' : 'Lihat Paket Harga'}
+          </Link>
         </div>
 
         {/* Disclaimer */}

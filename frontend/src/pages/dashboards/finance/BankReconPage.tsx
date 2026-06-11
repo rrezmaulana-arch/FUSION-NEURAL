@@ -5,8 +5,14 @@ import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, serverTim
 
 export default function BankReconPage() {
   const [unverifiedTransfers, setUnverifiedTransfers] = useState<any[]>([]);
-  const [pettyCashBalance, setPettyCashBalance] = useState(1500000); // Default, updated from Firestore
+  const [pettyCashBalance, setPettyCashBalance] = useState(1500000);
   const [currentBudget, setCurrentBudget] = useState(500000000);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   useEffect(() => {
     // Listen for manual transfers pending verification
@@ -43,13 +49,13 @@ export default function BankReconPage() {
       });
       if (orderId) {
         await updateDoc(doc(db, 'orders', orderId), {
-          status: 'PAID' // This will trigger it to show up in Admin Shipping
+          status: 'PAID'
         });
       }
-      alert("Pembayaran berhasil diverifikasi!");
+      showFeedback('success', 'Pembayaran berhasil diverifikasi!');
     } catch (e) {
       console.error(e);
-      alert("Gagal verifikasi pembayaran");
+      showFeedback('error', 'Gagal verifikasi pembayaran');
     }
   };
 
@@ -57,9 +63,9 @@ export default function BankReconPage() {
     const amountStr = prompt("Masukkan jumlah pengeluaran Kas Kecil (Rp):");
     const desc = prompt("Untuk keperluan apa?");
     if (!amountStr || !desc) return;
-    
+
     const amount = parseInt(amountStr);
-    if (isNaN(amount) || amount <= 0) return alert("Jumlah tidak valid");
+    if (isNaN(amount) || amount <= 0) return showFeedback('error', 'Jumlah tidak valid');
 
     try {
       await addDoc(collection(db, 'finance_transactions'), {
@@ -70,20 +76,28 @@ export default function BankReconPage() {
         timestamp: serverTimestamp()
       });
 
-      // Update petty cash in finance_metrics
       await updateDoc(doc(db, 'finance_metrics', 'stats'), {
         petty_cash: pettyCashBalance - amount,
-        budget: currentBudget - amount // subtract from total budget too
+        budget: currentBudget - amount
       });
 
-      alert("Kas Kecil berhasil dicatat.");
+      showFeedback('success', 'Kas Kecil berhasil dicatat.');
     } catch(e) {
-      alert("Gagal mencatat Kas Kecil.");
+      showFeedback('error', 'Gagal mencatat Kas Kecil.');
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
           <Wallet className="w-6 h-6 text-white" />

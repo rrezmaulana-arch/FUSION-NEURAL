@@ -1234,6 +1234,7 @@ async def autonomous_loop():
                                     "failReason": fr
                                 }), dlq_doc.id, fail_reason)
                                 print(f"[DLQ] Task {dlq_doc.id[:8]} FAILED after 3 retries.")
+                                await log_to_signals("Manager", f"❌ Task {dlq_doc.id[:8]} gagal setelah 3 retry", "ALERT")
                             else:
                                 # Reset ke To Do untuk dicoba ulang
                                 await asyncio.to_thread(lambda di, rc: db.collection("neural_tasks").document(di).update({
@@ -1244,6 +1245,7 @@ async def autonomous_loop():
                                     "dlqRescuedAt": datetime.now(timezone.utc).isoformat()
                                 }), dlq_doc.id, retry_count)
                                 print(f"[DLQ] Zombie task {dlq_doc.id[:8]} rescued → To Do (retry #{retry_count})")
+                                await log_to_signals("Manager", f"🔄 Zombie task {dlq_doc.id[:8]} di-rescue → To Do (retry #{retry_count})", "WORKING")
                     except Exception as _dlq_e:
                         print(f"[DLQ] Parse error for {dlq_doc.id}: {_dlq_e}")
         except Exception as dlq_err:
@@ -1280,13 +1282,16 @@ async def autonomous_loop():
                     for active_ticket in todo_tickets:
                         ticket_id = active_ticket.id
                         t_data = active_ticket.to_dict()
+                        task_title = t_data.get("title", "Unknown Task")
+                        task_agent = t_data.get("agent", "System")
                         # Lock immediately (Atomic Checkout)
                         await asyncio.to_thread(lambda ti: db.collection("neural_tasks").document(ti).update({
                             "status": "In Progress",
                             "progress": 10,
                             "lockedAt": datetime.now(timezone.utc).isoformat()
                         }), ticket_id)
-                        
+                        await log_to_signals(task_agent, f"🤖 Mengambil task: {task_title[:80]}", "WORKING")
+
                         # [ENTERPRISE FEATURE] Lempar ke Celery/Redis Worker jika memungkinkan
                         try:
                             from worker import process_ticket  # type: ignore
@@ -1319,6 +1324,7 @@ async def autonomous_loop():
 
                             if "Stabil" not in audit_result and "aman" not in audit_result.lower():
                                 await broadcaster.send_agent_signal("Manager", "ALERT", f"{audit_result[:150]}")
+                                await log_to_signals("Manager", f"🔍 Audit otonom: {audit_result[:100]}", "ALERT")
                                 await asyncio.to_thread(lambda: db.collection("run_transcripts").add({
                                     "agentId": "Neural Manager",
                                     "agentKey": "manager",
@@ -1616,6 +1622,7 @@ async def stock_watchdog():
             }))
 
             print(f"[Stock Watchdog] Restock task created: {product_name} (qty: {reorder_qty}, stok: {quantity}, safety: {safety_stock})")
+            await log_to_signals("Admin", f"📦 Stok {product_name} kritis ({quantity} unit). Task restock {reorder_qty} unit otomatis dibuat.", "WORKING")
 
     except Exception as e:
         print(f"[Stock Watchdog] Error: {e}")
@@ -1707,6 +1714,7 @@ async def content_publisher():
                                     "publishResult": "success"
                                 }))
                                 print(f"[Content Publisher] Published to Instagram: {post_id}")
+                                await log_to_signals("Marketing", f"📸 Konten berhasil di-publish ke Instagram: {content[:60]}...", "WORKING")
                             else:
                                 err_body = publish_resp.text
                                 print(f"[Content Publisher] IG publish failed: {publish_resp.status_code} — {err_body}")
@@ -1738,6 +1746,7 @@ async def content_publisher():
                     "publishResult": f"auto-published ({platform})"
                 }))
                 print(f"[Content Publisher] Auto-published: {post_id} ({platform})")
+                await log_to_signals("Marketing", f"📅 Konten terjadwal auto-publish ke {platform}: {content[:60]}...", "WORKING")
 
     except Exception as e:
         print(f"[Content Publisher] Error: {e}")
@@ -1766,9 +1775,10 @@ async def budget_alert_check():
         current_budget = int(stats.get("budget", 0))
 
         if current_budget < threshold:
-            # Kirim alert via WebSocket
+            # Kirim alert via WebSocket + Firestore
             await broadcaster.send_agent_signal("Finance", "ALERT",
                 f"Budget menipis! Sisa Rp {current_budget:,.0f} (threshold: Rp {threshold:,.0f})")
+            await log_to_signals("Finance", f"⚠️ Budget menipis! Sisa Rp {current_budget:,.0f}", "ALERT")
 
             # Buat task urgent
             import uuid

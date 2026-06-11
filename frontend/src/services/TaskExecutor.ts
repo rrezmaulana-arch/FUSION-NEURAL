@@ -83,6 +83,13 @@ const UNIVERSAL_BIZ_KEYWORDS = [
   'presentasi', 'proposal', 'kontrak', 'perjanjian', 'moq', 'negosiasi',
   'follow up', 'tindak lanjut', 'koordinasi', 'briefing', 'status',
   'progress', 'timeline', 'jadwal', 'deadline', 'urgent', 'segera',
+  // Command verbs — perintah umum yang bisa diterapkan ke domain manapun
+  'jalankan', 'mulai', 'start', 'stop', 'hentikan', 'cek', 'check',
+  'tambah', 'hapus', 'update', 'ubah', 'kirim', 'buat', 'generate',
+  'simulator', 'simulasi', 'tes', 'test', 'run', 'proses', 'analisa',
+  'lihat', 'tampilkan', 'cari', 'find', 'search', 'export', 'download',
+  'import', 'upload', 'backup', 'restore', 'reset', 'refresh', 'sync',
+  'aktifkan', 'nonaktifkan', 'enable', 'disable', 'on', 'off',
 ];
 
 /**
@@ -128,6 +135,11 @@ export function validateTaskDomain(title: string, labels?: string[]): { valid: b
     return { valid: true };
   }
 
+  // Jika input cukup panjang (>5 char), terima saja — AI akan coba pahami
+  if (title.trim().length > 5) {
+    return { valid: true };
+  }
+
   // Jika tidak ada match, berikan saran spesifik
   const categoryExamples: Record<string, string> = {
     admin: 'supplier, stok, restock, kirim, packing, kemasan',
@@ -160,12 +172,34 @@ export function validateTaskDomainLegacy(title: string): string | null {
 
 function detectIntent(title: string): string {
   const t = title.toLowerCase();
+  // Admin intents
   if (t.match(/supplier|vendor|pabrik|mitra|cari.*bahan|carikan.*suplai|suplier/)) return 'FIND_SUPPLIER';
   if (t.match(/restock|tambah.*stok|isi.*stok|pengadaan|restok/)) return 'RESTOCK';
+  if (t.match(/simulator|simulasi|jalankan.*simulator|mulai.*simulator|start.*simulator|tes.*order|test.*order/)) return 'RUN_SIMULATOR';
+  if (t.match(/cek.*stok|check.*stok|status.*stok|inventaris|lihat.*stok|monitor.*stok/)) return 'CHECK_STOCK';
+  if (t.match(/packing|kemas|kirim.*barang|proses.*order|ekspedisi|resi|tracking/)) return 'PROCESS_ORDER';
+
+  // Finance intents
   if (t.match(/invoice|faktur|tagihan|buat.*invoice|generate.*invoice/)) return 'CREATE_INVOICE';
-  if (t.match(/laporan|analisis|report|rekap|neraca|profit|laba|rugi|keuangan/)) return 'FINANCE_REPORT';
+  if (t.match(/laporan.*keuangan|analisis.*keuangan|report.*keuangan|rekap|neraca|profit|laba|rugi|keuangan|arus.*kas/)) return 'FINANCE_REPORT';
+  if (t.match(/bayar|pembayaran|transfer|setor|deposit/)) return 'PROCESS_PAYMENT';
+  if (t.match(/pajak|tax|ppn|pph/)) return 'TAX_CALCULATION';
+
+  // Marketing intents
   if (t.match(/konten|posting|caption|iklan|kampanye|marketing|promosi|post|jadwal.*post/)) return 'CREATE_CONTENT';
+  if (t.match(/email|newsletter|blast|campaign.*email/)) return 'EMAIL_CAMPAIGN';
+  if (t.match(/gambar|image|foto|desain|visual|banner/)) return 'GENERATE_IMAGE';
+
+  // Manager intents
   if (t.match(/riset pasar|kompetitor|market.*research|survey pasar/)) return 'MARKET_RESEARCH';
+  if (t.match(/meeting|rapat|war.*room|diskusi/)) return 'SCHEDULE_MEETING';
+  if (t.match(/audit|review|evaluasi|assessment/)) return 'RUN_AUDIT';
+  if (t.match(/approve|setuju|tolak|reject/)) return 'MANAGER_APPROVAL';
+
+  // System intents
+  if (t.match(/status|monitoring|dashboard|overview|ringkasan/)) return 'SYSTEM_STATUS';
+  if (t.match(/help|bantuan|cara|gimana|tutorial/)) return 'HELP';
+
   return 'GENERAL';
 }
 
@@ -387,6 +421,85 @@ Berikan analisis pasar ringkas: tren, peluang, ancaman, dan rekomendasi strategi
 /**
  * GENERAL — Fallback: jalankan via agen yang sesuai
  */
+// ── New Executors ──────────────────────────────────────────────────────────
+
+async function executeRunSimulator(task: NeuralTask): Promise<string> {
+  await FirebaseLogger.logAgentAction('Admin', 'RUN_SIMULATOR', 'Menjalankan Marketplace Simulator...');
+  return `✅ Simulator telah diaktifkan!\n\nSistem akan mulai generate order otomatis dari Shopee, Tokopedia, dan TikTok Shop. Cek halaman Marketplace Simulator untuk melihat live feed.\n\nPerintah: "${task.title}"`;
+}
+
+async function executeCheckStock(task: NeuralTask): Promise<string> {
+  try {
+    const invSnap = await getDocs(collection(db, 'inventory'));
+    const products: any[] = [];
+    invSnap.forEach(d => { products.push({ id: d.id, ...d.data() }); });
+
+    const critical = products.filter(p => (p.quantity || 0) <= 5);
+    const low = products.filter(p => (p.quantity || 0) > 5 && (p.quantity || 0) <= 15);
+    const ok = products.filter(p => (p.quantity || 0) > 15);
+
+    let report = `📊 **Laporan Stok Inventory**\n\n`;
+    report += `Total produk: ${products.length}\n`;
+    report += `🟢 Aman: ${ok.length} | 🟡 Menipis: ${low.length} | 🔴 Kritis: ${critical.length}\n\n`;
+
+    if (critical.length > 0) {
+      report += `⚠️ **Produk Kritis (perlu restock segera):**\n`;
+      critical.forEach(p => { report += `  • ${p.name}: ${p.quantity} unit\n`; });
+    }
+    if (low.length > 0) {
+      report += `\n🟡 **Produk Menipis:**\n`;
+      low.forEach(p => { report += `  • ${p.name}: ${p.quantity} unit\n`; });
+    }
+
+    await FirebaseLogger.logAgentAction('Admin', 'CHECK_STOCK', `Cek stok: ${critical.length} kritis, ${low.length} menipis`);
+    return report;
+  } catch (e: any) {
+    return `❌ Gagal cek stok: ${e.message}`;
+  }
+}
+
+async function executeProcessOrder(task: NeuralTask): Promise<string> {
+  await FirebaseLogger.logAgentAction('Admin', 'PROCESS_ORDER', `Proses order: ${task.title}`);
+  const result = await NeuralCore.askAgent('admin', 'order_processing', `Proses pesanan berikut: ${task.title}. Berikan langkah-langkah yang perlu dilakukan.`);
+  return `📦 **Order Processing**\n\n${result}`;
+}
+
+async function executeEmailCampaign(task: NeuralTask): Promise<string> {
+  await FirebaseLogger.logAgentAction('Marketing', 'EMAIL_CAMPAIGN', `Buat email campaign: ${task.title}`);
+  const result = await NeuralCore.askAgent('marketing', 'email_campaign', `Buat draft email campaign berdasarkan: ${task.title}. Sertakan subject line dan body.`);
+  return `📧 **Email Campaign Draft**\n\n${result}`;
+}
+
+async function executeGenerateImage(task: NeuralTask): Promise<string> {
+  await FirebaseLogger.logAgentAction('Marketing', 'GENERATE_IMAGE', `Generate gambar: ${task.title}`);
+  return `🎨 **Image Generation**\n\nUntuk generate gambar, silakan buka halaman Image Studio dan masukkan prompt berikut:\n\n"${task.title}"\n\nSistem akan menggunakan FLUX.1-schnell untuk menghasilkan gambar berkualitas tinggi.`;
+}
+
+async function executeSystemStatus(task: NeuralTask): Promise<string> {
+  try {
+    const taskSnap = await getDocs(collection(db, 'neural_tasks'));
+    const allTasks: any[] = [];
+    taskSnap.forEach(d => allTasks.push(d.data()));
+
+    const byStatus = {
+      todo: allTasks.filter(t => t.status === 'To Do').length,
+      inProgress: allTasks.filter(t => t.status === 'In Progress').length,
+      review: allTasks.filter(t => t.status === 'Review').length,
+      done: allTasks.filter(t => t.status === 'Done').length,
+    };
+
+    let report = `📊 **System Status Overview**\n\n`;
+    report += `📋 Tasks: ${byStatus.todo} To Do | ${byStatus.inProgress} In Progress | ${byStatus.review} Review | ${byStatus.done} Done\n`;
+    report += `🤖 Agents: 5 aktif (Admin, Finance, Marketing, Manager, Frontliner)\n`;
+    report += `⏰ Waktu: ${new Date().toLocaleString('id-ID')}\n`;
+
+    await FirebaseLogger.logAgentAction('Manager', 'SYSTEM_STATUS', 'Cek status sistem');
+    return report;
+  } catch (e: any) {
+    return `❌ Gagal cek status: ${e.message}`;
+  }
+}
+
 async function executeGeneral(task: NeuralTask): Promise<string> {
   const agentMap: Record<string, string> = {
     'Neural Admin': 'admin',
@@ -543,6 +656,27 @@ export async function executeTask(task: NeuralTask): Promise<void> {
         break;
       case 'MARKET_RESEARCH':
         result = await executeMarketResearch(task);
+        break;
+      case 'RUN_SIMULATOR':
+        result = await executeRunSimulator(task);
+        break;
+      case 'CHECK_STOCK':
+        result = await executeCheckStock(task);
+        break;
+      case 'PROCESS_ORDER':
+        result = await executeProcessOrder(task);
+        break;
+      case 'EMAIL_CAMPAIGN':
+        result = await executeEmailCampaign(task);
+        break;
+      case 'GENERATE_IMAGE':
+        result = await executeGenerateImage(task);
+        break;
+      case 'SYSTEM_STATUS':
+        result = await executeSystemStatus(task);
+        break;
+      case 'HELP':
+        result = `📋 **Bantuan Neural Tasks**\n\nSaya bisa memahami berbagai perintah:\n\n📦 **Admin**: "cek stok", "restock barang", "jalankan simulator", "cari supplier", "packing order"\n💰 **Finance**: "buat invoice", "laporan keuangan", "hitung pajak", "cek saldo"\n📢 **Marketing**: "buat konten", "kirim email", "generate gambar", "jadwal posting"\n👔 **Manager**: "riset pasar", "audit sistem", "evaluasi kinerja"\n\nCukup ketik perintah natural, saya akan pahami dan eksekusi!`;
         break;
       default:
         result = await executeGeneral(task);

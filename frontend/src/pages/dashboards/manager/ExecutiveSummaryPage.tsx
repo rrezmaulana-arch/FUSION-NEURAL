@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Percent, Activity, Brain, BarChart3, ShoppingBag, RefreshCw, Sparkles, Cloud } from 'lucide-react';
-import { doc, onSnapshot, collection, query } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { NeuralCore } from '../../../services/NeuralCore';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -22,6 +22,12 @@ export default function ExecutiveSummaryPage() {
   const [aiInsight, setAiInsight] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   // Listen to financial_reports/latest
   useEffect(() => {
@@ -101,6 +107,24 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
   };
 
   const [isSavingDrive, setIsSavingDrive] = useState(false);
+  const [dailyLogs, setDailyLogs] = useState<any[]>([]);
+
+  // Listen to today's audit logs for Daily Report
+  useEffect(() => {
+    const q = query(collection(db, 'audit_logs'), orderBy('created_at', 'desc'), limit(100));
+    const unsub = onSnapshot(q, (snap) => {
+      const today = new Date();
+      const logs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((l: any) => {
+          if (!l.created_at) return false;
+          const d = l.created_at.toDate ? l.created_at.toDate() : new Date(l.created_at);
+          return d.toDateString() === today.toDateString();
+        });
+      setDailyLogs(logs);
+    });
+    return () => unsub();
+  }, []);
   const handleSaveToDrive = async () => {
     setIsSavingDrive(true);
     try {
@@ -110,10 +134,10 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: 'manager', filename: 'Executive_AI_Insight', content: aiInsight || 'No insight generated' })
       });
-      if (res.ok) alert('Insight berhasil disimpan ke Google Drive sebagai Google Docs!');
-      else alert('Gagal menyimpan ke Drive.');
+      if (res.ok) showFeedback('success', 'Insight berhasil disimpan ke Google Drive!');
+      else showFeedback('error', 'Gagal menyimpan ke Drive.');
     } catch (e) {
-      alert('Network Error saat menyimpan ke Drive.');
+      showFeedback('error', 'Network Error saat menyimpan ke Drive.');
     } finally {
       setIsSavingDrive(false);
     }
@@ -129,6 +153,15 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
 
   return (
     <div className="space-y-6 pb-10">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       <PageHeader
         title="Executive Summary"
         subtitle="Financial pulse — data langsung dari AI Finance & Order Leads"
@@ -156,6 +189,63 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
           </>
         }
       />
+
+      {/* AI Daily Report */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        className="bg-[#0f172a] rounded-2xl p-6 border border-indigo-500/20"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles size={16} className="text-indigo-400" />
+          <span className="text-indigo-400 text-xs font-bold uppercase tracking-widest">AI Daily Report</span>
+          <span className="ml-auto text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+            {dailyLogs.length} aktivitas hari ini
+          </span>
+        </div>
+
+        {dailyLogs.length === 0 ? (
+          <p className="text-slate-500 text-sm text-center py-4">Belum ada aktivitas AI hari ini.</p>
+        ) : (
+          <>
+            {/* Summary by agent */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              {['admin', 'finance', 'marketing', 'manager'].map(agent => {
+                const count = dailyLogs.filter((l: any) => (l.agent || '').toLowerCase().includes(agent)).length;
+                const colors: Record<string, { bg: string; text: string; border: string }> = {
+                  admin: { bg: 'bg-violet-500/10', text: 'text-violet-400', border: 'border-violet-500/30' },
+                  finance: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+                  marketing: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/30' },
+                  manager: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30' },
+                };
+                const c = colors[agent];
+                return (
+                  <div key={agent} className={`${c.bg} border ${c.border} rounded-xl p-3 text-center`}>
+                    <div className={`text-xl font-black ${c.text}`}>{count}</div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase">{agent}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Recent activity feed */}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {dailyLogs.slice(0, 8).map((log: any) => (
+                <div key={log.id} className="flex items-start gap-3 bg-white/5 rounded-lg px-3 py-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-300 truncate">{log.details || log.action_type}</p>
+                    <span className="text-[10px] text-slate-600">
+                      {log.agent} • {log.created_at?.toDate?.()?.toLocaleTimeString('id-ID') || ''}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {dailyLogs.length > 8 && (
+                <p className="text-center text-[10px] text-indigo-400 py-1">+{dailyLogs.length - 8} aktivitas lainnya</p>
+              )}
+            </div>
+          </>
+        )}
+      </motion.div>
 
       {/* Burn Rate Alert */}
       {burnAlert && (

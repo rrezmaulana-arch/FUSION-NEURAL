@@ -4,49 +4,46 @@
  * Role: Product Engineer (UI/UX & Full-Stack)
  * Copyright (c) 2026. All rights reserved.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   LogOut, LayoutDashboard, Menu as MenuIcon, X,
-  ChevronLeft, ChevronRight, Bell, Cloud,
-  TrendingUp, Flame, Package, Network, BookOpen,
-  Activity, Shield, Sparkles, CalendarDays, Wallet,
-  ShoppingCart, Building2, Users, Calculator, Image, AlertTriangle, ClipboardList, Receipt, Tags, Mail
+  ChevronLeft, ChevronRight, Bell, Cloud, Search,
+  TrendingUp, Package, Network, BookOpen,
+  Activity, Shield, Sparkles, Image, AlertTriangle, ClipboardList, Receipt, Users
 } from 'lucide-react';
 
 import MicrochipCursor from '../components/cursor/MicrochipCursor';
 import NeuralGuide from '../components/tutorial/NeuralGuide';
+import GlobalSearch from '../components/GlobalSearch';
+import NotificationHistory from '../components/NotificationHistory';
+import { PageErrorBoundary } from '../components/PageErrorBoundary';
+import { PageSkeleton } from '../components/PageSkeleton';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
-import ProfitLedgerPage from './dashboards/finance/ProfitLedgerPage';
-import OperationalBurnPage from './dashboards/finance/OperationalBurnPage';
-import CampaignForgePage from './dashboards/marketing/CampaignForgePage';
-import ContentLaunchpadPage from './dashboards/marketing/ContentLaunchpadPage';
-import GenerativeUIPage from './dashboards/marketing/GenerativeUIPage';
-import TaxCalculatorPage from './dashboards/finance/TaxCalculatorPage';
-import PricingStrategyPage from './dashboards/finance/PricingStrategyPage';
-import CryptoTreasuryPage from './dashboards/finance/CryptoTreasuryPage';
-import InventoryTrackerPage from './dashboards/admin/InventoryTrackerPage';
-import OrderStreamPage from './dashboards/admin/OrderStreamPage';
-import SupplierHubPage from './dashboards/admin/SupplierHubPage';
-import ProcurementPOPage from './dashboards/admin/ProcurementPOPage';
-import AgentOrchestratorPage from './dashboards/manager/AgentOrchestratorPage';
-import ExecutiveSummaryPage from './dashboards/manager/ExecutiveSummaryPage';
-import WarRoomPage from './dashboards/manager/WarRoomPage';
-import StrategicAuditPage from './dashboards/manager/StrategicAuditPage';
-import NeuralTasksPage from './dashboards/manager/NeuralTasksPage';
-import ImageStudioPage from './dashboards/marketing/ImageStudioPage';
-import MarketingAnalyticsPage from './dashboards/marketing/MarketingAnalyticsPage';
-import AudienceCRMPage from './dashboards/marketing/AudienceCRMPage';
-import EmailCampaignPage from './dashboards/marketing/EmailCampaignPage';
-import ShippingReturnsPage from './dashboards/admin/ShippingReturnsPage';
-import MarketplaceSimulatorPage from './dashboards/admin/MarketplaceSimulatorPage';
-import BankReconPage from './dashboards/finance/BankReconPage';
-import AccountsPayablePage from './dashboards/finance/AccountsPayablePage';
-import GlobalNeuralNotifier from '../components/ui/GlobalNeuralNotifier';
+// Lazy-loaded dashboard pages (code splitting)
+const AdminInventoryPage = lazy(() => import('./dashboards/admin/AdminInventoryPage'));
+const AdminOrdersPage = lazy(() => import('./dashboards/admin/AdminOrdersPage'));
+const MarketplaceSimulatorPage = lazy(() => import('./dashboards/admin/MarketplaceSimulatorPage'));
+const FinanceOverviewPage = lazy(() => import('./dashboards/finance/FinanceOverviewPage'));
+const FinancePricingTaxPage = lazy(() => import('./dashboards/finance/FinancePricingTaxPage'));
+const AccountsPayablePage = lazy(() => import('./dashboards/finance/AccountsPayablePage'));
+const MarketingCampaignPage = lazy(() => import('./dashboards/marketing/MarketingCampaignPage'));
+const ImageStudioPage = lazy(() => import('./dashboards/marketing/ImageStudioPage'));
+const MarketingAnalyticsCRMPage = lazy(() => import('./dashboards/marketing/MarketingAnalyticsCRMPage'));
+const AgentOrchestratorPage = lazy(() => import('./dashboards/manager/AgentOrchestratorPage'));
+const ExecutiveSummaryPage = lazy(() => import('./dashboards/manager/ExecutiveSummaryPage'));
+const WarRoomPage = lazy(() => import('./dashboards/manager/WarRoomPage'));
+const StrategicAuditPage = lazy(() => import('./dashboards/manager/StrategicAuditPage'));
+const NeuralTasksPage = lazy(() => import('./dashboards/manager/NeuralTasksPage'));
+const GlobalNeuralNotifier = lazy(() => import('../components/ui/GlobalNeuralNotifier'));
+
+// Loading fallback for lazy components
+const PageLoader = () => <PageSkeleton />;
 
 
 // --- TYPESCRIPT INTERFACES ---
@@ -74,49 +71,38 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     title: 'Command Center',
     theme: { gradient: 'from-[#1E293B] to-[#0F172A]', text: 'text-slate-800', glow: 'bg-slate-500/20' },
     menus: [
-      { path: '/dashboard', label: 'Inventory Tracker', icon: Package },
-      { path: '/dashboard/orders', label: 'Order Stream', icon: ShoppingCart },
-      { path: '/dashboard/shipping', label: 'Shipping & Returns', icon: Package },
-      { path: '/dashboard/suppliers', label: 'Supplier Hub', icon: Building2 },
-      { path: '/dashboard/procurement', label: 'Procurement & QC', icon: ClipboardList },
-      { path: '/dashboard/simulator', label: 'E-commerce Simulator', icon: AlertTriangle },
+      { path: '/dashboard', label: 'Inventaris & Stok', icon: Package },
+      { path: '/dashboard/orders', label: 'Pesanan & Pengiriman', icon: Receipt },
+      { path: '/dashboard/simulator', label: 'Simulator', icon: AlertTriangle },
     ]
   },
   finance: {
     title: 'Treasury Dept',
     theme: { gradient: 'from-[#059669] to-[#047857]', text: 'text-emerald-600', glow: 'bg-emerald-500/20' },
     menus: [
-      { path: '/dashboard', label: 'Profit Ledger', icon: BookOpen },
-      { path: '/dashboard/pricing', label: 'Pricing Strategy', icon: Tags },
-      { path: '/dashboard/treasury', label: 'Web3 Treasury', icon: Wallet },
-      { path: '/dashboard/ap-ar', label: 'Invoicing & AP/AR', icon: Receipt },
-      { path: '/dashboard/bank-recon', label: 'Bank Recon & Petty Cash', icon: Activity },
-      { path: '/dashboard/burn', label: 'Operational Burn', icon: Flame },
-      { path: '/dashboard/tax-calc', label: 'Tax Calculator', icon: Calculator },
+      { path: '/dashboard', label: 'Keuangan', icon: BookOpen },
+      { path: '/dashboard/pricing', label: 'Pricing & Pajak', icon: Activity },
+      { path: '/dashboard/ap-ar', label: 'Tagihan (AP/AR)', icon: Receipt },
     ]
   },
   marketing: {
     title: 'Growth Engine',
     theme: { gradient: 'from-[#A21CAF] to-[#86198F]', text: 'text-purple-600', glow: 'bg-purple-500/20' },
     menus: [
-      { path: '/dashboard', label: 'Campaign Forge', icon: Sparkles },
-      { path: '/dashboard/email-campaigns', label: 'Email Campaigns', icon: Mail },
-      { path: '/dashboard/generative-ui', label: 'Generative UI', icon: Sparkles },
-      { path: '/dashboard/launchpad', label: 'Content Launchpad (Drafts)', icon: CalendarDays },
-      { path: '/dashboard/image-studio', label: 'Image Studio', icon: Image },
-      { path: '/dashboard/marketing-analytics', label: 'Performance Analytics', icon: TrendingUp },
-      { path: '/dashboard/crm', label: 'Audience & CRM', icon: Users },
+      { path: '/dashboard', label: 'Kampanye', icon: Sparkles },
+      { path: '/dashboard/image-studio', label: 'Media Studio', icon: Image },
+      { path: '/dashboard/analytics', label: 'Analytics & CRM', icon: TrendingUp },
     ]
   },
   manager: {
-    title: 'Management Suite',
+    title: 'Automation Hub',
     theme: { gradient: 'from-[#4f46e5] to-[#6366f1]', text: 'text-indigo-400', glow: 'bg-indigo-500/10' },
     menus: [
-      { path: '/dashboard', label: 'Agent Orchestrator', icon: Network },
-      { path: '/dashboard/neural-tasks', label: 'Neural Tasks (Kanban)', icon: ClipboardList },
-      { path: '/dashboard/strategic-audit', label: 'Strategic Audit Hub', icon: Shield },
-      { path: '/dashboard/executive', label: 'Executive Summary', icon: TrendingUp },
-      { path: '/dashboard/war-room', label: 'Multi-Agent War Room', icon: Users },
+      { path: '/dashboard', label: 'Automation Center', icon: Network },
+      { path: '/dashboard/neural-tasks', label: 'Task Board', icon: ClipboardList },
+      { path: '/dashboard/strategic-audit', label: 'Approval Queue', icon: Shield },
+      { path: '/dashboard/executive', label: 'Daily Briefing', icon: TrendingUp },
+      { path: '/dashboard/war-room', label: 'War Room', icon: Users },
     ]
   },
   default: {
@@ -161,17 +147,42 @@ export default function DashboardPage() {
 
   const getDefaultComponent = () => {
     switch (safeRole) {
-      case 'admin': return <InventoryTrackerPage />;
-      case 'finance': return <ProfitLedgerPage />;
-      case 'marketing': return <CampaignForgePage />;
+      case 'admin': return <AdminInventoryPage />;
+      case 'finance': return <FinanceOverviewPage />;
+      case 'marketing': return <MarketingCampaignPage />;
       case 'manager':
       default: return <AgentOrchestratorPage />;
     }
   };
 
+  // Dynamic page title
+  usePageTitle(location.pathname);
+
   // Real notification count from Firestore signals
   const [unreadCount, setUnreadCount] = useState(0);
   const [latestSignal, setLatestSignal] = useState<{agent: string, message: string} | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [recentSignals, setRecentSignals] = useState<any[]>([]);
+  const [showGreeting, setShowGreeting] = useState(() => !sessionStorage.getItem('fn_greeting_shown'));
+  const [todaySignals, setTodaySignals] = useState<any[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard shortcut: Cmd+K / Ctrl+K for search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
+      if (e.key === 'Escape') {
+        setShowSearch(false);
+        setShowNotifications(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     // Initial fetch
@@ -188,7 +199,19 @@ export default function DashboardPage() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       const unread = data.filter((d: any) => d.status !== 'read').length;
-      
+      setRecentSignals(data.slice(0, 20));
+
+      // Track today's signals for greeting
+      const today = new Date();
+      const todayData = data.filter((d: any) => {
+        if (!d.created_at) return false;
+        try {
+          const ts = typeof d.created_at === 'string' ? new Date(d.created_at) : d.created_at?.toDate?.();
+          return ts && ts.toDateString() === today.toDateString();
+        } catch { return false; }
+      });
+      setTodaySignals(todayData);
+
       // If unread count increased, show the newest message
       if (unread > 0 && data.length > 0) {
         const newest = data[0] as any;
@@ -204,16 +227,76 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, []);
 
+  // Auto-hide greeting after 8 seconds, mark as shown for this session
+  useEffect(() => {
+    if (!showGreeting) return;
+    sessionStorage.setItem('fn_greeting_shown', '1');
+    const timer = setTimeout(() => setShowGreeting(false), 8000);
+    return () => clearTimeout(timer);
+  }, [showGreeting]);
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    if (!showNotifications) return;
+    const handleClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showNotifications]);
+
   const effectiveIsCollapsed = isCollapsed;
   const sidebarWidth = effectiveIsCollapsed ? 'w-[90px]' : 'w-[280px]';
 
   return (
-    <div className={`min-h-screen font-sans flex flex-col md:flex-row overflow-hidden relative ${safeRole === 'manager' ? 'bg-[#060b18] text-slate-200' : 'bg-[#F8F9FA] text-slate-800'}`}>
+    <div className={`h-screen font-sans flex flex-col md:flex-row overflow-hidden relative ${safeRole === 'manager' ? 'bg-[#060b18] text-slate-200' : 'bg-slate-50 text-slate-800'}`}>
       {safeRole === 'manager' && <MicrochipCursor />}
       
       <GlobalNeuralNotifier />
       {/* Interactive Game Guide */}
       <NeuralGuide />
+
+      {/* Global Search */}
+      <AnimatePresence>
+        {showSearch && <GlobalSearch onClose={() => setShowSearch(false)} />}
+      </AnimatePresence>
+
+      {/* AI Daily Greeting */}
+      <AnimatePresence>
+        {showGreeting && todaySignals.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -30, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -20, x: '-50%' }}
+            className="fixed top-4 left-1/2 z-[99] min-w-[320px] max-w-lg bg-gradient-to-br from-indigo-950 to-slate-900 border border-indigo-500/30 shadow-[0_10px_40px_rgba(79,70,229,0.25)] rounded-2xl p-5 cursor-pointer"
+            onClick={() => setShowGreeting(false)}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/40">
+                <Sparkles size={18} className="text-indigo-400" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Selamat Datang Kembali!</div>
+                <div className="text-sm text-slate-300">AI sudah bekerja untuk Anda hari ini</div>
+              </div>
+              <span className="ml-auto text-[10px] text-slate-500">klik untuk tutup</span>
+            </div>
+            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              {todaySignals.slice(0, 5).map((s: any, i: number) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
+                  <span className="text-indigo-400 shrink-0">✅</span>
+                  <span className="truncate">{s.message}</span>
+                </div>
+              ))}
+              {todaySignals.length > 5 && (
+                <div className="text-[10px] text-indigo-400/60 text-center pt-1">+{todaySignals.length - 5} aktivitas lainnya</div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* MOBILE OVERLAY */}
       <AnimatePresence>
@@ -251,14 +334,14 @@ export default function DashboardPage() {
       {/* SIDEBAR */}
       <aside className={`
         fixed inset-y-0 left-0 md:relative z-50
-        ${sidebarWidth} shrink-0 flex flex-col h-full
+        ${sidebarWidth} shrink-0 flex flex-col
         transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[110%] md:translate-x-0'}
         ${safeRole === 'manager'
           ? 'bg-[#060b18] shadow-none border-none'
-          : 'bg-white/95 border-r border-slate-200/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-xl'
+          : 'bg-white border-r border-slate-100'
         }
-      `}>
+      `} style={{ height: '100vh' }}>
         
         <div className={`flex items-center ${effectiveIsCollapsed ? 'justify-center' : 'justify-between'} px-5 py-6 transition-all duration-500 ${safeRole === 'manager' ? 'border-none' : 'border-b border-black/5'}`}>
           <div className="flex items-center gap-3">
@@ -279,9 +362,16 @@ export default function DashboardPage() {
           </div>
 
           {!isCollapsed && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 relative" ref={notifRef}>
               <button
-                onClick={() => handleNav('/notifications')}
+                onClick={() => setShowSearch(true)}
+                className={`relative p-2 rounded-xl transition-colors ${safeRole === 'manager' ? 'hover:bg-white/10 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
+                title="Search (⌘K)"
+              >
+                <Search size={18} />
+              </button>
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
                 className={`relative p-2 rounded-xl transition-colors ${safeRole === 'manager' ? 'hover:bg-white/10 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 ' + config.theme.text}`}
               >
                 <Bell size={18} />
@@ -292,6 +382,12 @@ export default function DashboardPage() {
                   </span>
                 )}
               </button>
+              {/* Notification History */}
+              <AnimatePresence>
+                {showNotifications && (
+                  <NotificationHistory onClose={() => setShowNotifications(false)} />
+                )}
+              </AnimatePresence>
               {/* Tombol Minimize */}
               <button
                 onClick={() => setIsCollapsed(true)}
@@ -323,7 +419,7 @@ export default function DashboardPage() {
               <ChevronRight size={18} />
             </button>
             <button
-              onClick={() => handleNav('/notifications')}
+              onClick={() => { setIsCollapsed(false); setShowNotifications(true); }}
               className={`relative p-3 rounded-2xl transition-colors ${safeRole === 'manager' ? 'hover:bg-white/10 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 ' + config.theme.text}`}
             >
               <Bell size={18} />
@@ -360,6 +456,9 @@ export default function DashboardPage() {
                   {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-400 rounded-full" />}
                   <Icon size={18} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
                   {!effectiveIsCollapsed && <span className="text-[13px] whitespace-nowrap font-semibold">{label}</span>}
+                  {path === '/dashboard' && todaySignals.length > 0 && !effectiveIsCollapsed && (
+                    <span className="ml-auto text-[9px] font-bold bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-full">{todaySignals.length}</span>
+                  )}
                 </button>
               );
             }
@@ -369,39 +468,43 @@ export default function DashboardPage() {
                 id={targetId}
                 onClick={() => handleNav(path)}
                 title={effectiveIsCollapsed ? label : undefined}
-                className={`relative w-full flex items-center ${effectiveIsCollapsed ? 'justify-center p-3.5 rounded-2xl aspect-square' : 'gap-4 px-5 py-3.5 rounded-full'} font-bold transition-all duration-[400ms] outline-none overflow-hidden
+                className={`relative w-full flex items-center ${effectiveIsCollapsed ? 'justify-center p-3 rounded-xl aspect-square' : 'gap-3 px-4 py-2.5 rounded-xl'} font-medium transition-all duration-200 outline-none overflow-hidden text-[13px]
                   ${active
-                  ? `bg-gradient-to-r ${config.theme.gradient} text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)]`
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  ? `bg-${config.theme.text.replace('text-', '')}-50 ${config.theme.text} font-bold`
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                 }`}
               >
-                <Icon size={20} strokeWidth={active ? 2.5 : 2} className={`shrink-0 ${active ? '' : 'opacity-80'}`} />
-                {!effectiveIsCollapsed && <span className="tracking-wide text-[14px] whitespace-nowrap">{label}</span>}
+                {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 ${config.theme.text.replace('text-', 'bg-')} rounded-r-full`} />}
+                <Icon size={18} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
+                {!effectiveIsCollapsed && <span className="whitespace-nowrap">{label}</span>}
+                {path === '/dashboard' && todaySignals.length > 0 && !effectiveIsCollapsed && (
+                  <span className="ml-auto text-[9px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">{todaySignals.length}</span>
+                )}
               </button>
             );
           })}
         </nav>
 
-        <div className={`px-4 pb-5 pt-4 space-y-4 ${safeRole === 'manager' ? 'border-none' : 'border-t border-black/5'}`}>
+        <div className={`px-4 pb-5 pt-4 space-y-4 ${safeRole === 'manager' ? 'border-none' : 'border-t border-slate-100'}`}>
           {!effectiveIsCollapsed ? (
-            <div className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${
+            <div className={`flex items-center gap-3 p-2 rounded-xl transition-all ${
               safeRole === 'manager'
                 ? 'bg-white/[0.05] border border-white/[0.07]'
-                : 'bg-slate-100 border border-black/8 shadow-[0_2px_12px_rgba(0,0,0,0.06)] rounded-full'
+                : 'hover:bg-slate-50'
             }`}>
-              <div className={`w-[40px] h-[40px] rounded-xl flex items-center justify-center shrink-0 font-bold text-[14px] ${
+              <div className={`w-[36px] h-[36px] rounded-full flex items-center justify-center shrink-0 font-bold text-[13px] ${
                 safeRole === 'manager'
                   ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                  : 'bg-slate-200/50 text-slate-600 rounded-full shadow-[inset_4px_4px_8px_rgba(0,0,0,0.1),inset_-2px_-2px_6px_rgba(255,255,255,0.5)]'
+                  : 'bg-slate-100 text-slate-600'
               }`}>
                 {initials[0]}
               </div>
               <div className="flex-1 min-w-0 text-left pl-1">
-                <div className={`text-[13px] font-semibold tracking-wide truncate capitalize ${
+                <div className={`text-[13px] font-semibold truncate capitalize ${
                   safeRole === 'manager' ? 'text-slate-200' : 'text-slate-800'
                 }`}>{displayName}</div>
-                <div className={`text-[10px] font-medium tracking-wide mt-0.5 capitalize ${
-                  safeRole === 'manager' ? 'text-slate-500' : 'text-slate-500'
+                <div className={`text-[10px] font-medium mt-0.5 capitalize ${
+                  safeRole === 'manager' ? 'text-slate-500' : 'text-slate-400'
                 }`}>{userRole}</div>
               </div>
               <button
@@ -442,7 +545,7 @@ export default function DashboardPage() {
       </aside>
 
       {/* MAIN CONTENT WRAPPER */}
-      <div className={`flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative ${safeRole === 'manager' ? 'bg-[#060b18]' : 'bg-[#5C717A]/5'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative ${safeRole === 'manager' ? 'bg-[#060b18]' : 'bg-slate-50/50'}`}>
         
         {/* MOBILE HEADER */}
         <header className={`md:hidden flex items-center justify-between p-4 backdrop-blur-md border-b z-30 sticky top-0 ${
@@ -473,34 +576,23 @@ export default function DashboardPage() {
         <main className="flex-1 overflow-y-auto relative z-10 p-4 sm:p-6 lg:p-8">
           <div className="max-w-6xl mx-auto relative">
             <motion.div key={location.pathname} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <Suspense fallback={<PageLoader />}>
+              <PageErrorBoundary pageName="Dashboard">
               <Routes>
                 {/* Default Route */}
                 <Route index element={getDefaultComponent()} />
-                
+
+                {/* Admin Routes */}
+                <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="simulator" element={<MarketplaceSimulatorPage />} />
+
                 {/* Finance Routes */}
-                <Route path="pricing" element={<PricingStrategyPage />} />
-                <Route path="treasury" element={<CryptoTreasuryPage />} />
-                <Route path="bank-recon" element={<BankReconPage />} />
-                <Route path="burn" element={<OperationalBurnPage />} />
-                <Route path="tax-calc" element={<TaxCalculatorPage />} />
+                <Route path="pricing" element={<FinancePricingTaxPage />} />
                 <Route path="ap-ar" element={<AccountsPayablePage />} />
 
                 {/* Marketing Routes */}
-                <Route path="email-campaigns" element={<EmailCampaignPage />} />
                 <Route path="image-studio" element={<ImageStudioPage />} />
-                <Route path="launchpad" element={<ContentLaunchpadPage />} />
-                <Route path="generative-ui" element={<GenerativeUIPage />} />
-                <Route path="marketing-analytics" element={<MarketingAnalyticsPage />} />
-                <Route path="crm" element={<AudienceCRMPage />} />
-
-                {/* Admin Routes */}
-                <Route path="orders" element={<OrderStreamPage />} />
-                <Route path="shipping" element={<ShippingReturnsPage />} />
-                <Route path="suppliers" element={<SupplierHubPage />} />
-                <Route path="procurement" element={<ProcurementPOPage />} />
-                <Route path="simulator" element={<MarketplaceSimulatorPage />} />
-
-                {/* AI Core Operations are now inside Agent Orchestrator Hub (Manager only) */}
+                <Route path="analytics" element={<MarketingAnalyticsCRMPage />} />
 
                 {/* Manager Routes */}
                 <Route path="orchestrator" element={<AgentOrchestratorPage />} />
@@ -509,7 +601,7 @@ export default function DashboardPage() {
                 <Route path="strategic-audit" element={<StrategicAuditPage />} />
                 <Route path="neural-tasks" element={<NeuralTasksPage />} />
 
-                {/* Fallback 404/Coming Soon */}
+                {/* Fallback 404 */}
                 <Route path="*" element={
                   <div className="flex flex-col items-center justify-center h-[60vh] text-center">
                     <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-sm mb-6">
@@ -520,6 +612,8 @@ export default function DashboardPage() {
                   </div>
                 } />
               </Routes>
+              </PageErrorBoundary>
+              </Suspense>
             </motion.div>
           </div>
         </main>

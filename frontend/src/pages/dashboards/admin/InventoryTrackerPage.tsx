@@ -57,6 +57,12 @@ export default function InventoryTrackerPage() {
   const [photoPreview, setPhotoPreview] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   // AI Command Terminal
   const [isChatOpen, setIsChatOpen] = useState(true);
@@ -132,7 +138,7 @@ export default function InventoryTrackerPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert('Ukuran foto maksimal 2MB');
+      showFeedback('error', 'Ukuran foto maksimal 2MB');
       return;
     }
     const reader = new FileReader();
@@ -421,6 +427,14 @@ PERINTAH DARI ADMIN: ${cmd}`;
 
   return (
     <div className="space-y-6 pb-10">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
 
       {/* Header */}
       <PageHeader
@@ -569,7 +583,7 @@ PERINTAH DARI ADMIN: ${cmd}`;
         {filtered.length === 0 ? (
           <div className="col-span-3 text-center py-16 text-slate-400">
             <Package size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">{products.length === 0 ? 'Belum ada produk. Tambahkan produk pertama Kak.' : 'Produk tidak ditemukan.'}</p>
+            <p className="text-sm">{products.length === 0 ? 'Belum ada produk. Tambahkan produk pertama.' : 'Produk tidak ditemukan.'}</p>
           </div>
         ) : filtered.map((product, i) => {
           const qty = getQty(product);

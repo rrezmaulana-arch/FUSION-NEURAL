@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../lib/firebase';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { ShieldCheck, Wallet, Bot, CheckCircle2, AlertCircle, XCircle, Plus, Activity, Network } from 'lucide-react';
+import { ShieldCheck, Wallet, Bot, CheckCircle2, AlertCircle, XCircle, Plus, Activity, Network, Search } from 'lucide-react';
 import PageHeader from '../../../components/ui/PageHeader';
 
 export default function GovernancePage() {

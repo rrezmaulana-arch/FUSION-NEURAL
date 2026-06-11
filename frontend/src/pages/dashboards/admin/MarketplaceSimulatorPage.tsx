@@ -181,15 +181,39 @@ export default function MarketplaceSimulatorPage() {
         // A. Decrease stock
         await updateDoc(doc(db, 'inventory', product.id), { quantity: product.quantity - actualQty });
         
-        // B. Insert into orders collection
-        await addDoc(collection(db, 'orders'), {
+        // B. Determine priority (Express 15%, Standard 65%, Bulk 20%)
+        const priorityRoll = Math.random();
+        const priority = priorityRoll < 0.15 ? 'express' : priorityRoll < 0.80 ? 'standard' : 'bulk';
+        const courier = ['J&T Express', 'SiCepat', 'AnterAja', 'JNE'][Math.floor(Math.random() * 4)];
+        const trackingNo = `JT${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+
+        // B1. Insert into orders — status: pending (waiting payment)
+        const orderRef = await addDoc(collection(db, 'orders'), {
           customer: buyer,
           items: [{ name: product.name, qty: actualQty }],
           total: totalAmount,
           status: 'pending',
           platform: platform.name,
+          priority,
+          courier,
+          city,
           timestamp: new Date().getTime()
         });
+        const orderId = orderRef.id;
+
+        // B2. Auto-payment only (simulating payment gateway callback)
+        // Everything after PAID requires manual admin/manager action
+        setTimeout(async () => {
+          try {
+            await updateDoc(doc(db, 'orders', orderId), {
+              status: 'PAID',
+              paidAt: new Date().toISOString(),
+              tracking: trackingNo,
+              courier,
+              note: priority === 'express' ? '⚡ EXPRESS — Prioritas tinggi!' : priority === 'bulk' ? 'BULK — Bisa ditunda' : 'Standard'
+            });
+          } catch {}
+        }, 2000 + Math.random() * 3000);
 
         // C. Insert into finance (Simulated income)
         await addDoc(collection(db, 'finance_transactions'), {
@@ -331,13 +355,13 @@ export default function MarketplaceSimulatorPage() {
 
       {/* Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className={`p-6 rounded-2xl border flex items-center justify-between ${autonomousOn ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-[#0f172a] border-white/5'}`}>
+        <div className={`p-6 rounded-2xl border flex items-center justify-between ${autonomousOn ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-100'}`}>
           <div>
-            <h3 className="font-bold text-slate-200 flex items-center gap-2">
-              <Zap size={16} className={isRunning ? "text-amber-400 animate-pulse" : "text-slate-500"} /> 
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Zap size={16} className={isRunning ? "text-amber-500 animate-pulse" : "text-slate-400"} />
               {autonomousOn ? 'Autonomous Traffic Engine' : 'Traffic Engine'}
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               {autonomousOn ? 'Digerakkan otomatis oleh Autonomous Mode' : 'Inject pesanan fiktif secara live ke database'}
             </p>
           </div>

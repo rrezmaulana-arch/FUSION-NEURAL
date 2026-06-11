@@ -27,7 +27,13 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
   const [step, setStep] = useState<'select' | 'process' | 'result'>('select');
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [copied, setCopied] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(24 * 60 * 60); // 24 hours in seconds
+  const [timeLeft, setTimeLeft] = useState(24 * 60 * 60);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -74,12 +80,12 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
         setStep('result');
       } else {
         console.error('Charge error:', data);
-        alert('Gagal memproses pembayaran. Mungkin akun Sandbox belum siap atau salah tipe.');
+        showFeedback('error', 'Gagal memproses pembayaran. Cek akun Sandbox.');
         setStep('select');
       }
     } catch (e) {
       console.error(e);
-      alert('Terjadi kesalahan jaringan saat memproses pembayaran.');
+      showFeedback('error', 'Terjadi kesalahan jaringan.');
       setStep('select');
     }
   };
@@ -97,8 +103,17 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex overflow-y-auto bg-slate-50 font-inter text-slate-800"
     >
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-[60] px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col lg:flex-row gap-8 lg:gap-12 min-h-screen">
-        
+
         {/* Left Column: Payment Methods / Result */}
         <div className="flex-1 flex flex-col">
           {/* Header */}

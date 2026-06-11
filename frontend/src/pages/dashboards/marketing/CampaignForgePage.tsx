@@ -39,6 +39,12 @@ export default function CampaignForgePage() {
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([]);
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success'>('idle');
   const [isSavingDrive, setIsSavingDrive] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   const handleSaveToDrive = async () => {
     setIsSavingDrive(true);
@@ -50,12 +56,12 @@ export default function CampaignForgePage() {
         body: JSON.stringify({ role: 'marketing', filename: `${format} - ${brief.substring(0, 15)}`, content: result })
       });
       if (res.ok) {
-        alert('Script berhasil disimpan ke Google Drive sebagai Google Docs!');
+        showFeedback('success', 'Script berhasil disimpan ke Google Drive!');
       } else {
-        alert('Gagal menyimpan ke Drive.');
+        showFeedback('error', 'Gagal menyimpan ke Drive.');
       }
     } catch (e) {
-      alert('Network Error saat menyimpan ke Drive.');
+      showFeedback('error', 'Network Error saat menyimpan ke Drive.');
     } finally {
       setIsSavingDrive(false);
     }
@@ -167,9 +173,18 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
 
   return (
     <div className="space-y-6 pb-10">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       <PageHeader
         title="Campaign Forge"
-        subtitle="Dapur kreatif — AI merancang narasi premium untuk brand Kak"
+        subtitle="Dapur kreatif — AI merancang narasi premium untuk brand Anda"
         accent="purple"
         icon={<Wand2 size={22} className="text-white" />}
       />
@@ -228,6 +243,32 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Posting Guide */}
+          <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-5 border border-pink-200/50">
+            <h4 className="text-xs font-black text-slate-800 mb-3 flex items-center gap-2">
+              📱 Cara Post ke Instagram / TikTok
+            </h4>
+            <div className="flex items-start gap-3">
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-black">1</div>
+                <span className="text-[9px] text-slate-500">Isi Brief</span>
+              </div>
+              <div className="flex-1 border-t-2 border-dashed border-purple-200 mt-4" />
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-black">2</div>
+                <span className="text-[9px] text-slate-500">Generate</span>
+              </div>
+              <div className="flex-1 border-t-2 border-dashed border-purple-200 mt-4" />
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-8 h-8 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">3</div>
+                <span className="text-[9px] text-slate-500">Post!</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-3 text-center">
+              Setelah generate, klik tombol <span className="font-bold text-pink-600">🌸 Auto Publish</span> di bawah hasil untuk langsung post ke Instagram/TikTok
+            </p>
           </div>
 
           {/* Generate Button */}
@@ -433,7 +474,17 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
                   >
                     Batal
                   </button>
-                  <button className="flex items-center gap-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 px-4 py-1.5 rounded-xl transition-all">
+                  <button
+                    onClick={() => {
+                      const asset = mediaLibrary.find(m => m.id === selectedMedia);
+                      if (asset) {
+                        navigator.clipboard.writeText(asset.url);
+                        setBrief(prev => prev ? `${prev}\n\n[Media: ${asset.url}]` : `[Media: ${asset.url}]`);
+                        setSelectedMedia(null);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 px-4 py-1.5 rounded-xl transition-all"
+                  >
                     <Download size={12} /> Gunakan Aset
                   </button>
                 </div>

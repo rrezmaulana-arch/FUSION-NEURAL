@@ -167,7 +167,6 @@ export default function NeuralTasksPage() {
       const todos = tasks.filter(t => t.status === 'To Do');
       if (todos.length > 0) {
         const oldestTodo = todos[todos.length - 1];
-        console.log('[Auto-Loop Engine] Menggerakkan task:', oldestTodo.title);
         moveTask(oldestTodo.id, 'In Progress');
       }
     }, 15000); // 15 detik jeda

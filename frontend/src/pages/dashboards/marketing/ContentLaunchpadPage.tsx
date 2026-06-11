@@ -50,6 +50,18 @@ export default function ContentLaunchpadPage() {
 
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [calendarView, setCalendarView] = useState<'Month' | 'Week' | 'Day'>('Month');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterPlatform, setFilterPlatform] = useState<string>('All');
+  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
+  const [newFolderName, setNewFolderName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync with Firestore
@@ -198,6 +210,15 @@ export default function ContentLaunchpadPage() {
 
   return (
     <div className="space-y-6 pb-10">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       <PageHeader
         title="Content Launchpad"
         subtitle="Timeline, distribusi & aset — kendali penuh atas publikasi"
@@ -281,11 +302,27 @@ export default function ContentLaunchpadPage() {
              <p className="text-sm text-slate-500 mt-0.5">Manage and organize your brand's media assets.</p>
            </div>
            <div className="flex items-center gap-2">
-             <button onClick={() => alert('Fitur folder akan segera tersedia untuk mengorganisir media assets.')}
-               className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors">
-               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-               New Folder
-             </button>
+             {showNewFolder ? (
+               <div className="flex items-center gap-2">
+                 <input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} onKeyDown={e => {
+                   if (e.key === 'Enter' && newFolderName.trim()) {
+                     const tag = newFolderName.trim();
+                     setMediaLibrary(prev => [...prev, { id: `folder-${Date.now()}`, name: tag, url: '', type: 'image' }]);
+                     setNewFolderName('');
+                     setShowNewFolder(false);
+                   }
+                 }} placeholder="Nama folder..." className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-teal-400" autoFocus />
+                 <button onClick={() => { if (newFolderName.trim()) { setMediaLibrary(prev => [...prev, { id: `folder-${Date.now()}`, name: newFolderName.trim(), url: '', type: 'image' }]); setNewFolderName(''); setShowNewFolder(false); } }}
+                   className="px-3 py-1.5 bg-teal-600 text-white text-xs font-bold rounded-lg hover:bg-teal-700">Simpan</button>
+                 <button onClick={() => { setShowNewFolder(false); setNewFolderName(''); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs">✕</button>
+               </div>
+             ) : (
+               <button onClick={() => setShowNewFolder(true)}
+                 className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors">
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                 New Folder
+               </button>
+             )}
              <button onClick={() => fileInputRef.current?.click()} disabled={isUploading}
                className="flex items-center gap-2 px-4 py-2 bg-teal-700 text-white text-xs font-bold rounded-lg hover:bg-teal-800 transition-colors shadow-sm disabled:opacity-50">
                {isUploading ? <><Loader2 size={14} className="animate-spin" /> Uploading...</> : <><UploadCloud size={14} /> Upload Asset</>}
@@ -403,17 +440,51 @@ export default function ContentLaunchpadPage() {
            </div>
            <div className="flex gap-4">
              <div className="flex bg-white border border-slate-200 rounded-lg overflow-hidden text-xs font-bold text-slate-600">
-               <button onClick={() => {}} className="px-3 py-1.5 border-r border-slate-200 bg-slate-50">Month</button>
-               <button onClick={() => {}} className="px-3 py-1.5 border-r border-slate-200 hover:bg-slate-50">Week</button>
-               <button onClick={() => {}} className="px-3 py-1.5 hover:bg-slate-50">Day</button>
+               <button onClick={() => setCalendarView('Month')} className={`px-3 py-1.5 border-r border-slate-200 ${calendarView === 'Month' ? 'bg-slate-800 text-white' : 'hover:bg-slate-50'}`}>Month</button>
+               <button onClick={() => setCalendarView('Week')} className={`px-3 py-1.5 border-r border-slate-200 ${calendarView === 'Week' ? 'bg-slate-800 text-white' : 'hover:bg-slate-50'}`}>Week</button>
+               <button onClick={() => setCalendarView('Day')} className={`px-3 py-1.5 ${calendarView === 'Day' ? 'bg-slate-800 text-white' : 'hover:bg-slate-50'}`}>Day</button>
              </div>
-             <button onClick={() => alert('Filter konten berdasarkan platform, status, dan tanggal akan segera tersedia.')}
-               className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50">
+             <button onClick={() => setShowFilters(!showFilters)}
+               className={`flex items-center gap-2 px-3 py-1.5 bg-white border rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 ${showFilters ? 'border-purple-400 bg-purple-50' : 'border-slate-200'}`}>
                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-               Filters
+               Filters {showFilters ? '▲' : '▼'}
              </button>
            </div>
         </div>
+
+        {/* Filter Panel */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              className="border-b border-slate-100 overflow-hidden">
+              <div className="px-6 py-4 flex flex-wrap items-center gap-4 bg-slate-50">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Platform:</span>
+                  <select value={filterPlatform} onChange={e => setFilterPlatform(e.target.value)}
+                    className="bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-3 py-1.5 outline-none">
+                    <option value="All">Semua</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="Web">Web</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Status:</span>
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                    className="bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-3 py-1.5 outline-none">
+                    <option value="All">Semua</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+                <button onClick={() => { setFilterPlatform('All'); setFilterStatus('All'); }}
+                  className="text-[10px] font-bold text-purple-600 hover:text-purple-800 ml-auto">Reset Filter</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
             <div className="grid grid-cols-7 border-b border-slate-100">
@@ -577,13 +648,14 @@ export default function ContentLaunchpadPage() {
                                const result = await res.json();
                                if (result.status === 'success') {
                                  await FirebaseLogger.logAgentAction('Marketing', 'PUBLISHED', `Post ${post.id} berhasil dipublish ke ${post.platform}`);
+                                 showFeedback('success', `Post berhasil dipublish ke ${post.platform}!`);
                                } else {
                                  console.error('Publish failed:', result.detail);
-                                 alert(`Publish gagal: ${result.detail}`);
+                                 showFeedback('error', `Publish gagal: ${result.detail}`);
                                }
                              } catch (e) {
                                console.error('Publish error:', e);
-                               alert('Gagal menghubungi backend. Pastikan server berjalan.');
+                               showFeedback('error', 'Gagal menghubungi backend.');
                              }
                            }}
                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-colors ml-auto"

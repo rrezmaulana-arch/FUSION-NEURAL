@@ -101,41 +101,64 @@ async function apiFetch<TResponse>(
   path: string,
   payload: unknown,
   timeoutMs: number = 120_000,
+  retries: number = 2,
 ): Promise<TResponse> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let lastError: Error | null = null;
 
-  try {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${BASE_URL}${path}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      let errorDetail: string;
-      try {
-        const errJson = await response.json();
-        errorDetail = errJson.detail ?? errJson.error ?? response.statusText;
-      } catch {
-        errorDetail = response.statusText;
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${BASE_URL}${path}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        let errorDetail: string;
+        try {
+          const errJson = await response.json();
+          errorDetail = errJson.detail ?? errJson.error ?? response.statusText;
+        } catch {
+          errorDetail = response.statusText;
+        }
+        // Don't retry client errors (4xx) — only server errors (5xx) and network issues
+        if (response.status >= 400 && response.status < 500) {
+          throw new Error(`[API ${response.status}] ${errorDetail}`);
+        }
+        throw new Error(`[API ${response.status}] ${errorDetail}`);
       }
-      throw new Error(`[API ${response.status}] ${errorDetail}`);
-    }
 
-    return response.json() as Promise<TResponse>;
-  } catch (err: unknown) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(
-        `Request timeout setelah ${timeoutMs / 1000}s. Backend AI mungkin sedang sibuk.`,
-      );
+      return response.json() as Promise<TResponse>;
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      if (err instanceof Error && err.name === 'AbortError') {
+        lastError = new Error(`Request timeout setelah ${timeoutMs / 1000}s. Backend AI mungkin sedang sibuk.`);
+      }
+
+      // Don't retry on client errors (4xx)
+      if (err instanceof Error && err.message.includes('[API 4')) {
+        throw err;
+      }
+
+      // Wait before retry (exponential backoff)
+      if (attempt < retries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        console.warn(`[apiClient] Retry ${attempt + 1}/${retries} for ${path}...`);
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError || new Error('Request failed after retries');
 }
 
 // ─── Public API Methods ───────────────────────────────────────────────────────

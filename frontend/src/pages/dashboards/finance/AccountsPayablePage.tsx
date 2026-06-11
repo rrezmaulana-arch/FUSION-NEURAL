@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Receipt, FileSpreadsheet, ArrowUpRight, ArrowDownRight, Clock, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Receipt, FileSpreadsheet, ArrowUpRight, ArrowDownRight, Clock, AlertCircle, X } from 'lucide-react';
 import { db } from '../../../lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import PageHeader from '../../../components/ui/PageHeader';
 
 export default function AccountsPayablePage() {
   const [activeTab, setActiveTab] = useState<'ap' | 'ar'>('ap');
   const [apList, setApList] = useState<any[]>([]);
   const [arList, setArList] = useState<any[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [invType, setInvType] = useState<'ap' | 'ar'>('ap');
+  const [invForm, setInvForm] = useState({ entity: '', amount: '', dueDate: '', notes: '' });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'accounts_payable'), orderBy('timestamp', 'desc'), limit(50));
@@ -39,6 +43,32 @@ export default function AccountsPayablePage() {
     }
   };
 
+  const handleCreateInvoice = async () => {
+    if (!invForm.entity || !invForm.amount || !invForm.dueDate) return;
+    setIsSaving(true);
+    try {
+      const collection_name = invType === 'ap' ? 'accounts_payable' : 'accounts_receivable';
+      const prefix = invType === 'ap' ? 'INV-AP' : 'INV-AR';
+      const invoiceId = `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`;
+      await addDoc(collection(db, collection_name), {
+        invoice_id: invoiceId,
+        entity: invForm.entity,
+        amount: Number(invForm.amount),
+        due: invForm.dueDate,
+        dueDate: invForm.dueDate,
+        notes: invForm.notes,
+        status: invType === 'ap' ? 'UNPAID' : 'PENDING',
+        timestamp: serverTimestamp(),
+      });
+      setInvForm({ entity: '', amount: '', dueDate: '', notes: '' });
+      setShowForm(false);
+    } catch (e) {
+      console.error('Gagal membuat invoice:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-10">
       <PageHeader
@@ -46,12 +76,61 @@ export default function AccountsPayablePage() {
         subtitle="Kelola tagihan supplier (Hutang/AP) dan pencairan dana marketplace (Piutang/AR)."
         accent="emerald"
         actions={
-          <button onClick={() => alert('Fitur Buat Invoice Baru akan segera tersedia. Saat ini invoice dibuat otomatis oleh Neural Finance melalui task.')}
+          <button onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm">
             <Receipt size={14} /> Buat Invoice Baru
           </button>
         }
       />
+
+      <AnimatePresence>
+        {showForm && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-5 flex items-center justify-between border-b border-slate-100">
+              <h3 className="font-black text-slate-800 text-sm">Buat Invoice Baru</h3>
+              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex gap-2 mb-2">
+                <button onClick={() => setInvType('ap')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${invType === 'ap' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Hutang (AP)</button>
+                <button onClick={() => setInvType('ar')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${invType === 'ar' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Piutang (AR)</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">{invType === 'ap' ? 'Supplier / Vendor' : 'Sumber (Marketplace/B2B)'}</label>
+                  <input value={invForm.entity} onChange={e => setInvForm(f => ({ ...f, entity: e.target.value }))}
+                    placeholder={invType === 'ap' ? 'Nama supplier...' : 'Nama marketplace...'} className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Jumlah (Rp)</label>
+                  <input type="number" value={invForm.amount} onChange={e => setInvForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="0" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Jatuh Tempo</label>
+                  <input type="date" value={invForm.dueDate} onChange={e => setInvForm(f => ({ ...f, dueDate: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Catatan (Opsional)</label>
+                  <input value={invForm.notes} onChange={e => setInvForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Catatan tambahan..." className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Batal</button>
+                <button onClick={handleCreateInvoice} disabled={isSaving || !invForm.entity || !invForm.amount || !invForm.dueDate}
+                  className="px-5 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  {isSaving ? 'Menyimpan...' : 'Simpan Invoice'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[

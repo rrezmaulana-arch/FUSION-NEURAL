@@ -18,6 +18,8 @@ import DevicesSection from '../sections/DevicesSection';
 import DevelopersSection from '../sections/DevelopersSection';
 import CTASection from '../sections/CTASection';
 import PricingSection from '../sections/PricingSection';
+import FAQSection from '../sections/FAQSection';
+import TestimonialSection from '../sections/TestimonialSection';
 import ChatBot from '../components/chat/ChatBot';
 import { LanguageProvider } from '../context/LanguageContext';
 import { useGsapReveal, gsap, ScrollTrigger } from '../hooks/useGsapReveal';
@@ -89,6 +91,8 @@ export default function LandingPage() {
             <DevicesSection />
             <TechStackSection />
             <PricingSection />
+            <TestimonialSection />
+            <FAQSection />
             <DevelopersSection />
             <CTASection />
           </main>

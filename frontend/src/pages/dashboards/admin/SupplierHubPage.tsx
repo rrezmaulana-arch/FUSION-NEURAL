@@ -34,6 +34,12 @@ export default function SupplierHubPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [generatingPO, setGeneratingPO] = useState<string | null>(null);
   const [poResult, setPoResult] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
   const isScoutedByAIRef = useRef(false);
 
   // AI Scout States
@@ -99,7 +105,7 @@ WAJIB KEMBALIKAN DALAM FORMAT ARRAY JSON SAJA tanpa markdown, tanpa penjelasan a
       await FirebaseLogger.logAgentAction('Admin', 'AI_SUPPLIER_SCOUT', `Mencari rekomendasi untuk: ${searchQuery}`);
     } catch (e) {
       console.error('Error parsing AI response', e);
-      alert('Gagal mengambil data rekomendasi dari AI. Harap coba lagi dengan kata kunci lain.');
+      showFeedback('error', 'Gagal mengambil data rekomendasi dari AI.');
     } finally {
       setIsSearching(false);
     }
@@ -115,7 +121,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
       await FirebaseLogger.logAgentAction('Admin', 'SUPPLIER_DEEP_ANALYZE', `Menganalisis profil risiko vendor ${rec.name}`);
     } catch (e) {
       console.error(e);
-      alert('Gagal menganalisis supplier.');
+      showFeedback('error', 'Gagal menganalisis supplier.');
     } finally {
       setAnalyzingSupplier(null);
     }
@@ -183,6 +189,15 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
 
   return (
     <div className="space-y-6 pb-10 relative">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       {/* Terminal Theme Elements */}
       <div className="fixed inset-0 pointer-events-none z-[-1] opacity-[0.02] bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]" />
       <div className="fixed bottom-4 right-4 text-[10px] font-mono text-slate-400 pointer-events-none opacity-60 z-50">
@@ -376,7 +391,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
           {suppliers.length === 0 ? (
             <div className="text-center py-16">
               <Building2 size={32} className="mx-auto mb-2 text-slate-300" />
-              <p className="text-slate-400 text-sm">Belum ada supplier. Tambahkan vendor pertama Kak.</p>
+              <p className="text-slate-400 text-sm">Belum ada supplier. Tambahkan vendor pertama.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

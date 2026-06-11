@@ -139,7 +139,7 @@ export default function OrderPage() {
         sessionId: sessionId.current,
       });
 
-      const reply = data.result || 'Sinkronisasi sedang berlangsung, Kak. Mohon tunggu sebentar.';
+      const reply = data.result || 'Sinkronisasi sedang berlangsung. Mohon tunggu sebentar.';
       setMessages((prev) => [
         ...prev,
         { id: Date.now().toString(), sender: 'bot', text: reply },
@@ -233,7 +233,7 @@ export default function OrderPage() {
       if (token && window.snap) {
         window.snap.pay(token, {
           onSuccess: async () => { await handlePaymentSuccess(snap); },
-          onPending: (r: any) => { console.log('Pending:', r); },
+          onPending: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; alert('Pembayaran Anda sedang diproses. Silakan cek status secara berkala.'); },
           onError: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; },
           onClose: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; },
         });
@@ -279,7 +279,7 @@ export default function OrderPage() {
         {
           id: Date.now().toString(),
           sender: 'bot',
-          text: `Pembayaran berhasil diverifikasi, Kak ${snap.name}! \n\nSekarang mari kita mulai perancangan sistem Kakak. Sistem aplikasi apa yang ingin Kakak buat? (Misal: Sistem HRD, CRM, ERP, atau yang lainnya). Lalu, tema warnanya mau seperti apa? Kita bebas berkreasi di sini!`
+          text: `Pembayaran berhasil diverifikasi, ${snap.name}! \n\nTerima atas kepercayaan Anda. Tim kami akan segera menghubungi Anda untuk proses selanjutnya. Apakah ada yang bisa saya bantu?`
         },
       ]);
     } catch (e) {
@@ -570,7 +570,7 @@ export default function OrderPage() {
                 ? 'Menginisialisasi AI…'
                 : isProcessingPayment
                 ? 'Menunggu pembayaran selesai...'
-                : 'Ketik pesan Kak…'
+                : 'Ketik pesan Anda…'
             }
             className="w-full bg-white border border-slate-200 text-fn-navy rounded-2xl pl-5 pr-14 py-4 outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10 transition-all disabled:opacity-50 text-sm shadow-sm"
           />

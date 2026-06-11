@@ -341,10 +341,10 @@ export default function EmailCampaignPage() {
   const clickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : '0.0';
 
   const stats = [
-    { label: 'Total Penerima', value: leads.length.toLocaleString(), icon: <Users size={18}/>, color: 'from-purple-500/20 to-indigo-500/10', accent: 'text-purple-400' },
-    { label: 'Total Terkirim', value: totalSent.toLocaleString(), icon: <Send size={18}/>, color: 'from-pink-500/20 to-purple-500/10', accent: 'text-pink-400' },
-    { label: 'Open Rate', value: `${openRate}%`, icon: <TrendingUp size={18}/>, color: 'from-emerald-500/20 to-teal-500/10', accent: 'text-emerald-400' },
-    { label: 'Click Rate', value: `${clickRate}%`, icon: <MousePointer size={18}/>, color: 'from-amber-500/20 to-orange-500/10', accent: 'text-amber-400' },
+    { label: 'Total Penerima', value: leads.length.toLocaleString(), icon: <Users size={18}/> },
+    { label: 'Total Terkirim', value: totalSent.toLocaleString(), icon: <Send size={18}/> },
+    { label: 'Open Rate', value: `${openRate}%`, icon: <TrendingUp size={18}/> },
+    { label: 'Click Rate', value: `${clickRate}%`, icon: <MousePointer size={18}/> },
   ];
 
   return (
@@ -353,19 +353,19 @@ export default function EmailCampaignPage() {
       <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600/30 to-pink-600/20 flex items-center justify-center border border-purple-500/20">
-              <Mail size={20} className="text-purple-300"/>
+            <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center">
+              <Mail size={20} className="text-purple-500"/>
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight">Email Campaign Studio</h1>
-              <p className="text-[11px] text-purple-300/60 font-medium mt-0.5">Neural Marketing · Human-in-the-Loop Dispatch</p>
+              <h1 className="text-xl font-black text-slate-800 tracking-tight">Email Campaign Studio</h1>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Neural Marketing · Human-in-the-Loop Dispatch</p>
             </div>
           </div>
         </div>
         <motion.button
           whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={() => setShowDraftModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold shadow-lg shadow-purple-500/20 hover:opacity-90 transition-opacity shrink-0"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-bold shadow-sm hover:bg-purple-700 transition-colors shrink-0"
         >
           <Sparkles size={15}/> AI Draft Campaign
         </motion.button>
@@ -375,22 +375,19 @@ export default function EmailCampaignPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-            className={`relative p-4 rounded-2xl bg-gradient-to-br ${s.color} border border-white/[0.06] backdrop-blur-xl overflow-hidden`}>
-            <div className="absolute inset-0 bg-[#0a0010]/60"/>
-            <div className="relative">
-              <div className={`${s.accent} mb-2 opacity-80`}>{s.icon}</div>
-              <div className={`text-2xl font-black ${s.accent}`}>{s.value}</div>
-              <div className="text-[10px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider">{s.label}</div>
-            </div>
+            className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="text-purple-500 mb-2 opacity-80">{s.icon}</div>
+            <div className="text-2xl font-black text-slate-800">{s.value}</div>
+            <div className="text-[10px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider">{s.label}</div>
           </motion.div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl w-fit">
+      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
         {(['campaigns', 'leads'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all ${activeTab === tab ? 'bg-purple-600/30 text-purple-300 border border-purple-500/20' : 'text-slate-500 hover:text-slate-300'}`}>
+            className={`px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all ${activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
             {tab === 'campaigns' ? `Campaigns (${campaigns.length})` : `Leads (${leads.length})`}
           </button>
         ))}
@@ -404,19 +401,19 @@ export default function EmailCampaignPage() {
               <div className="flex items-center justify-center py-20"><Loader size={24} className="animate-spin text-purple-400"/></div>
             ) : campaigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4">
-                  <Mail size={28} className="text-purple-400/50"/>
+                <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center mb-4">
+                  <Mail size={28} className="text-purple-300"/>
                 </div>
-                <p className="text-slate-400 font-semibold">Belum ada kampanye</p>
-                <p className="text-slate-600 text-sm mt-1">Klik "AI Draft Campaign" untuk membuat yang pertama</p>
+                <p className="text-slate-500 font-semibold">Belum ada kampanye</p>
+                <p className="text-slate-400 text-sm mt-1">Klik "AI Draft Campaign" untuk membuat yang pertama</p>
               </div>
             ) : campaigns.map((camp, i) => (
               <motion.div key={camp.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                className="group relative p-4 rounded-2xl bg-gradient-to-br from-white/[0.04] to-transparent border border-white/[0.06] hover:border-purple-500/20 transition-all">
+                className="group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-bold text-white truncate">{camp.campaignName}</h3>
+                      <h3 className="text-sm font-bold text-slate-800 truncate">{camp.campaignName}</h3>
                       <StatusBadge status={camp.status}/>
                     </div>
                     <p className="text-xs text-slate-400 truncate mb-2">Subject: {camp.subject}</p>
@@ -468,7 +465,7 @@ export default function EmailCampaignPage() {
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs text-slate-500">{leads.length} kontak tersimpan</p>
               <button onClick={() => setShowAddLead(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold hover:bg-purple-500/20 transition-colors">
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition-colors">
                 <Plus size={13}/> Tambah Kontak
               </button>
             </div>
@@ -476,17 +473,17 @@ export default function EmailCampaignPage() {
               <div className="flex items-center justify-center py-20"><Loader size={24} className="animate-spin text-purple-400"/></div>
             ) : leads.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4">
-                  <Users size={28} className="text-purple-400/50"/>
+                <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center mb-4">
+                  <Users size={28} className="text-purple-300"/>
                 </div>
-                <p className="text-slate-400 font-semibold">Belum ada kontak</p>
-                <p className="text-slate-600 text-sm mt-1">Tambahkan leads untuk mulai membuat kampanye</p>
+                <p className="text-slate-500 font-semibold">Belum ada kontak</p>
+                <p className="text-slate-400 text-sm mt-1">Tambahkan leads untuk mulai membuat kampanye</p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
+              <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                    <tr className="border-b border-slate-100 bg-slate-50">
                       {['Nama','Email','Segment','Status','Ditambahkan'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                       ))}

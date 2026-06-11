@@ -37,6 +37,9 @@ interface PendingApproval {
   status: string;
   timestamp: string;
   sourceTask?: string;
+  orderId?: string;
+  poId?: string;
+  estimatedCost?: number;
 }
 
 export default function StrategicAuditPage() {
@@ -176,6 +179,39 @@ export default function StrategicAuditPage() {
         }
       }
 
+      // Handle Approve Shipment — update order status to shipped
+      if (app.actionType === 'Approve Shipment' && app.orderId) {
+        await updateDoc(doc(db, 'orders', app.orderId), {
+          status: 'shipped',
+          shippedAt: new Date().toISOString(),
+          approvedBy: 'Manager'
+        });
+      }
+
+      // Handle Approve Purchase Order — update PO status to APPROVED
+      if (app.actionType === 'Approve Purchase Order' && app.poId) {
+        // Find the PO in procurement collection and update its status
+        const poQuery = query(collection(db, 'procurement'), where('po_id', '==', app.poId));
+        const poSnap = await getDocs(poQuery);
+        if (!poSnap.empty) {
+          await updateDoc(doc(db, 'procurement', poSnap.docs[0].id), {
+            status: 'APPROVED',
+            approvedAt: new Date().toISOString(),
+            approvedBy: 'Finance'
+          });
+        }
+        // Record the expense
+        if (app.estimatedCost) {
+          await addDoc(collection(db, 'finance_transactions'), {
+            amount: app.estimatedCost,
+            transaction_type: 'EXPENSE',
+            category: 'Procurement',
+            description: `PO ${app.poId}: ${app.description}`,
+            created_at: new Date().toISOString()
+          });
+        }
+      }
+
       await setDoc(doc(db, 'pending_approvals', app.id), { status: 'Approved', managerFeedback: 'OK' }, { merge: true });
       await FirebaseLogger.logAgentAction('Manager', 'APPROVE_AI_ACTION', `Menyetujui eksekusi ${app.actionType} oleh ${app.agentId}. CI/CD Auto-Reload Triggered.`);
       setSuccessMsg(`Tindakan ${app.agentId} berhasil di-approve! Eksekusi berjalan.`);
@@ -193,10 +229,20 @@ export default function StrategicAuditPage() {
     } catch(e) { console.error(e); }
   };
 
-  const handleRejectScold = async (id: string, agent: string) => {
+  const handleRejectScold = async (id: string, agent: string, orderId?: string) => {
     const reason = prompt(`Beri teguran keras ke ${agent} (marah/tegas):`, 'DILARANG MENGUBAH KODE INI! Batal!');
     if (reason) {
       await setDoc(doc(db, 'pending_approvals', id), { status: 'Rejected', managerFeedback: reason }, { merge: true });
+      // If this is a shipment approval, revert order status
+      if (orderId) {
+        try {
+          await updateDoc(doc(db, 'orders', orderId), {
+            status: 'PREPARING',
+            rejectedAt: new Date().toISOString(),
+            rejectReason: reason
+          });
+        } catch {}
+      }
       await FirebaseLogger.logAgentAction('Manager', 'REJECT_SCOLD_AI', `Menolak tindakan ${agent}. Alasan: ${reason}`);
       speak(`Proposal rejected. Feedback sent to ${agent}.`, 'manager');
     }
@@ -240,7 +286,7 @@ export default function StrategicAuditPage() {
                     <button onClick={() => handleApprove(app)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all">
                       <CheckCircle2 size={14} /> Approve & Deploy
                     </button>
-                    <button onClick={() => handleRejectScold(app.id, app.agentId)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 rounded-lg text-xs font-bold transition-all">
+                    <button onClick={() => handleRejectScold(app.id, app.agentId, app.orderId)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 rounded-lg text-xs font-bold transition-all">
                       <MessageSquareWarning size={14} /> Reject & Scold
                     </button>
                   </div>
@@ -380,7 +426,7 @@ export default function StrategicAuditPage() {
                   <textarea
                     value={customPrompt}
                     onChange={e => setCustomPrompt(e.target.value)}
-                    placeholder={`Ketik instruksi kustom Kak untuk ${evalResult.target_agent}...`}
+                    placeholder={`Ketik instruksi kustom untuk ${evalResult.target_agent}...`}
                     rows={4}
                     className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none focus:ring-2 ring-teal-300 resize-none"
                   />
@@ -442,7 +488,7 @@ export default function StrategicAuditPage() {
                 <div className="bg-slate-800/80 rounded-2xl rounded-tl-sm px-4 py-3 border border-slate-700/50">
                   <p className="text-xs text-teal-400 font-bold mb-1 uppercase tracking-widest text-[9px]">Manager AI</p>
                   <p className="text-sm text-slate-300 leading-relaxed">
-                    Halo Kak Reza. Saya siap menerima instruksi strategis, melakukan audit manual, atau memarahi agen yang melanggar aturan. Apa yang bisa saya bantu hari ini?
+                    Saya siap menerima instruksi strategis, melakukan audit manual, atau mengevaluasi agen yang melanggar aturan. Apa yang bisa saya bantu hari ini?
                   </p>
                 </div>
               </div>

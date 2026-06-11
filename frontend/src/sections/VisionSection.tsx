@@ -132,7 +132,7 @@ export default function VisionSection() {
           >
             {isEnglish
               ? 'FusionNeural replaces the traditional one-person business hustle with a fully autonomous AI ecosystem — where you set strategy, and your agents execute everything else.'
-              : 'FusionNeural menggantikan model bisnis konvensional dengan ekosistem AI otonom penuh — Kak yang menentukan strategi, agen AI yang mengeksekusi semuanya.'}
+              : 'FusionNeural menggantikan model bisnis konvensional dengan ekosistem AI otonom penuh — Anda yang menentukan strategi, agen AI yang mengeksekusi semuanya.'}
           </p>
         </div>
 

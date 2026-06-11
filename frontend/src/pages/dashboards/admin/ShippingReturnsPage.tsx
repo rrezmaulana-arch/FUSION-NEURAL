@@ -6,6 +6,12 @@ import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/f
 export default function ShippingReturnsPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [trackingInput, setTrackingInput] = useState<{ [key: string]: string }>({});
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   useEffect(() => {
     // Listen for orders that are PAID (need shipping) or RETURN_REQUESTED
@@ -24,17 +30,17 @@ export default function ShippingReturnsPage() {
 
   const handleInputResi = async (orderId: string) => {
     const resi = trackingInput[orderId];
-    if (!resi) return alert("Nomor resi kosong!");
-    
+    if (!resi) return showFeedback('error', 'Nomor resi kosong!');
+
     try {
       await updateDoc(doc(db, 'orders', orderId), {
-        status: 'SHIPPED',
-        tracking_number: resi
+        status: 'shipped',
+        tracking: resi
       });
-      alert(`Order ${orderId} berhasil diupdate dengan resi ${resi}`);
+      showFeedback('success', `Order ${orderId.slice(0, 8)} berhasil diupdate dengan resi ${resi}`);
     } catch (e) {
       console.error(e);
-      alert("Gagal update resi");
+      showFeedback('error', 'Gagal update resi');
     }
   };
 
@@ -43,11 +49,10 @@ export default function ShippingReturnsPage() {
       await updateDoc(doc(db, 'orders', orderId), {
         status: 'RETURN_PROCESSED'
       });
-      // Optionally trigger backend to restock inventory here
-      alert(`Return untuk order ${orderId} berhasil diproses.`);
+      showFeedback('success', `Return untuk order ${orderId.slice(0, 8)} berhasil diproses.`);
     } catch (e) {
       console.error(e);
-      alert("Gagal proses return");
+      showFeedback('error', 'Gagal proses return');
     }
   };
 
@@ -56,6 +61,15 @@ export default function ShippingReturnsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
+          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+        }`}>
+          {feedback.msg}
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg">
           <Truck className="w-6 h-6 text-slate-200" />

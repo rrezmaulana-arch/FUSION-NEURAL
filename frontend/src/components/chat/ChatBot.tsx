@@ -132,7 +132,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
         ...newMessages,
         {
           role: "bot",
-          text: "Sistem sedang melakukan sinkronisasi ulang. Mohon coba beberapa saat lagi Kak.",
+          text: "Sistem sedang melakukan sinkronisasi ulang. Mohon coba beberapa saat lagi.",
         },
       ]);
     } finally {
@@ -210,7 +210,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
                   </div>
                   <h4 className="text-slate-800 font-bold mb-2 text-lg">Neural Core Siap</h4>
                   <p className="text-slate-600 text-sm leading-relaxed">
-                    Tanya apa saja — strategi bisnis, analisis pasar, atau operasional. 4 Agen AI siap bekerja untuk Kak.
+                    Tanya apa saja — strategi bisnis, analisis pasar, atau operasional. 4 Agen AI siap bekerja untuk Anda.
                   </p>
                 </div>
               )}
@@ -282,7 +282,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   className="flex-1 bg-transparent px-3 sm:px-4 py-3 text-slate-800 text-base sm:text-sm outline-none placeholder-slate-500"
-                  placeholder="Ketik pesan Kak..."
+                  placeholder="Ketik pesan Anda..."
                 />
                 <button
                   onClick={handleSend}

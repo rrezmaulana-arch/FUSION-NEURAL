@@ -26,9 +26,6 @@ function initializeCoreAnalytics() {
   }, 2000);
 }
 
-console.log("%c PORTFOLIO BY MIFTAH AFREZA MAULANA ", "background: #000; color: #fff; border: 2px solid #007AFF; font-size: 16px; padding: 10px; font-family: sans-serif;");
-console.log("Connect with me: https://instagram.com/rrez_.maulana");
-
 initializeCoreAnalytics();
 
 createRoot(document.getElementById('root')!).render(
