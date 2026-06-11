@@ -20,13 +20,13 @@ export default function AudienceCRMPage() {
         }
       });
       
-      const activeCount = Object.keys(customers).length + 8450; // Add base to avoid empty state
-      const vipCount = Object.values(customers).filter(c => c > 1).length + 1240;
-      
+      const activeCount = Object.keys(customers).length;
+      const vipCount = Object.values(customers).filter(c => c > 1).length;
+
       setAudienceStats({
         active: activeCount,
         vip: vipCount,
-        churn: Math.floor(activeCount * 0.3) + 3200
+        churn: Math.floor(activeCount * 0.3)
       });
     });
     return () => unsub();
@@ -49,15 +49,15 @@ export default function AudienceCRMPage() {
       {activeTab === 'segments' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { title: 'VIP / Whales', desc: 'Pelanggan dengan LTV tertinggi, belanja rutin.', count: audienceStats.vip.toLocaleString('id-ID'), icon: Star, color: 'amber' },
-            { title: 'Active Buyers', desc: 'Belanja minimal 1x dalam 30 hari terakhir.', count: audienceStats.active.toLocaleString('id-ID'), icon: UserCheck, color: 'emerald' },
-            { title: 'Churn Risk', desc: 'Tidak belanja lebih dari 60 hari. Butuh promo reaktivasi.', count: audienceStats.churn.toLocaleString('id-ID'), icon: UserMinus, color: 'rose' },
+            { title: 'VIP / Whales', desc: 'Pelanggan dengan LTV tertinggi, belanja rutin.', count: audienceStats.vip.toLocaleString('id-ID'), icon: Star, iconBg: 'bg-amber-50', iconText: 'text-amber-500', btnBg: 'bg-amber-50', btnText: 'text-amber-600', btnHover: 'hover:bg-amber-100' },
+            { title: 'Active Buyers', desc: 'Belanja minimal 1x dalam 30 hari terakhir.', count: audienceStats.active.toLocaleString('id-ID'), icon: UserCheck, iconBg: 'bg-emerald-50', iconText: 'text-emerald-500', btnBg: 'bg-emerald-50', btnText: 'text-emerald-600', btnHover: 'hover:bg-emerald-100' },
+            { title: 'Churn Risk', desc: 'Tidak belanja lebih dari 60 hari. Butuh promo reaktivasi.', count: audienceStats.churn.toLocaleString('id-ID'), icon: UserMinus, iconBg: 'bg-rose-50', iconText: 'text-rose-500', btnBg: 'bg-rose-50', btnText: 'text-rose-600', btnHover: 'hover:bg-rose-100' },
           ].map((seg, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
               className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm"
             >
-              <div className={`w-12 h-12 rounded-xl bg-${seg.color}-50 flex items-center justify-center mb-4`}>
-                <seg.icon size={24} className={`text-${seg.color}-500`} />
+              <div className={`w-12 h-12 rounded-xl ${seg.iconBg} flex items-center justify-center mb-4`}>
+                <seg.icon size={24} className={seg.iconText} />
               </div>
               <h3 className="text-lg font-black text-slate-800 mb-1">{seg.title}</h3>
               <p className="text-xs text-slate-500 mb-4 h-8">{seg.desc}</p>
@@ -66,7 +66,8 @@ export default function AudienceCRMPage() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Audience</p>
                   <p className="text-2xl font-black text-slate-800">{seg.count}</p>
                 </div>
-                <button className={`px-3 py-1.5 bg-${seg.color}-50 text-${seg.color}-600 rounded-lg text-xs font-bold hover:bg-${seg.color}-100 transition-colors`}>
+                <button onClick={() => alert(`Menampilkan daftar pelanggan segmen "${seg.title}". Fitur detail segmen akan segera tersedia.`)}
+                  className={`px-3 py-1.5 ${seg.btnBg} ${seg.btnText} rounded-lg text-xs font-bold ${seg.btnHover} transition-colors`}>
                   View List
                 </button>
               </div>
@@ -79,7 +80,8 @@ export default function AudienceCRMPage() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-bold text-slate-800 flex items-center gap-2"><Mail size={18} className="text-purple-500"/> Email & Notification Flows</h3>
-            <button className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 flex items-center gap-2 shadow-md">
+            <button onClick={() => alert('Fitur Create Workflow akan segera tersedia. Workflow otomatis dibuat oleh Marketing AI berdasarkan perilaku pelanggan.')}
+              className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 flex items-center gap-2 shadow-md">
               <Send size={14} /> Create Workflow
             </button>
           </div>

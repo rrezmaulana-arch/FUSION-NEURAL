@@ -42,9 +42,12 @@ export default function GenerativeUIPage() {
             <p className="text-sm font-bold animate-pulse">Menunggu injeksi kode dari AI...</p>
           </div>
         ) : (
-          <div 
-            className="w-full h-full rounded-2xl overflow-hidden generative-container"
-            dangerouslySetInnerHTML={{ __html: htmlContent }} 
+          // sandbox mencegah script execution — hanya izinkan HTML & CSS
+          <iframe
+            srcDoc={htmlContent}
+            sandbox="allow-same-origin"
+            className="w-full min-h-[500px] rounded-2xl border-0"
+            title="AI Generated Page"
           />
         )}
       </div>

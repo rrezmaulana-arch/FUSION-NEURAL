@@ -27,22 +27,14 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function MarketingAnalyticsPage() {
   const [timeframe, setTimeframe] = useState('7d');
-  const [funnel, setFunnel] = useState({ impressions: 125000, clicks: 5250, add_to_cart: 840, purchases: 110 });
+  const [funnel, setFunnel] = useState({ impressions: 0, clicks: 0, add_to_cart: 0, purchases: 0 });
   const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [trendData, setTrendData] = useState<any[]>([
-    { date: 'Day 1', clicks: 800, purchases: 15, spend: 5000 },
-    { date: 'Day 2', clicks: 950, purchases: 20, spend: 8000 },
-    { date: 'Day 3', clicks: 1200, purchases: 35, spend: 12000 },
-    { date: 'Day 4', clicks: 1100, purchases: 25, spend: 9000 },
-    { date: 'Day 5', clicks: 1500, purchases: 50, spend: 15000 },
-    { date: 'Day 6', clicks: 2100, purchases: 80, spend: 18000 },
-    { date: 'Day 7', clicks: 2800, purchases: 110, spend: 22000 },
-  ]);
+  const [trendData, setTrendData] = useState<any[]>([]);
 
   useEffect(() => {
     const q = query(collection(db, 'marketing_stats'), orderBy('timestamp', 'desc'), limit(100));
     const unsub = onSnapshot(q, (snap) => {
-      let imp = 125000, clk = 5250, atc = 840, pur = 110;
+      let imp = 0, clk = 0, atc = 0, pur = 0;
       const camps: Record<string, any> = {};
       const byDay: Record<string, { clicks: number; purchases: number; spend: number }> = {};
 
@@ -229,11 +221,9 @@ export default function MarketingAnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {(campaigns.length > 0 ? campaigns : [
-                  { name: 'Flash Sale Lebaran', plat: 'Instagram Ads', spend: 'Rp 2.5M', rev: 'Rp 15.0M', roas: '6.0x' },
-                  { name: 'Retargeting Cart Abandons', plat: 'Facebook Pixel', spend: 'Rp 800K', rev: 'Rp 4.2M', roas: '5.2x' },
-                  { name: 'TikTok Brand Awareness', plat: 'TikTok Ads', spend: 'Rp 1.2M', rev: 'Rp 5.5M', roas: '4.6x' },
-                ]).map((c: any, i: number) => (
+                {campaigns.length === 0 ? (
+                  <tr><td colSpan={5} className="py-8 text-center text-slate-600 text-sm">Belum ada data campaign. Jalankan simulasi marketplace untuk menghasilkan data.</td></tr>
+                ) : campaigns.map((c: any, i: number) => (
                   <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/3 transition-colors">
                     <td className="py-3 font-bold text-slate-200 text-sm">{c.name}</td>
                     <td className="py-3 text-slate-500 text-xs">{c.plat}</td>

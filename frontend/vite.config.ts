@@ -206,7 +206,7 @@ export default defineConfig(({ mode }) => {
                 try {
                   const payload = JSON.parse(body);
                   const agentId = payload.agent || 'frontliner';
-                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8011';
+                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8001';
                   
                   const agentPayload = { ...payload, action: 'chat', agent: agentId };
                   
@@ -243,7 +243,7 @@ export default defineConfig(({ mode }) => {
               req.on('end', async () => {
                 try {
                   const payload = JSON.parse(body);
-                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8011';
+                  const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8001';
                   
                   const action = payload.action || 'trigger';
                   const response = await fetch(`${pythonBackend}/simulator/${action}`, {
@@ -271,7 +271,7 @@ export default defineConfig(({ mode }) => {
             const matched = PYTHON_PATHS.some(p => req.url?.startsWith(p));
             if (!matched) { next(); return; }
 
-            const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8011';
+            const pythonBackend = env.PYTHON_BACKEND_URL || 'http://localhost:8001';
             let body = '';
             req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
             req.on('end', async () => {

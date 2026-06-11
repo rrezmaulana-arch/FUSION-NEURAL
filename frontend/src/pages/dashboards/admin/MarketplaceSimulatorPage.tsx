@@ -1,9 +1,23 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Square, Snail, ChevronRight, ChevronsRight, Package, TrendingUp, Zap, Clock, ShoppingCart } from 'lucide-react';
+import { Play, Square, Snail, ChevronRight, ChevronsRight, Package, TrendingUp, Zap, Clock, ShoppingCart, Database } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDocs, query, onSnapshot } from 'firebase/firestore';
 import PageHeader from '../../../components/ui/PageHeader';
+
+// ── Demo Products (simulasi produk Shopee/TikTok Shop) ──────────────────────
+const DEMO_PRODUCTS = [
+  { name: 'Kaos Oversize Premium Cotton', sku: 'KOS-001', category: 'Fashion', price: 89000, quantity: 50, discount: 10 },
+  { name: 'Totebag Canvas Custom Print', sku: 'TOT-002', category: 'Fashion', price: 65000, quantity: 40, discount: 0 },
+  { name: 'Tumbler Stainless 500ml', sku: 'TUM-003', category: 'Lifestyle', price: 75000, quantity: 60, discount: 15 },
+  { name: 'Hoodie Zipper Fleece', sku: 'HOD-004', category: 'Fashion', price: 185000, quantity: 25, discount: 5 },
+  { name: 'Sticker Pack Aesthetic 50pcs', sku: 'STK-005', category: 'Stationery', price: 25000, quantity: 100, discount: 0 },
+  { name: 'Phone Case Custom Design', sku: 'PHC-006', category: 'Aksesoris', price: 55000, quantity: 45, discount: 20 },
+  { name: 'Topi Baseball Cap Embroidery', sku: 'TOP-007', category: 'Fashion', price: 79000, quantity: 35, discount: 0 },
+  { name: 'Sling Bag Waterproof', sku: 'SLB-008', category: 'Fashion', price: 120000, quantity: 30, discount: 10 },
+  { name: 'Mug Keramik 350ml Custom', sku: 'MUG-009', category: 'Lifestyle', price: 45000, quantity: 55, discount: 0 },
+  { name: 'Jaket Windbreaker Light', sku: 'JKT-010', category: 'Fashion', price: 225000, quantity: 20, discount: 5 },
+];
 
 interface InventoryProduct {
   id: string;
@@ -40,6 +54,7 @@ export default function MarketplaceSimulatorPage() {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const [autonomousOn, setAutonomousOn] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   
   // Listen to Autonomous Mode
   useEffect(() => {
@@ -78,6 +93,38 @@ export default function MarketplaceSimulatorPage() {
     };
     fetchProducts();
   }, []);
+
+  // Seed demo products ke Firestore
+  const handleSeedProducts = async () => {
+    setIsSeeding(true);
+    try {
+      for (const p of DEMO_PRODUCTS) {
+        await addDoc(collection(db, 'inventory'), {
+          ...p,
+          createdAt: new Date().toISOString(),
+          source: 'simulator_seed',
+        });
+      }
+      // Refresh product list
+      const snap = await getDocs(collection(db, 'inventory'));
+      const prods: InventoryProduct[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        prods.push({
+          id: d.id,
+          name: data.name || 'Unknown',
+          quantity: data.quantity ?? data.qty ?? 0,
+          price: data.price,
+          discount: data.discount,
+        });
+      });
+      setProducts(prods);
+    } catch (e) {
+      console.error('Seed error:', e);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   useEffect(() => {
     if (!isRunning || products.length === 0) return;
@@ -259,6 +306,28 @@ export default function MarketplaceSimulatorPage() {
           ))}
         </div>
       </div>
+
+      {/* Seed Demo Products */}
+      {products.length === 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        >
+          <div>
+            <h3 className="font-bold text-amber-800 flex items-center gap-2 text-sm">
+              <Database size={16} /> Inventory Kosong
+            </h3>
+            <p className="text-xs text-amber-600 mt-1">
+              Simulator butuh produk di inventory untuk jalan. Klik tombol untuk menambah 10 produk demo (simulasi produk Shopee/TikTok Shop).
+            </p>
+          </div>
+          <button onClick={handleSeedProducts} disabled={isSeeding}
+            className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-xl hover:bg-amber-700 transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            <Database size={14} />
+            {isSeeding ? 'Menambahkan...' : 'Seed 10 Produk Demo'}
+          </button>
+        </motion.div>
+      )}
 
       {/* Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

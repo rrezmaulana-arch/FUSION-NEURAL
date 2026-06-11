@@ -4,7 +4,7 @@
  * Domain: Neural Marketing (Pink/Purple Theme)
  * Human-in-the-Loop: All campaigns require Manager APPROVE before sending.
  */
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail, Users, Send, Plus, Eye,

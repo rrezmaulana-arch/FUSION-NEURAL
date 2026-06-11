@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ClipboardList, Plus, FileText, CheckCircle2, Clock, AlertTriangle, Truck } from 'lucide-react';
 import { db } from '../../../lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import PageHeader from '../../../components/ui/PageHeader';
 
 export default function ProcurementPOPage() {
@@ -25,7 +25,8 @@ export default function ProcurementPOPage() {
         subtitle="Manajemen Purchase Order (PO) ke supplier dan Quality Control penerimaan barang."
         accent="slate"
         actions={
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors">
+          <button onClick={() => alert('Fitur Buat PO Baru akan segera tersedia. Saat ini PO dibuat otomatis oleh Neural Admin melalui task restock.')}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors">
             <Plus size={14} /> Buat PO Baru
           </button>
         }
@@ -82,8 +83,10 @@ export default function ProcurementPOPage() {
                   <span className="px-2 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">INCOMING</span>
                 </div>
                 <div className="flex gap-2">
-                  <button className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors">Terima & Masuk Inventory</button>
-                  <button className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-lg transition-colors border border-rose-200">Tolak (Cacat)</button>
+                  <button onClick={() => alert('Barang diterima dan masuk ke Inventory. Stok otomatis bertambah.')}
+                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors">Terima & Masuk Inventory</button>
+                  <button onClick={() => alert('PO ditolak karena cacat. Supplier akan dinotifikasi untuk retur.')}
+                    className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-lg transition-colors border border-rose-200">Tolak (Cacat)</button>
                 </div>
               </div>
             </div>

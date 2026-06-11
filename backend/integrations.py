@@ -582,9 +582,6 @@ async def _ai_telegram_reply(chat_id: int, text: str):
     if chat_takeover_handler:
         await chat_takeover_handler("Telegram", str(chat_id), ai_reply, "ai")
 
-    # Catat ke Google Sheets (Sheet2)
-    await _log_social_interaction("Telegram", str(chat_id), text, ai_reply)
-
 # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
 # 6. NEURAL ORCHESTRATION ENGINE (Budget, Tickets, Approval Gates)
 # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 

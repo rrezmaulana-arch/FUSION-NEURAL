@@ -118,6 +118,9 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
     if (!result.trim()) return;
     setPublishStatus('publishing');
     try {
+      // Cari media yang dipilih dari library
+      const selectedMediaItem = selectedMedia ? mediaLibrary.find(m => m.id === selectedMedia) : null;
+
       // Simpan ke marketing_posts collection dengan status pending
       const postRef = await addDoc(collection(db, 'marketing_posts'), {
         content: result,
@@ -127,6 +130,8 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
         status: 'pending',
         scheduledAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
+        mediaUrl: selectedMediaItem?.url || null,
+        mediaType: selectedMediaItem?.type || null,
         tone,
         format,
         brief,

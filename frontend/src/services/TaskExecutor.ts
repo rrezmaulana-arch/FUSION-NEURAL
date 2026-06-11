@@ -27,44 +27,133 @@ interface NeuralTask {
 
 // ── Domain Validator ─────────────────────────────────────────────────────────
 /**
- * Daftar kata kunci yang DIIZINKAN — harus relevan dengan operasional bisnis.
- * Jika tidak ada satu pun kata kunci ini dalam judul task, task ditolak.
+ * Kata kunci domain bisnis — dipakai untuk validasi dan auto-labeling.
+ * Dikelompokkan per kategori untuk klasifikasi otomatis.
  */
-const ALLOWED_DOMAIN_KEYWORDS = [
-  // Admin / Logistik
-  'supplier', 'suplier', 'vendor', 'pabrik', 'mitra', 'rantai pasok',
-  'stok', 'stock', 'restock', 'inventaris', 'inventory', 'gudang', 'pengadaan',
-  'produk', 'sku', 'barang', 'bahan', 'material', 'beli', 'order', 'pesanan',
-  'ekspedisi', 'pengiriman', 'resi', 'kurir', 'logistik', 'procurement',
-  // Finance
-  'invoice', 'faktur', 'tagihan', 'keuangan', 'laporan', 'neraca', 'laba',
-  'rugi', 'profit', 'budget', 'anggaran', 'biaya', 'transaksi', 'pajak',
-  'ppn', 'pph', 'rekonsiliasi', 'bank', 'cash flow', 'modal', 'investasi',
-  'revenue', 'pendapatan', 'pengeluaran', 'saldo', 'akuntansi',
-  // Marketing
-  'marketing', 'iklan', 'konten', 'caption', 'posting', 'post', 'kampanye',
-  'promosi', 'campaign', 'jadwal', 'instagram', 'tiktok', 'sosmed',
-  'brand', 'copywriting', 'desain', 'kreatif', 'engagement', 'audience',
-  // Manager / Strategis
-  'riset', 'analisis', 'analisa', 'strategi', 'pasar', 'market', 'kompetitor',
-  'survey', 'laporan manajemen', 'evaluasi', 'delegasi', 'koordinasi',
-  'kinerja', 'target', 'planning', 'rencana', 'bisnis',
+const DOMAIN_KEYWORDS: Record<string, string[]> = {
+  admin: [
+    'supplier', 'suplier', 'vendor', 'pabrik', 'mitra', 'rantai pasok',
+    'stok', 'stock', 'restock', 'inventaris', 'inventory', 'gudang', 'pengadaan',
+    'produk', 'sku', 'barang', 'bahan', 'material', 'beli', 'order', 'pesanan',
+    'ekspedisi', 'pengiriman', 'resi', 'kurir', 'logistik', 'procurement',
+    'kemasan', 'packaging', 'qc', 'quality', 'retur', 'return', 'rusak',
+    'distributor', 'warehouse', 'packing', 'kirim', 'terima', 'packing',
+  ],
+  finance: [
+    'invoice', 'faktur', 'tagihan', 'keuangan', 'laporan', 'neraca', 'laba',
+    'rugi', 'profit', 'budget', 'anggaran', 'biaya', 'transaksi', 'pajak',
+    'ppn', 'pph', 'rekonsiliasi', 'bank', 'cash flow', 'modal', 'investasi',
+    'revenue', 'pendapatan', 'pengeluaran', 'saldo', 'akuntansi', 'rekap',
+    'recap', 'penjualan', 'sales', 'jual', 'bayar', 'hutang', 'piutang',
+    'gaji', 'payroll', 'arus kas', 'laba rugi', 'break even', 'roi',
+    'margin', 'harga', 'costing', 'harga pokok', 'hpp', 'omset', 'omzet',
+  ],
+  marketing: [
+    'marketing', 'iklan', 'konten', 'caption', 'posting', 'post', 'kampanye',
+    'promosi', 'campaign', 'jadwal', 'instagram', 'tiktok', 'sosmed',
+    'brand', 'copywriting', 'desain', 'kreatif', 'engagement', 'audience',
+    'leads', 'prospek', 'konversi', 'conversion', 'follower', 'reach',
+    'impression', 'click', 'ctr', 'roas', 'ads', 'advertise', 'influencer',
+    'content', 'story', 'reels', 'feed', 'bio', 'hashtag', 'seo',
+    'email', 'newsletter', 'blast', 'funnel', 'landing page', 'whatsapp',
+    'wa', 'broadcast', 'segmentasi', 'retargeting', 'copywriting',
+  ],
+  manager: [
+    'riset', 'analisis', 'analisa', 'strategi', 'pasar', 'market', 'kompetitor',
+    'survey', 'laporan manajemen', 'evaluasi', 'delegasi', 'koordinasi',
+    'kinerja', 'target', 'planning', 'rencana', 'bisnis', 'meeting',
+    'rapat', 'review', 'audit', 'kpi', 'okr', 'milestone', 'roadmap',
+    'timeline', 'deadline', 'sprint', 'backlog', 'prioritas', 'scaling',
+    'growth', 'expans', 'pivot', 'validasi', 'prototype', 'mvp',
+    'kompetitor', 'competitor', 'benchmark', 'tren', 'trend', 'forecast',
+    'proyeksi', 'scenario', 'mitigasi', 'risiko', 'risk',
+  ],
+};
+
+/**
+ * Kata kunci umum bisnis yang SELALU diterima (terlalu umum untuk klasifikasi
+ * tapi tetap relevan dengan konteks bisnis).
+ */
+const UNIVERSAL_BIZ_KEYWORDS = [
+  'klien', 'client', 'customer', 'pelanggan', 'user', 'pengguna',
+  'tim', 'team', 'proyek', 'project', 'data', 'report', 'update',
+  'monitoring', 'tracking', 'optimasi', 'optimasi', 'improve', 'perbaiki',
+  'implementasi', 'setup', 'setting', 'konfigurasi', 'integrasi',
+  'maintenance', 'support', 'training', 'onboarding', 'demo',
+  'presentasi', 'proposal', 'kontrak', 'perjanjian', 'moq', 'negosiasi',
+  'follow up', 'tindak lanjut', 'koordinasi', 'briefing', 'status',
+  'progress', 'timeline', 'jadwal', 'deadline', 'urgent', 'segera',
 ];
 
 /**
  * Validasi apakah task relevan dengan domain bisnis Fusion Neural.
- * Return null jika valid, atau string pesan error jika tidak valid.
+ * Menggunakan sistem scoring — semakin banyak keyword match, semakin yakin.
+ * Return null jika valid, atau object dengan pesan error dan saran jika tidak valid.
  */
-export function validateTaskDomain(title: string): string | null {
-  if (!title || title.trim().length < 5) {
-    return 'Judul task terlalu singkat. Masukkan deskripsi yang lebih jelas.';
+export function validateTaskDomain(title: string, labels?: string[]): { valid: boolean; message?: string; suggestions?: string[] } {
+  if (!title || title.trim().length < 3) {
+    return {
+      valid: false,
+      message: 'Judul task terlalu singkat. Masukkan minimal 3 karakter.',
+      suggestions: ['Coba: "Restock barang kategori A"', 'Coba: "Buat invoice untuk klien B"'],
+    };
   }
+
   const t = title.toLowerCase();
-  const isRelevant = ALLOWED_DOMAIN_KEYWORDS.some(keyword => t.includes(keyword));
-  if (!isRelevant) {
-    return `🚫 Task Ditolak: "${title}" tidak relevan dengan fungsi Fusion Neural.\n\nFusion Neural hanya memproses task bisnis seperti: supplier scouting, manajemen stok, pembuatan invoice, laporan keuangan, konten marketing, dan riset pasar.`;
+
+  // Cek keyword match per kategori
+  const matchedCategories: string[] = [];
+  let matchCount = 0;
+
+  for (const [category, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
+    const matches = keywords.filter(kw => t.includes(kw));
+    if (matches.length > 0) {
+      matchedCategories.push(category);
+      matchCount += matches.length;
+    }
   }
-  return null;
+
+  // Cek universal business keywords
+  const universalMatches = UNIVERSAL_BIZ_KEYWORDS.filter(kw => t.includes(kw));
+  matchCount += universalMatches.length;
+
+  // Cek labels — jika user sudah label sendiri, anggap relevan
+  const labelKeywords = (labels || []).map(l => l.toLowerCase());
+  const hasBusinessLabel = labelKeywords.some(l =>
+    ['admin', 'finance', 'marketing', 'manager', 'urgent', 'bisnis', 'q1', 'q2', 'q3', 'q4'].includes(l)
+  );
+
+  // Scoring: butuh minimal 1 keyword match ATAU label bisnis
+  if (matchCount > 0 || hasBusinessLabel) {
+    return { valid: true };
+  }
+
+  // Jika tidak ada match, berikan saran spesifik
+  const categoryExamples: Record<string, string> = {
+    admin: 'supplier, stok, restock, kirim, packing, kemasan',
+    finance: 'invoice, laporan, budget, harga, penjualan, pajak',
+    marketing: 'konten, campaign, iklan, leads, instagram, email',
+    manager: 'analisis, riset, evaluasi, strategi, kompetitor, KPI',
+  };
+
+  return {
+    valid: false,
+    message: `Task "${title}" belum terdeteksi sebagai domain bisnis Fusion Neural.`,
+    suggestions: [
+      'Tambahkan keyword bisnis, contoh:',
+      ...Object.entries(categoryExamples).map(([cat, ex]) => `  ${cat}: ${ex}`),
+      'Atau tambahkan label (contoh: "admin", "finance", "marketing")',
+    ],
+  };
+}
+
+/**
+ * Backward-compatible wrapper — return string | null seperti API lama.
+ */
+export function validateTaskDomainLegacy(title: string): string | null {
+  const result = validateTaskDomain(title);
+  if (result.valid) return null;
+  return result.message || 'Task tidak valid.';
 }
 
 // ── Keyword Intent Detector ──────────────────────────────────────────────────
@@ -408,12 +497,14 @@ async function selectOptimalAgent(task: NeuralTask, intent: string): Promise<str
 
 export async function executeTask(task: NeuralTask): Promise<void> {
   // ── Domain Validation Guard ──────────────────────────────────────────────
-  const validationError = validateTaskDomain(task.title);
-  if (validationError) {
+  const validation = validateTaskDomain(task.title, task.labels);
+  if (!validation.valid) {
+    const errMsg = validation.message || 'Task di luar domain bisnis Fusion Neural.';
+    const suggestions = validation.suggestions ? '\n' + validation.suggestions.join('\n') : '';
     await updateDoc(doc(db, 'neural_tasks', task.id), {
       status: 'To Do',
       progress: 0,
-      agentResult: validationError,
+      agentResult: `⚠️ ${errMsg}${suggestions}`,
       reviewNote: '[DITOLAK] Task di luar domain bisnis Fusion Neural.',
     });
     console.warn('[TaskExecutor] Task rejected — out of domain:', task.title);

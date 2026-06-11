@@ -304,7 +304,8 @@ export default function ManagerDashboard() {
             </p>
           </div>
 
-          <button className="w-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer rounded-2xl p-3 flex items-center justify-between mt-6 border border-white/10 group">
+          <button onClick={() => window.location.href = '/dashboard/burn'}
+            className="w-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer rounded-2xl p-3 flex items-center justify-between mt-6 border border-white/10 group">
             <div className="flex items-center gap-3 pl-2">
               <BrainCircuit className="text-rose-400" size={18} />
               <span className="text-xs font-semibold text-slate-300">Tinjau Log Transaksi</span>

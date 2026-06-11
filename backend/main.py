@@ -14,7 +14,6 @@
 #   Frontliner : Cerebras                 -> Mistral (backup)
 
 import os
-import os
 import io
 import re
 import sys
@@ -26,8 +25,9 @@ import random
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Response, Form
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Response, Form, File, UploadFile
+from fastapi.responses import PlainTextResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import httpx
 
@@ -107,8 +107,8 @@ import requests as _req_sync  # noqa: E402
 # Token di-cache dan di-refresh otomatis sebelum 1 jam kedaluwarsa.
 _FIREBASE_PROJECT_ID  = os.getenv("VITE_FIREBASE_PROJECT_ID", "fusion-neural")
 _FIREBASE_WEB_API_KEY = os.getenv("VITE_FIREBASE_API_KEY", "")
-_FIREBASE_BACKEND_EMAIL = os.getenv("FIREBASE_BACKEND_EMAIL", "backend-agent@fusionneural.app")
-_FIREBASE_BACKEND_PASS  = os.getenv("FIREBASE_BACKEND_PASS",  "FusionNeural2026!Backend")
+_FIREBASE_BACKEND_EMAIL = os.getenv("FIREBASE_BACKEND_EMAIL", "")
+_FIREBASE_BACKEND_PASS  = os.getenv("FIREBASE_BACKEND_PASS",  "")
 
 _fb_id_token:   str   = ""
 _fb_token_exp:  float = 0.0
@@ -261,6 +261,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Media Storage: serve uploaded files via public URL ─────────────────────
+_MEDIA_DIR = os.path.join(_BACKEND_DIR, "media")
+os.makedirs(_MEDIA_DIR, exist_ok=True)
+app.mount("/media", StaticFiles(directory=_MEDIA_DIR), name="media")
+
 # ── Security: Rate Limiting ───────────────────────────────────────────────────
 class RateLimiter:
     def __init__(self, max_requests: int, window_seconds: int):
@@ -294,12 +299,13 @@ async def rate_limit_middleware(request: Request, call_next):
     return await call_next(request)
 
 # ── Security: CORS Hardening ──────────────────────────────────────────────────
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175,http://127.0.0.1:5176").split(",")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST", "OPTIONS"], 
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+",
+    allow_methods=["*"], 
     allow_headers=["*"],
     allow_credentials=True,
 )
@@ -1659,12 +1665,32 @@ async def content_publisher():
             # Publish ke Instagram jika ada token
             if platform in ("instagram", "ig") and INSTAGRAM_ACCESS_TOKEN:
                 try:
-                    async with httpx.AsyncClient(timeout=15.0) as client:
-                        # Buat container
+                    media_url = post_data.get("mediaUrl") or post_data.get("media_url")
+                    media_type = (post_data.get("mediaType") or post_data.get("media_type") or "image").lower()
+
+                    if not media_url:
+                        # Instagram wajib ada media — tanpa image/video, post ditolak
+                        await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                            "status": "error",
+                            "publishResult": "Gagal: Instagram membutuhkan media (image/video). Tambahkan mediaUrl di post."
+                        }))
+                        print(f"[Content Publisher] IG skipped — no mediaUrl for post {post_id}")
+                        continue
+
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        # Buat container dengan media
+                        container_payload = {"caption": content}
+                        if media_type == "video":
+                            container_payload["media_type"] = "REELS"
+                            container_payload["video_url"] = media_url
+                            container_payload["share_to_feed"] = True
+                        else:
+                            container_payload["image_url"] = media_url
+
                         container_resp = await client.post(
                             "https://graph.instagram.com/v25.0/me/media",
                             headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
-                            json={"caption": content}
+                            json=container_payload
                         )
                         if container_resp.status_code == 200:
                             container_id = container_resp.json().get("id")
@@ -1682,11 +1708,28 @@ async def content_publisher():
                                 }))
                                 print(f"[Content Publisher] Published to Instagram: {post_id}")
                             else:
-                                print(f"[Content Publisher] IG publish failed: {publish_resp.status_code}")
+                                err_body = publish_resp.text
+                                print(f"[Content Publisher] IG publish failed: {publish_resp.status_code} — {err_body}")
+                                await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                                    "status": "error",
+                                    "publishResult": f"Publish gagal ({publish_resp.status_code}): {err_body[:200]}"
+                                }))
                         else:
-                            print(f"[Content Publisher] IG container failed: {container_resp.status_code}")
+                            err_body = container_resp.text
+                            print(f"[Content Publisher] IG container failed: {container_resp.status_code} — {err_body}")
+                            await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                                "status": "error",
+                                "publishResult": f"Container gagal ({container_resp.status_code}): {err_body[:200]}"
+                            }))
                 except Exception as e:
                     print(f"[Content Publisher] Instagram error: {e}")
+                    try:
+                        await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
+                            "status": "error",
+                            "publishResult": f"Error: {str(e)[:200]}"
+                        }))
+                    except Exception:
+                        pass
             else:
                 # Platform lain — tandai sebagai published (placeholder)
                 await asyncio.to_thread(lambda: db.collection("marketing_posts").document(post_id).update({
@@ -1756,7 +1799,7 @@ async def budget_alert_check():
         print(f"[Budget Alert] Error: {e}")
 
 
-@app.post("/api/autonomous/toggle")
+@app.post("/api/autonomous/toggle", dependencies=[Depends(verify_api_key)])
 async def toggle_autonomous(req: dict):
     """Enable or disable the autonomous loop mode. Disimpan ke Firebase system_config."""
     mode = req.get("status", "OFF")
@@ -2081,7 +2124,7 @@ async def trigger_agent(req: AgentRequest):
 
 # ── Image Generation (HuggingFace FLUX.1-schnell) ────────────────────────────
 
-@app.post("/generate-image")
+@app.post("/generate-image", dependencies=[Depends(verify_api_key)])
 async def generate_image(req: ImageRequest):
     """
     Generate gambar marketing menggunakan FLUX.1-schnell via HuggingFace.
@@ -2200,7 +2243,7 @@ async def get_business_logic():
     except:
         return {}
 
-@app.post("/api/business-logic")
+@app.post("/api/business-logic", dependencies=[Depends(verify_api_key)])
 async def update_business_logic(data: dict):
     with open("business_logic.json", "w") as f:
         json.dump(data, f, indent=2)
@@ -2208,7 +2251,7 @@ async def update_business_logic(data: dict):
 
 # ── Supplier Search (Serper) ──────────────────────────────────────────────────
 
-@app.post("/search")
+@app.post("/search", dependencies=[Depends(verify_api_key)])
 async def search_supplier(req: SearchRequest):
     """Cari supplier/produk menggunakan Serper Google Search."""
     if not SERPER_KEY:
@@ -2372,6 +2415,49 @@ async def inventory_stock_add(req: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Media Upload Endpoint ──────────────────────────────────────────────────
+@app.post("/api/media/upload", dependencies=[Depends(verify_api_key)])
+async def upload_media(file: UploadFile = File(...)):
+    """Upload gambar/video ke server dan kembalikan public URL.
+    Dipakai oleh Content Launchpad, Image Studio, dan Campaign Forge.
+    """
+    # Validasi tipe file
+    allowed_types = {
+        "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif",
+        "video/mp4", "video/webm", "video/quicktime",
+    }
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail=f"Tipe file tidak didukung: {file.content_type}")
+
+    # Validasi ukuran (max 20MB)
+    contents = await file.read()
+    if len(contents) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran file maksimal 20MB")
+
+    # Generate nama file aman
+    ext = file.filename.split(".")[-1] if file.filename and "." in (file.filename or "") else ("mp4" if "video" in (file.content_type or "") else "jpg")
+    timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+    random_id = os.urandom(4).hex()
+    safe_name = f"{timestamp}_{random_id}.{ext}"
+    file_path = os.path.join(_MEDIA_DIR, safe_name)
+
+    # Simpan file
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    # Bangun public URL
+    # NOTE: ganti BASE_URL dengan domain production kalau sudah deploy
+    base_url = os.environ.get("BACKEND_PUBLIC_URL", "http://localhost:8000")
+    public_url = f"{base_url}/media/{safe_name}"
+
+    return {
+        "url": public_url,
+        "filename": safe_name,
+        "size": len(contents),
+        "type": "video" if "video" in (file.content_type or "") else "image",
+    }
+
+
 # ── Marketing Publish Endpoint ──────────────────────────────────────────────
 @app.post("/api/marketing/publish")
 async def publish_marketing_post(req: dict):
@@ -2399,11 +2485,25 @@ async def publish_marketing_post(req: dict):
         # Publish ke Instagram jika platform instagram
         if platform in ("instagram", "ig") and INSTAGRAM_ACCESS_TOKEN:
             try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
+                media_url = post_data.get("mediaUrl") or post_data.get("media_url")
+                media_type = (post_data.get("mediaType") or post_data.get("media_type") or "image").lower()
+
+                if not media_url:
+                    return {"status": "error", "detail": "Instagram membutuhkan media (image/video). Tambahkan mediaUrl."}
+
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    container_payload = {"caption": content}
+                    if media_type == "video":
+                        container_payload["media_type"] = "REELS"
+                        container_payload["video_url"] = media_url
+                        container_payload["share_to_feed"] = True
+                    else:
+                        container_payload["image_url"] = media_url
+
                     container_resp = await client.post(
                         "https://graph.instagram.com/v25.0/me/media",
                         headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
-                        json={"caption": content}
+                        json=container_payload
                     )
                     if container_resp.status_code == 200:
                         container_id = container_resp.json().get("id")
@@ -2444,7 +2544,7 @@ class OrchestrateRequest(BaseModel):
     aiModel: str
     targetColumn: str = "To Do"
 
-@app.post("/api/orchestrate")
+@app.post("/api/orchestrate", dependencies=[Depends(verify_api_key)])
 async def handle_orchestration(req: OrchestrateRequest):
     """
     Menerima perintah kompleks dari UI Neural Tasks Manager.

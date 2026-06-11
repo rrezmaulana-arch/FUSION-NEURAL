@@ -80,7 +80,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     const user = auth.currentUser;
     if (user) {
       // getIdToken(true) = force refresh jika token hampir expired
-      const idToken = await user.getIdToken(false);
+      const idToken = await user.getIdToken(true);
       return {
         ...baseHeaders,
         'Authorization': `Bearer ${idToken}`,

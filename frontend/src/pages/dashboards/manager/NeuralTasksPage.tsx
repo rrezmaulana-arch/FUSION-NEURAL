@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, query, onSnapshot, orderBy, limit, updateDoc, doc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutGrid, List, Clock, MessageSquare, Paperclip, CheckCircle2,
-  Plus, RefreshCw, Zap, Power, Terminal, ChevronRight, ChevronLeft, AlertTriangle,
-  TrendingUp, Activity, Shield, X, Trash2, GripVertical
+  Plus, RefreshCw, Zap, Power, Terminal, ChevronRight, ChevronLeft,
+  Activity, Shield, X, Trash2
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { executeTask, validateTaskDomain } from '../../../services/TaskExecutor';
@@ -76,6 +76,7 @@ export default function NeuralTasksPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ title: '', agent: 'Neural Admin', priority: 'normal' as 'critical'|'high'|'normal'|'low', labels: '' });
   const [isSaving, setIsSaving] = useState(false);
+  const [modalError, setModalError] = useState<{ message: string; suggestions?: string[] } | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const auth = useAuth();
   const user = auth?.currentUser;
@@ -85,7 +86,7 @@ export default function NeuralTasksPage() {
     const q = query(collection(db, 'neural_tasks'));
     return onSnapshot(q, snap => {
       setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as NeuralTask)));
-    }, err => setErrorMsg('Gagal connect ke Neural Core'));
+    }, () => setErrorMsg('Gagal connect ke Neural Core'));
   }, []);
 
   // ── Live Transcripts ─────────────────────────────────────────────────────────
@@ -110,11 +111,11 @@ export default function NeuralTasksPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleOrchestrate = async () => {
     if (!prompt.trim()) return;
-    
+
     // Validasi domain bisnis sebelum lempar ke AI Orchestrator
-    const validationError = validateTaskDomain(prompt);
-    if (validationError) {
-      setErrorMsg(validationError.split('\n')[0]);
+    const validation = validateTaskDomain(prompt);
+    if (!validation.valid) {
+      setErrorMsg(validation.message || 'Task tidak valid.');
       return;
     }
 
@@ -183,12 +184,14 @@ export default function NeuralTasksPage() {
     if (!addForm.title.trim()) return;
 
     // Validasi domain bisnis untuk task manual
-    const validationError = validateTaskDomain(addForm.title);
-    if (validationError) {
-      alert(validationError);
+    const labels = addForm.labels ? addForm.labels.split(',').map(l => l.trim()).filter(Boolean) : [];
+    const validation = validateTaskDomain(addForm.title, labels);
+    if (!validation.valid) {
+      setModalError({ message: validation.message || 'Task tidak valid.', suggestions: validation.suggestions });
       return;
     }
 
+    setModalError(null);
     setIsSaving(true);
     try {
       await addDoc(collection(db, 'neural_tasks'), {
@@ -196,7 +199,7 @@ export default function NeuralTasksPage() {
         agent: addForm.agent,
         priority: addForm.priority,
         status: 'To Do',
-        labels: addForm.labels ? addForm.labels.split(',').map(l => l.trim()).filter(Boolean) : [],
+        labels,
         progress: 0,
         comments: 0,
         attachments: 0,
@@ -205,6 +208,7 @@ export default function NeuralTasksPage() {
         client: user?.email || 'Manager',
       });
       setAddForm({ title: '', agent: 'Neural Admin', priority: 'normal', labels: '' });
+      setModalError(null);
       setShowAddModal(false);
     } catch(e) { console.error(e); }
     finally { setIsSaving(false); }
@@ -324,7 +328,7 @@ export default function NeuralTasksPage() {
                           <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400">{colTasks.length}</span>
                         </div>
                         {col === 'To Do' && (
-                          <button onClick={() => setShowAddModal(true)} className="text-slate-600 hover:text-white transition-colors">
+                          <button onClick={() => { setShowAddModal(true); setModalError(null); }} className="text-slate-600 hover:text-white transition-colors">
                             <Plus size={14} />
                           </button>
                         )}
@@ -334,7 +338,7 @@ export default function NeuralTasksPage() {
                       <div className="flex flex-col gap-3 p-3 flex-1">
                         <AnimatePresence>
                           {colTasks.map(task => (
-                            <TaskCard key={task.id} task={task} col={col} cfg={cfg} onMove={moveTask} onDelete={deleteTask} />
+                            <TaskCard key={task.id} task={task} col={col} onMove={moveTask} onDelete={deleteTask} />
                           ))}
                         </AnimatePresence>
                         {colTasks.length === 0 && (
@@ -428,7 +432,7 @@ export default function NeuralTasksPage() {
                 {/* Feed entries */}
                 <div ref={feedRef} className="overflow-y-auto h-full pb-4">
                   <AnimatePresence>
-                    {transcripts.map((t, i) => {
+                    {transcripts.map((t) => {
                       const agentColor = AGENT_COLORS[t.agentId] || '#64748b';
                       const isWarn = t.status === 'Warning';
                       return (
@@ -491,7 +495,7 @@ export default function NeuralTasksPage() {
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Judul Task</label>
                   <input
                     value={addForm.title}
-                    onChange={e => setAddForm(p => ({ ...p, title: e.target.value }))}
+                    onChange={e => { setAddForm(p => ({ ...p, title: e.target.value })); setModalError(null); }}
                     placeholder="Contoh: Restock barang kategori fashion..."
                     className="w-full bg-slate-800/60 border border-slate-700 text-slate-100 text-sm rounded-xl px-4 py-2.5 outline-none focus:ring-2 ring-indigo-500/50"
                     autoFocus
@@ -529,6 +533,21 @@ export default function NeuralTasksPage() {
                   />
                 </div>
               </div>
+
+              {/* Inline error message */}
+              {modalError && (
+                <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <p className="text-red-400 text-xs font-medium mb-1">{modalError.message}</p>
+                  {modalError.suggestions && (
+                    <ul className="text-red-400/70 text-[10px] space-y-0.5 mt-2">
+                      {modalError.suggestions.map((s, i) => (
+                        <li key={i} className="pl-2">{s}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 mt-6">
                 <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Batal</button>
                 <button onClick={handleAddTask} disabled={!addForm.title.trim() || isSaving}
@@ -547,10 +566,9 @@ export default function NeuralTasksPage() {
 // ── Task Card Component ────────────────────────────────────────────────────────
 const COLUMN_SEQUENCE: NeuralTask['status'][] = ['To Do', 'In Progress', 'Review', 'Done'];
 
-function TaskCard({ task, col, cfg, onMove, onDelete }: {
+function TaskCard({ task, col, onMove, onDelete }: {
   task: NeuralTask;
   col: string;
-  cfg: { color: string; glow: string };
   onMove: (id: string, status: NeuralTask['status']) => void;
   onDelete: (id: string) => void;
 }) {

@@ -7,11 +7,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Heart, Globe, Plus, UploadCloud, 
-  Image as ImageIcon, Film 
+import {
+  Heart, Globe, Plus, UploadCloud,
+  Image as ImageIcon, Film, Loader2
 } from 'lucide-react';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import { uploadMediaFile } from '../../../services/MediaUploader';
 import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -42,12 +43,13 @@ export default function ContentLaunchpadPage() {
   
   const [newContent, setNewContent] = useState('');
   const [newPlatform, setNewPlatform] = useState<'TikTok' | 'Instagram' | 'Web'>('Instagram');
-  const [newDate, setNewDate] = useState('2026-05-01');
+  const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
   const [newSlot, setNewSlot] = useState('09:00');
   const [newMediaId, setNewMediaId] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync with Firestore
@@ -151,29 +153,41 @@ export default function ContentLaunchpadPage() {
 
   const processFiles = async (files: File[]) => {
     const validFiles = files.filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
-    
+
     if (validFiles.length === 0) return;
 
+    setIsUploading(true);
+    let successCount = 0;
+
     for (const file of validFiles) {
-      const isVideo = file.type.startsWith('video/');
-      const fileUrl = isVideo ? `${URL.createObjectURL(file)}#t=0.1` : URL.createObjectURL(file);
-      const newId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      
-      const newMedia: MediaItem = {
-        id: newId,
-        url: fileUrl,
-        type: isVideo ? 'video' : 'image',
-        name: file.name
-      };
-      
-      await setDoc(doc(db, 'marketing_assets', newId), newMedia);
+      try {
+        // Upload ke Firebase Storage → dapat public URL
+        const result = await uploadMediaFile(file);
+        const newId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+        const newMedia: MediaItem = {
+          id: newId,
+          url: result.url,
+          type: result.type,
+          name: file.name,
+        };
+
+        await setDoc(doc(db, 'marketing_assets', newId), newMedia);
+        successCount++;
+      } catch (e) {
+        console.error(`Upload gagal untuk ${file.name}:`, e);
+      }
     }
-    
-    await FirebaseLogger.logAgentAction(
-      'Marketing', 
-      'POST_SCHEDULED', 
-      `${validFiles.length} aset konten baru masuk antrian library`
-    );
+
+    setIsUploading(false);
+
+    if (successCount > 0) {
+      await FirebaseLogger.logAgentAction(
+        'Marketing',
+        'MEDIA_UPLOADED',
+        `${successCount} aset konten diupload ke Firebase Storage`,
+      );
+    }
   };
 
   const platformIcon = (p: string) => {
@@ -267,12 +281,14 @@ export default function ContentLaunchpadPage() {
              <p className="text-sm text-slate-500 mt-0.5">Manage and organize your brand's media assets.</p>
            </div>
            <div className="flex items-center gap-2">
-             <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors">
+             <button onClick={() => alert('Fitur folder akan segera tersedia untuk mengorganisir media assets.')}
+               className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors">
                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                New Folder
              </button>
-             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-teal-700 text-white text-xs font-bold rounded-lg hover:bg-teal-800 transition-colors shadow-sm">
-               <UploadCloud size={14} /> Upload Asset
+             <button onClick={() => fileInputRef.current?.click()} disabled={isUploading}
+               className="flex items-center gap-2 px-4 py-2 bg-teal-700 text-white text-xs font-bold rounded-lg hover:bg-teal-800 transition-colors shadow-sm disabled:opacity-50">
+               {isUploading ? <><Loader2 size={14} className="animate-spin" /> Uploading...</> : <><UploadCloud size={14} /> Upload Asset</>}
              </button>
            </div>
         </div>
@@ -387,11 +403,12 @@ export default function ContentLaunchpadPage() {
            </div>
            <div className="flex gap-4">
              <div className="flex bg-white border border-slate-200 rounded-lg overflow-hidden text-xs font-bold text-slate-600">
-               <button className="px-3 py-1.5 border-r border-slate-200 bg-slate-50">Month</button>
-               <button className="px-3 py-1.5 border-r border-slate-200 hover:bg-slate-50">Week</button>
-               <button className="px-3 py-1.5 hover:bg-slate-50">Day</button>
+               <button onClick={() => {}} className="px-3 py-1.5 border-r border-slate-200 bg-slate-50">Month</button>
+               <button onClick={() => {}} className="px-3 py-1.5 border-r border-slate-200 hover:bg-slate-50">Week</button>
+               <button onClick={() => {}} className="px-3 py-1.5 hover:bg-slate-50">Day</button>
              </div>
-             <button className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50">
+             <button onClick={() => alert('Filter konten berdasarkan platform, status, dan tanggal akan segera tersedia.')}
+               className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50">
                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                Filters
              </button>
@@ -406,35 +423,49 @@ export default function ContentLaunchpadPage() {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 grid-rows-2">
-              {Array.from({length: 14}).map((_, i) => {
-                const dayNum = i + 1;
-                // Since this is a demo layout, we map posts to days. 
-                // We'll simulate 'today' is the 11th.
-                const isToday = dayNum === 11; 
-                
-                // Find actual posts from Firestore scheduled on this demo day
-                const dayPosts = posts.filter(post => {
-                   const dateParts = post.scheduledAt.split(' ');
-                   const dayStr = dateParts[0].split('-').pop(); // e.g. "01"
-                   return parseInt(dayStr || '0', 10) === dayNum;
-                });
+            <div className="grid grid-cols-7">
+              {(() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth();
+                const today = now.getDate();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const firstDayOfWeek = new Date(year, month, 1).getDay();
+                const cells: React.ReactNode[] = [];
 
-                return (
-                  <div key={i} className={`min-h-[120px] p-2 border-r border-b border-slate-100 last:border-r-0 ${isToday ? 'bg-teal-50/30' : ''}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className={`text-xs font-bold ${isToday ? 'text-teal-600' : 'text-slate-600'}`}>{dayNum}</span>
-                      {isToday && <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1 mr-1"/>}
-                    </div>
-                    {dayPosts.map((post, idx) => (
-                      <div key={post.id || idx} className={`text-[10px] font-bold px-2 py-1.5 rounded-md mb-1 truncate flex items-center gap-1.5 border bg-purple-50 text-purple-700 border-purple-100`}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        {post.content.substring(0, 15)}...
+                // Empty cells for days before the 1st
+                for (let i = 0; i < firstDayOfWeek; i++) {
+                  cells.push(<div key={`empty-${i}`} className="min-h-[120px] p-2 border-r border-b border-slate-100 bg-slate-50/30" />);
+                }
+
+                // Actual days of the month
+                for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+                  const isToday = dayNum === today;
+                  const dayPosts = posts.filter(post => {
+                    try {
+                      const dateParts = post.scheduledAt.split(' ');
+                      const d = new Date(dateParts[0]);
+                      return d.getDate() === dayNum && d.getMonth() === month && d.getFullYear() === year;
+                    } catch { return false; }
+                  });
+
+                  cells.push(
+                    <div key={dayNum} className={`min-h-[120px] p-2 border-r border-b border-slate-100 last:border-r-0 ${isToday ? 'bg-teal-50/30' : ''}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`text-xs font-bold ${isToday ? 'text-teal-600' : 'text-slate-600'}`}>{dayNum}</span>
+                        {isToday && <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1 mr-1"/>}
                       </div>
-                    ))}
-                  </div>
-                );
-              })}
+                      {dayPosts.map((post, idx) => (
+                        <div key={post.id || idx} className="text-[10px] font-bold px-2 py-1.5 rounded-md mb-1 truncate flex items-center gap-1.5 border bg-purple-50 text-purple-700 border-purple-100">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                          {post.content.substring(0, 15)}...
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+                return cells;
+              })()}
             </div>
           </div>
         </div>
@@ -533,8 +564,28 @@ export default function ContentLaunchpadPage() {
                            <button onClick={() => handleReject(post.id)} className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md hover:bg-rose-100 transition-colors">Reject</button>
                          </div>
                       ) : post.status === 'approved' ? (
-                         <button 
-                           onClick={() => alert(`Memanggil API Oauth ${post.platform} untuk auto-posting...\n(Dalam fase integrasi)`)}
+                         <button
+                           onClick={async () => {
+                             try {
+                               // Langsung publish via backend endpoint (tidak perlu autonomous mode)
+                               const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+                               const res = await fetch(`${apiUrl}/api/marketing/publish`, {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ postId: post.id }),
+                               });
+                               const result = await res.json();
+                               if (result.status === 'success') {
+                                 await FirebaseLogger.logAgentAction('Marketing', 'PUBLISHED', `Post ${post.id} berhasil dipublish ke ${post.platform}`);
+                               } else {
+                                 console.error('Publish failed:', result.detail);
+                                 alert(`Publish gagal: ${result.detail}`);
+                               }
+                             } catch (e) {
+                               console.error('Publish error:', e);
+                               alert('Gagal menghubungi backend. Pastikan server berjalan.');
+                             }
+                           }}
                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-colors ml-auto"
                          >
                            <Globe size={12} /> Auto Publish

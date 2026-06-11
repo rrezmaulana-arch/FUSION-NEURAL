@@ -6,9 +6,12 @@
  */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wand2, Image, Download, Loader2, Sparkles, X, RefreshCw } from 'lucide-react';
+import { Wand2, Image, Download, Loader2, Sparkles, X, RefreshCw, Send } from 'lucide-react';
 import PageHeader from '../../../components/ui/PageHeader';
 import { FirebaseLogger } from '../../../services/FirebaseLogger';
+import { uploadBase64Image } from '../../../services/MediaUploader';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 
 const QUICK_PROMPTS = [
   'produk kemasan premium minimalis dengan background putih bersih',
@@ -26,6 +29,8 @@ export default function ImageStudioPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const [lastPrompt, setLastPrompt] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   const handleGenerate = async (overridePrompt?: string) => {
     const p = (overridePrompt || prompt).trim();
@@ -37,7 +42,7 @@ export default function ImageStudioPage() {
     setLastPrompt(p);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8001';
       const res = await fetch(`${apiUrl}/generate-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,6 +73,38 @@ export default function ImageStudioPage() {
     a.href = `data:${imageMime};base64,${imageBase64}`;
     a.download = `fusionneural_${Date.now()}.jpg`;
     a.click();
+  };
+
+  const handleSendToQueue = async () => {
+    if (!imageBase64) return;
+    setIsSending(true);
+    setSendSuccess(false);
+    try {
+      // Upload base64 ke Firebase Storage → dapat public URL
+      const result = await uploadBase64Image(imageBase64, imageMime, 'ai_generated');
+
+      // Buat entry di marketing_posts
+      const postId = `img_${Date.now()}`;
+      await addDoc(collection(db, 'marketing_posts'), {
+        id: postId,
+        content: lastPrompt,
+        platform: 'Instagram',
+        status: 'pending',
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 jam dari sekarang
+        mediaUrl: result.url,
+        mediaType: 'image',
+        createdAt: new Date().toISOString(),
+        source: 'image_studio',
+      });
+
+      await FirebaseLogger.logAgentAction('Marketing', 'IMAGE_TO_QUEUE', `Gambar AI dikirim ke Content Queue: "${lastPrompt.slice(0, 50)}"`);
+      setSendSuccess(true);
+      setTimeout(() => setSendSuccess(false), 4000);
+    } catch (e) {
+      console.error('Send to queue error:', e);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -188,7 +225,7 @@ export default function ImageStudioPage() {
             />
             <div className="p-5 border-t border-slate-100">
               <p className="text-xs text-slate-500 mb-4 italic">"{lastPrompt}"</p>
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={handleDownload}
                   className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition-colors"
@@ -200,6 +237,13 @@ export default function ImageStudioPage() {
                   className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl hover:bg-rose-100 transition-colors"
                 >
                   <RefreshCw size={14} /> Generate Ulang
+                </button>
+                <button
+                  onClick={handleSendToQueue}
+                  disabled={isSending}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-colors shadow-lg shadow-purple-500/20 disabled:opacity-50"
+                >
+                  {isSending ? <><Loader2 size={14} className="animate-spin" /> Mengupload...</> : sendSuccess ? <><Sparkles size={14} /> Tersimpan!</> : <><Send size={14} /> Kirim ke Content Queue</>}
                 </button>
               </div>
             </div>
