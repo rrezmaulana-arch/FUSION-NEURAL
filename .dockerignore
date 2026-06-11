@@ -1,0 +1,52 @@
+# ── FUSION NEURAL — Docker Ignore ────────────────────────────────────────────
+# Files and directories to exclude from Docker build context
+
+# Dependencies (will be installed fresh)
+node_modules/
+frontend/node_modules/
+backend/venv/
+backend/__pycache__/
+
+# Build outputs
+dist/
+frontend/dist/
+backend/*.pyc
+
+# Environment files (sensitive)
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+backend/uvicorn_log.txt
+
+# Documentation (not needed in container)
+*.md
+*.docx
+LICENSE
+
+# Utility scripts (not needed in container)
+*.cjs
+*.js
+!frontend/
+fix_*.py
+generate_*.cjs
+dump_*
+theme-*
+ngrok.exe

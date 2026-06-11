@@ -1,0 +1,62 @@
+# ── FUSION NEURAL — Docker Compose ──────────────────────────────────────────
+# Jalankan: docker-compose up --build
+# Stop: docker-compose down
+
+version: '3.8'
+
+services:
+  # ── Frontend (React + Vite + Nginx) ─────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8001}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+        VITE_MIDTRANS_SNAP_URL: ${VITE_MIDTRANS_SNAP_URL}
+        VITE_MIDTRANS_CLIENT_KEY: ${VITE_MIDTRANS_CLIENT_KEY}
+    container_name: fusion-neural-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fusion-network
+
+  # ── Backend (Python FastAPI) ────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fusion-neural-backend
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - PORT=8001
+    volumes:
+      - backend-media:/app/media
+    restart: unless-stopped
+    networks:
+      - fusion-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+
+networks:
+  fusion-network:
+    driver: bridge
+
+volumes:
+  backend-media:

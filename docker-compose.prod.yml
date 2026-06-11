@@ -1,0 +1,71 @@
+# ── FUSION NEURAL — Production Docker Compose ────────────────────────────────
+# Jalankan: docker-compose -f docker-compose.prod.yml up --build -d
+
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+        VITE_MIDTRANS_SNAP_URL: ${VITE_MIDTRANS_SNAP_URL}
+        VITE_MIDTRANS_CLIENT_KEY: ${VITE_MIDTRANS_CLIENT_KEY}
+    container_name: fusion-neural-frontend-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: always
+    networks:
+      - fusion-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fusion-neural-backend-prod
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - PORT=8001
+      - ENVIRONMENT=production
+    volumes:
+      - backend-media:/app/media
+    restart: always
+    networks:
+      - fusion-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+
+networks:
+  fusion-network:
+    driver: bridge
+
+volumes:
+  backend-media:
