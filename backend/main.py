@@ -346,7 +346,7 @@ PROVIDERS: dict[str, dict] = {
     "cerebras": {
         "key":   os.getenv("CEREBRAS_API_KEY", ""),
         "base":  "https://api.cerebras.ai/v1",
-        "model": "gpt-oss-120b",
+        "model": "llama3.1-70b",
     },
     "openrouter": {
         "key":   os.getenv("OPENROUTER_API_KEY", ""),
