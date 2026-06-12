@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../lib/firebase';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ShieldCheck, Wallet, Bot, CheckCircle2, AlertCircle, XCircle, Plus, Activity, Network, Search } from 'lucide-react';
 import PageHeader from '../../../components/ui/PageHeader';
 
@@ -49,7 +49,14 @@ export default function GovernancePage() {
         accent="red"
         actions={
           <div className="flex gap-2">
-            <button onClick={() => alert('Ticket baru akan otomatis dibuat oleh AI Agent saat ada aksi yang membutuhkan persetujuan Manager.')}
+            <button onClick={async () => {
+              const title = prompt('Judul ticket:');
+              if (!title) return;
+              await addDoc(collection(db, 'neural_tasks'), {
+                title, agent: 'Neural Manager', status: 'To Do', priority: 'normal',
+                createdAt: new Date().toISOString(), source: 'governance_manual'
+              });
+            }}
               className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors">
               <Plus size={16} /> New Ticket
             </button>
@@ -205,7 +212,11 @@ export default function GovernancePage() {
                     </p>
                   </div>
                   
-                  <button onClick={() => alert('Budget disesuaikan otomatis oleh sistem berdasarkan performa agent.')}
+                  <button onClick={async () => {
+                    const newBudget = prompt(`Budget baru untuk ${b.id} (Rp):`, b.monthlyBudget?.toString());
+                    if (!newBudget || isNaN(Number(newBudget))) return;
+                    await updateDoc(doc(db, 'agent_budgets', b.id), { monthlyBudget: Number(newBudget) });
+                  }}
                     className="w-full mt-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100">
                     Adjust Budget
                   </button>

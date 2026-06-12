@@ -233,7 +233,7 @@ export default function OrderPage() {
       if (token && window.snap) {
         window.snap.pay(token, {
           onSuccess: async () => { await handlePaymentSuccess(snap); },
-          onPending: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; alert('Pembayaran Anda sedang diproses. Silakan cek status secara berkala.'); },
+          onPending: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: '⏳ Pembayaran Anda sedang diproses. Silakan cek status secara berkala. Kami akan konfirmasi begitu pembayaran berhasil.' }]); },
           onError: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; },
           onClose: () => { setIsProcessingPayment(false); isProcessingPaymentRef.current = false; },
         });
