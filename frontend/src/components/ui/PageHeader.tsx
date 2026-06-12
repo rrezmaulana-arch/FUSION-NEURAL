@@ -10,7 +10,7 @@
  */
 import { motion } from 'framer-motion';
 
-export type RoleAccent = 'purple' | 'purple' | 'slate' | 'teal' | 'red' | 'indigo';
+export type RoleAccent = 'purple' | 'slate' | 'teal' | 'red' | 'indigo';
 
 interface PageHeaderProps {
   title: React.ReactNode;
@@ -25,13 +25,6 @@ const ACCENTS: Record<RoleAccent, {
 }> = {
   purple: {
     bg: 'from-purple-600 via-purple-700 to-teal-800',
-    dot: 'bg-purple-400',
-    badge: 'bg-purple-500/20 border-purple-400/30',
-    badgeText: 'text-purple-200',
-    iconBg: 'bg-white/15',
-  },
-  purple: {
-    bg: 'from-purple-700 via-purple-800 to-indigo-900',
     dot: 'bg-purple-400',
     badge: 'bg-purple-500/20 border-purple-400/30',
     badgeText: 'text-purple-200',
