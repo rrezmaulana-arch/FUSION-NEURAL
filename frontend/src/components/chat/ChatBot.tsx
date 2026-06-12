@@ -7,7 +7,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Brain, Send, X, Sparkles, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { db } from '../../lib/firebase';
+import { db, auth } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 interface Message {
@@ -36,7 +36,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
 
   // ── Realtime Agent Status via Firebase Firestore ─────────────────
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !auth.currentUser) return;
 
     // Initial fetch
     const q = query(collection(db, 'realtime_signals'), orderBy('created_at', 'desc'), limit(5));
@@ -103,11 +103,11 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/agents", {
+      const response = await fetch("/trigger-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          agent: "chatbot",
+          agent: "frontliner",
           message: userText,
           sessionId: sessionId.current,
           task: "chat",

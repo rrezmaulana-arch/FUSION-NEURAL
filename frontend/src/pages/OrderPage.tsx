@@ -115,7 +115,7 @@ export default function OrderPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // ── Core: kirim pesan ke /api/agents (Direct → Python Backend) ──
+  // ── Core: kirim pesan ke /trigger-agent (via apiClient) ──
   // sessionId memungkinkan Python backend mengelola memory percakapan secara server-side.
   // Tidak perlu lagi mengirim seluruh array messages dari frontend.
   const sendBotMessage = useCallback(async (userContent?: string) => {

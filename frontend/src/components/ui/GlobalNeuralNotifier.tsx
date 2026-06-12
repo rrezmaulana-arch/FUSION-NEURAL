@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, auth } from '../../lib/firebase';
 import { Bot, CheckCircle2, X } from 'lucide-react';
 import { useVoiceAI } from '../../hooks/useVoiceAI';
 
@@ -17,9 +17,12 @@ export default function GlobalNeuralNotifier() {
   const { speak } = useVoiceAI();
 
   useEffect(() => {
+    // Only listen if user is authenticated
+    if (!auth.currentUser) return;
+
     // Listen for recent tasks
     const q = query(collection(db, 'neural_tasks'), orderBy('timestamp', 'desc'), limit(10));
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!initialized.current) {
         // First load, don't show notifications for existing tasks
