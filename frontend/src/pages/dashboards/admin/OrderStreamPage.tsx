@@ -17,13 +17,13 @@ import PageHeader from '../../../components/ui/PageHeader';
 const ChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl">
-      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">{label}</p>
+    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg">
+      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">{label}</p>
       {payload.map((p: any, i: number) => (
         <div key={i} className="flex items-center gap-2 text-xs">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.fill }} />
-          <span className="text-slate-400">{p.name}:</span>
-          <span className="font-black text-white">{p.name === 'Revenue (Rp)' ? `Rp ${(p.value || 0).toLocaleString('id-ID')}` : p.value}</span>
+          <span className="text-slate-500">{p.name}:</span>
+          <span className="font-black text-slate-800">{p.name === 'Revenue (Rp)' ? `Rp ${(p.value || 0).toLocaleString('id-ID')}` : p.value}</span>
         </div>
       ))}
     </div>
@@ -205,16 +205,14 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
         }
       />
 
-      {/* AI Sales Analytics Chart — Dark Glassmorphism */}
+      {/* Sales Analytics Chart — Clean White */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        className="relative rounded-3xl p-6 border border-white/5 overflow-hidden mb-6"
-        style={{ background: 'linear-gradient(135deg, #0d1122 0%, #0f172a 100%)' }}
+        className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-6"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 opacity-15 pointer-events-none" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent 70%)' }} />
-        <div className="relative z-10 flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-white font-black flex items-center gap-2 text-base">
-              <Brain size={16} className="text-indigo-400" /> Volume Penjualan per Platform
+            <h3 className="text-slate-800 font-black flex items-center gap-2 text-base">
+              <Brain size={16} className="text-indigo-500" /> Volume Penjualan per Platform
             </h3>
             <p className="text-slate-400 text-xs mt-1">Real-time dari {orders.length} pesanan tersimpan di database</p>
           </div>
