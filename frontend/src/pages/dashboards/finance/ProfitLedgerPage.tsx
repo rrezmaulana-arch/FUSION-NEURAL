@@ -39,13 +39,13 @@ interface ChartPoint {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || !payload.length) return null;
   return (
-    <div className="bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl">
-      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">{label}</p>
+    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg">
+      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">{label}</p>
       {payload.map((p: any, i: number) => (
         <div key={i} className="flex items-center gap-2 text-xs">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-slate-400">{p.name}:</span>
-          <span className="font-black text-white">Rp {(p.value || 0).toLocaleString('id-ID')}</span>
+          <span className="text-slate-500">{p.name}:</span>
+          <span className="font-black text-slate-800">Rp {(p.value || 0).toLocaleString('id-ID')}</span>
         </div>
       ))}
     </div>
