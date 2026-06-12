@@ -49,13 +49,13 @@ function NeuralCore() {
         <mesh ref={outerRef}>
           <sphereGeometry args={[1.6, 64, 64]} />
           <MeshDistortMaterial
-            color="#e5d4f5"
+            color="#760EFF"
             transparent
-            opacity={0.18}
+            opacity={0.1}
             distort={0.15}
             speed={2}
-            roughness={0.05}
-            metalness={0.1}
+            roughness={0.1}
+            metalness={0.8}
             side={THREE.DoubleSide}
           />
         </mesh>
