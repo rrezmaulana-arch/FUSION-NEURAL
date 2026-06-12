@@ -10,7 +10,7 @@
  */
 import { motion } from 'framer-motion';
 
-export type RoleAccent = 'emerald' | 'purple' | 'slate' | 'teal' | 'red' | 'indigo';
+export type RoleAccent = 'purple' | 'purple' | 'slate' | 'teal' | 'red' | 'indigo';
 
 interface PageHeaderProps {
   title: React.ReactNode;
@@ -23,11 +23,11 @@ interface PageHeaderProps {
 const ACCENTS: Record<RoleAccent, {
   bg: string; dot: string; badge: string; badgeText: string; iconBg: string;
 }> = {
-  emerald: {
-    bg: 'from-emerald-600 via-emerald-700 to-teal-800',
-    dot: 'bg-emerald-400',
-    badge: 'bg-emerald-500/20 border-emerald-400/30',
-    badgeText: 'text-emerald-200',
+  purple: {
+    bg: 'from-purple-600 via-purple-700 to-teal-800',
+    dot: 'bg-purple-400',
+    badge: 'bg-purple-500/20 border-purple-400/30',
+    badgeText: 'text-purple-200',
     iconBg: 'bg-white/15',
   },
   purple: {
@@ -113,3 +113,4 @@ export default function PageHeader({ title, subtitle, accent, icon, actions }: P
     </motion.div>
   );
 }
+

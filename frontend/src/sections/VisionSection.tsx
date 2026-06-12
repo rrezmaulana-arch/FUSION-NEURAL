@@ -100,7 +100,7 @@ export default function VisionSection() {
       {/* BG blob */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] rounded-full pointer-events-none opacity-40"
-        style={{ background: 'radial-gradient(ellipse at center, rgba(16,185,129,0.10) 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(ellipse at center, rgba(147,51,234,0.10) 0%, transparent 70%)' }}
       />
 
       <div ref={sectionRef} className="relative max-w-6xl mx-auto px-6">
@@ -109,7 +109,7 @@ export default function VisionSection() {
         <div data-vision="header" className="text-center mb-8 md:mb-16">
           <span
             data-vision="tag"
-            className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full glass-emerald"
+            className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-purple mb-4 px-4 py-1.5 rounded-full glass-purple"
             style={{ opacity: 0 }}
           >
             {isEnglish ? 'The Vision' : 'Visi Kami'}
@@ -122,7 +122,7 @@ export default function VisionSection() {
           >
             {isEnglish ? 'From' : 'Dari'} <span className="gradient-text">{isEnglish ? 'Operator' : 'Operator'}</span>
             <br />
-            {isEnglish ? 'to' : 'menjadi'} <span className="gradient-text-emerald">{isEnglish ? 'Director' : 'Sutradara'}</span>
+            {isEnglish ? 'to' : 'menjadi'} <span className="gradient-text-purple">{isEnglish ? 'Director' : 'Sutradara'}</span>
           </h2>
 
           <p
@@ -200,8 +200,8 @@ export default function VisionSection() {
             data-vision="card-new"
             className="w-[85vw] md:w-auto flex-shrink-0 snap-center relative rounded-3xl p-8 overflow-hidden flex flex-col"
             style={{
-              background: 'rgba(240,253,248,0.9)',
-              border: '1px solid rgba(16,185,129,0.25)',
+              background: 'rgba(245,240,255,0.9)',
+              border: '1px solid rgba(147,51,234,0.25)',
               opacity: 0
             }}
           >
@@ -214,12 +214,12 @@ export default function VisionSection() {
             <div className="flex items-center gap-3 mb-6 relative z-10">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: 'rgba(16,185,129,0.15)' }}
+                style={{ background: 'rgba(147,51,234,0.15)' }}
               >
-                <div className="w-4 h-4 rounded-full bg-fn-emerald" />
+                <div className="w-4 h-4 rounded-full bg-fn-purple" />
               </div>
               <div>
-                <p className="text-xs text-fn-emerald uppercase tracking-widest font-inter font-medium">{isEnglish ? 'New Paradigm' : 'Paradigma Baru'}</p>
+                <p className="text-xs text-fn-purple uppercase tracking-widest font-inter font-medium">{isEnglish ? 'New Paradigm' : 'Paradigma Baru'}</p>
                 <h3 className="font-space font-semibold text-fn-navy text-lg">
                   {TRADITIONAL_VS_OPC.opc.label}
                 </h3>
@@ -232,11 +232,11 @@ export default function VisionSection() {
                 <div
                   key={i}
                   className="new-item flex items-center gap-3 px-4 py-3 rounded-xl bg-white/70"
-                  style={{ border: '1px solid rgba(16,185,129,0.18)', opacity: 0 }}
+                  style={{ border: '1px solid rgba(147,51,234,0.18)', opacity: 0 }}
                 >
-                  <div className="w-2 h-2 rounded-full bg-fn-emerald flex-shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-fn-purple flex-shrink-0" />
                   <span className="text-sm text-fn-navy font-inter font-medium">{item.text}</span>
-                  <span className="ml-auto text-fn-emerald font-bold"><Check size={18} /></span>
+                  <span className="ml-auto text-fn-purple font-bold"><Check size={18} /></span>
                 </div>
               ))}
             </div>
@@ -258,11 +258,11 @@ export default function VisionSection() {
             <motion.span
               animate={{ x: [0, 6, 0] }}
               transition={{ repeat: Infinity, duration: 1.8 }}
-              className="text-fn-emerald font-bold text-lg"
+              className="text-fn-purple font-bold text-lg"
             >
               →
             </motion.span>
-            <span className="px-4 py-1.5 rounded-full text-xs md:text-sm font-inter font-medium text-fn-emerald bg-fn-emerald/10 border border-fn-emerald/20">
+            <span className="px-4 py-1.5 rounded-full text-xs md:text-sm font-inter font-medium text-fn-purple bg-fn-purple/10 border border-fn-purple/20">
               {isEnglish ? 'Autonomous AI' : 'AI Otonom'}
             </span>
           </div>

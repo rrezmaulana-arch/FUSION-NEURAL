@@ -25,7 +25,7 @@ export default function FinancePricingTaxPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
               activeTab === tab.id
-                ? 'bg-emerald-600 text-white shadow-sm'
+                ? 'bg-purple-600 text-white shadow-sm'
                 : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
             }`}
           >
@@ -41,3 +41,4 @@ export default function FinancePricingTaxPage() {
     </div>
   );
 }
+

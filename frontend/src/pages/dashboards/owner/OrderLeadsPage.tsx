@@ -59,11 +59,11 @@ const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode }> = 
   'Menunggu': { color: 'bg-slate-50 border-slate-200 text-slate-600', icon: <Clock size={12} /> },
   'Lunas - Persiapan Setup': { color: 'bg-indigo-50 border-indigo-200 text-indigo-700', icon: <CheckCircle2 size={12} /> },
   'Diproses': { color: 'bg-amber-50 border-amber-200 text-amber-700', icon: <AlertCircle size={12} /> },
-  'Selesai': { color: 'bg-emerald-50 border-emerald-200 text-emerald-700', icon: <CheckCircle2 size={12} /> },
+  'Selesai': { color: 'bg-purple-50 border-purple-200 text-purple-700', icon: <CheckCircle2 size={12} /> },
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  'Selesai': 'text-emerald-600',
+  'Selesai': 'text-purple-600',
   'Diproses': 'text-amber-600',
   'Lunas - Persiapan Setup': 'text-indigo-600',
   'Menunggu Konfirmasi': 'text-slate-600',
@@ -132,7 +132,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'error' | 's
       className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl border ${
         type === 'error'
           ? 'bg-red-50 border-red-200 text-red-700'
-          : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+          : 'bg-purple-50 border-purple-200 text-purple-700'
       }`}
     >
       {type === 'error' ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
@@ -313,7 +313,7 @@ export default function OrderLeadsPage() {
                 placeholder="Cari nama atau no. WA..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 ring-emerald-500/20 text-slate-800"
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 ring-purple-500/20 text-slate-800"
               />
             </div>
 
@@ -370,7 +370,7 @@ export default function OrderLeadsPage() {
           { label: 'Total Prospek', value: stats.total, icon: Network, color: 'bg-indigo-50 text-indigo-600' },
           { label: 'Menunggu', value: stats.waiting, icon: Clock, color: 'bg-slate-50 text-slate-600' },
           { label: 'Diproses', value: stats.processing, icon: AlertCircle, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Selesai', value: stats.done, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+          { label: 'Selesai', value: stats.done, icon: CheckCircle2, color: 'bg-purple-50 text-purple-600' },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
             className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4"
@@ -390,13 +390,13 @@ export default function OrderLeadsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {revenueAchieved > 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="bg-gradient-to-r from-fn-emerald/10 to-teal-50 border border-fn-emerald/20 rounded-2xl p-5 flex items-center gap-4"
+            className="bg-gradient-to-r from-fn-purple/10 to-teal-50 border border-fn-purple/20 rounded-2xl p-5 flex items-center gap-4"
           >
-            <div className="w-10 h-10 bg-fn-emerald/15 rounded-xl flex items-center justify-center">
-              <DollarSign size={20} className="text-fn-emerald" />
+            <div className="w-10 h-10 bg-fn-purple/15 rounded-xl flex items-center justify-center">
+              <DollarSign size={20} className="text-fn-purple" />
             </div>
             <div>
-              <p className="text-xs text-fn-emerald font-bold uppercase tracking-widest">Revenue Tercapai</p>
+              <p className="text-xs text-fn-purple font-bold uppercase tracking-widest">Revenue Tercapai</p>
               <p className="text-2xl font-black text-fn-navy">{fmt(revenueAchieved)}</p>
             </div>
           </motion.div>
@@ -479,11 +479,11 @@ export default function OrderLeadsPage() {
                           </div>
                           {autonomyLabel !== '—' && (
                             <div className="flex items-center gap-1.5">
-                              <Zap size={11} className="text-fn-emerald shrink-0" />
+                              <Zap size={11} className="text-fn-purple shrink-0" />
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 autonomyLabel.includes('100%')
                                   ? 'bg-fn-navy/10 text-fn-navy'
-                                  : 'bg-fn-emerald/10 text-fn-emerald'
+                                  : 'bg-fn-purple/10 text-fn-purple'
                               }`}>
                                 {autonomyLabel}
                               </span>
@@ -550,3 +550,4 @@ export default function OrderLeadsPage() {
     </div>
   );
 }
+

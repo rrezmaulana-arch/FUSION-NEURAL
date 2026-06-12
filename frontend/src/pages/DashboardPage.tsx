@@ -79,7 +79,7 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
   },
   finance: {
     title: 'Treasury Dept',
-    theme: { gradient: 'from-[#059669] to-[#047857]', text: 'text-emerald-600', glow: 'bg-emerald-500/20' },
+    theme: { gradient: 'from-[#059669] to-[#047857]', text: 'text-purple-600', glow: 'bg-purple-500/20' },
     menus: [
       { path: '/dashboard', label: 'Keuangan', icon: BookOpen },
       { path: '/dashboard/pricing', label: 'Pricing & Pajak', icon: Activity },
@@ -477,7 +477,7 @@ export default function DashboardPage() {
                 <Icon size={18} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
                 {!effectiveIsCollapsed && <span className="whitespace-nowrap">{label}</span>}
                 {path === '/dashboard' && todaySignals.length > 0 && !effectiveIsCollapsed && (
-                  <span className="ml-auto text-[9px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">{todaySignals.length}</span>
+                  <span className="ml-auto text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">{todaySignals.length}</span>
                 )}
               </button>
             );

@@ -113,7 +113,7 @@ export default function GovernancePage() {
               {approvals.length === 0 ? (
                 <div className="bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center">
                   <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-                    <ShieldCheck size={32} className="text-emerald-500" />
+                    <ShieldCheck size={32} className="text-purple-500" />
                   </div>
                   <h3 className="font-bold text-slate-800 text-lg">No Pending Approvals</h3>
                   <p className="text-slate-500 text-sm mt-1 max-w-sm">All agent transactions have been cleared. Agents will pause and request approval here if they attempt to execute sensitive actions.</p>
@@ -142,7 +142,7 @@ export default function GovernancePage() {
                     <div className="flex items-center gap-2 pt-2">
                       {app.status === 'Pending' ? (
                         <>
-                          <button onClick={() => handleApprove(app.id)} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white py-2 rounded-xl text-sm font-bold hover:bg-emerald-600">
+                          <button onClick={() => handleApprove(app.id)} className="flex-1 flex items-center justify-center gap-2 bg-purple-500 text-white py-2 rounded-xl text-sm font-bold hover:bg-purple-600">
                             <CheckCircle2 size={16} /> Approve
                           </button>
                           <button onClick={() => handleReject(app.id)} className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-2 rounded-xl text-sm font-bold hover:bg-slate-200">
@@ -150,7 +150,7 @@ export default function GovernancePage() {
                           </button>
                         </>
                       ) : (
-                        <div className={`w-full py-2 text-center rounded-xl text-sm font-bold ${app.status === 'Approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        <div className={`w-full py-2 text-center rounded-xl text-sm font-bold ${app.status === 'Approved' ? 'bg-purple-50 text-purple-600' : 'bg-red-50 text-red-600'}`}>
                           {app.status}
                         </div>
                       )}
@@ -181,7 +181,7 @@ export default function GovernancePage() {
                       <h4 className="font-bold text-slate-800">{b.name}</h4>
                     </div>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                      b.status === 'Active' ? 'bg-emerald-100 text-emerald-700' :
+                      b.status === 'Active' ? 'bg-purple-100 text-purple-700' :
                       b.status === 'Throttled' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                     }`}>
                       {b.status}
@@ -203,7 +203,7 @@ export default function GovernancePage() {
                     {/* Progress Bar */}
                     <div className="h-2 w-full bg-slate-100 rounded-full mt-3 overflow-hidden">
                       <div 
-                        className={`h-full rounded-full ${b.currentSpend > b.monthlyBudget * 0.8 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                        className={`h-full rounded-full ${b.currentSpend > b.monthlyBudget * 0.8 ? 'bg-red-500' : 'bg-purple-500'}`}
                         style={{ width: `${Math.min((b.currentSpend / b.monthlyBudget) * 100, 100)}%` }}
                       />
                     </div>
@@ -284,3 +284,4 @@ export default function GovernancePage() {
     </div>
   );
 }
+

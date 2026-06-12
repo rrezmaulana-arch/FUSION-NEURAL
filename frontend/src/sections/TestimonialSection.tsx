@@ -86,21 +86,21 @@ function TestimonialCard({ t, index, isEnglish }: { t: Testimonial; index: numbe
       </div>
 
       <div className="relative mb-4">
-        <Quote size={20} className="text-emerald-200 absolute -top-1 -left-1" />
+        <Quote size={20} className="text-purple-200 absolute -top-1 -left-1" />
         <p className="text-sm text-slate-600 leading-relaxed pl-6">
           {isEnglish ? t.textEn : t.text}
         </p>
       </div>
 
       <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold">
           {t.avatar}
         </div>
         <div className="flex-1">
           <p className="text-sm font-bold text-slate-800">{t.name}</p>
           <p className="text-[10px] text-slate-400">{isEnglish ? t.roleEn : t.role}</p>
         </div>
-        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
+        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
           {isEnglish ? t.metricEn : t.metric}
         </span>
       </div>
@@ -130,7 +130,7 @@ export default function TestimonialSection() {
     <section id="testimoni" className="relative py-24 bg-white" ref={sectionRef}>
       <div className="max-w-6xl mx-auto px-6">
         <div data-testimonial="header" className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 text-emerald-600 text-xs font-bold uppercase tracking-widest mb-4">
+          <div className="inline-flex items-center gap-2 text-purple-600 text-xs font-bold uppercase tracking-widest mb-4">
             <Star size={14} />
             {isEnglish ? 'What Users Say' : 'Kata Mereka'}
           </div>
@@ -153,3 +153,4 @@ export default function TestimonialSection() {
     </section>
   );
 }
+

@@ -67,7 +67,7 @@ export default function CrossIndustrySection() {
         <div data-cross="header" className="text-center mb-12 md:mb-16">
           <span
             data-cross="tag"
-            className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full glass-emerald"
+            className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-purple mb-4 px-4 py-1.5 rounded-full glass-purple"
             style={{ opacity: 0 }}
           >
             {isEnglish ? 'Universal Adaptation · Any Sector' : 'Adaptasi Universal · Semua Sektor'}
@@ -79,7 +79,7 @@ export default function CrossIndustrySection() {
           >
             {isEnglish ? 'Adaptable Intelligence.' : 'Kecerdasan yang Adaptif.'}
             <br />
-            <span className="gradient-text-emerald">{isEnglish ? 'Infinite Applications.' : 'Aplikasi Tanpa Batas.'}</span>
+            <span className="gradient-text-purple">{isEnglish ? 'Infinite Applications.' : 'Aplikasi Tanpa Batas.'}</span>
           </h2>
           <p
             data-cross="desc"
@@ -111,7 +111,7 @@ export default function CrossIndustrySection() {
         <div className="relative">
           {/* Connecting line (Hanya muncul di md/desktop ke atas) */}
           <div className="hidden md:block absolute top-10 left-0 right-0 h-0.5 mx-16 z-0"
-            style={{ background: 'linear-gradient(to right, #F59E0B, #3B82F6, #EC4899, #10B981)' }} />
+            style={{ background: 'linear-gradient(to right, #F59E0B, #3B82F6, #EC4899, #760EFF)' }} />
 
           {/* Container Scroll */}
           <div data-cross="steps" className="flex md:grid overflow-x-auto md:overflow-visible md:grid-cols-4 gap-6 relative z-10 pb-8 pt-4 -my-4 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:pt-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -156,12 +156,12 @@ export default function CrossIndustrySection() {
         >
           <div className="grid grid-cols-2 md:flex md:flex-row flex-wrap justify-center items-center gap-8 md:gap-12 relative z-10">
             {(isEnglish ? [
-              { val: 'Any', label: 'Industry Application', color: '#10B981' },
+              { val: 'Any', label: 'Industry Application', color: '#760EFF' },
               { val: '100%', label: 'System Integration', color: '#3B82F6' },
               { val: '24/7', label: 'Continuous Optimization', color: '#F59E0B' },
               { val: 'Zero', label: 'Human Intervention', color: '#EC4899' },
             ] : [
-              { val: 'Semua', label: 'Jenis Industri', color: '#10B981' },
+              { val: 'Semua', label: 'Jenis Industri', color: '#760EFF' },
               { val: '100%', label: 'Integrasi Sistem', color: '#3B82F6' },
               { val: '24/7', label: 'Optimasi Berkelanjutan', color: '#F59E0B' },
               { val: 'Nol', label: 'Intervensi Manual', color: '#EC4899' },

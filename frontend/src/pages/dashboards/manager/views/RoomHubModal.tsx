@@ -104,7 +104,7 @@ export default function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  const statusColor: any = { 'To Do': '#6366f1', 'In Progress': '#f59e0b', 'Done': '#10b981', 'Review': '#8b5cf6' };
+  const statusColor: any = { 'To Do': '#6366f1', 'In Progress': '#f59e0b', 'Done': '#760EFF', 'Review': '#8b5cf6' };
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
@@ -150,7 +150,7 @@ export default function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
                 {room.agents.map(a => (<div key={a.id} style={{ background: '#0f172a', border: `1px solid ${room.accent}25`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}><Cpu size={16} color={room.accent} /><div><div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{a.name}</div><div style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace' }}>{a.model}</div></div><div style={{ marginLeft: 'auto', fontSize: 9, background: `${room.accent}15`, border: `1px solid ${room.accent}30`, color: room.accent, padding: '3px 8px', borderRadius: 6, fontWeight: 800 }}>ACTIVE</div></div>))}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {promptData.tools.map(tool => (<div key={tool} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '8px 12px' }}><span style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8' }}>{tool}</span><span style={{ fontSize: 9, color: '#10b981', fontWeight: 800, letterSpacing: '1px' }}>ENABLED</span></div>))}
+                {promptData.tools.map(tool => (<div key={tool} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '8px 12px' }}><span style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8' }}>{tool}</span><span style={{ fontSize: 9, color: '#760EFF', fontWeight: 800, letterSpacing: '1px' }}>ENABLED</span></div>))}
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#475569', marginTop: 8 }}><span>{budget.monthlyBudget ? Math.round((budget.currentSpend / budget.monthlyBudget) * 100) : 0}% Used</span><span style={{ color: budget.status === 'ACTIVE' ? '#10b981' : '#ef4444', fontWeight: 700 }}>{budget.status || '—'}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#475569', marginTop: 8 }}><span>{budget.monthlyBudget ? Math.round((budget.currentSpend / budget.monthlyBudget) * 100) : 0}% Used</span><span style={{ color: budget.status === 'ACTIVE' ? '#760EFF' : '#ef4444', fontWeight: 700 }}>{budget.status || '—'}</span></div>
               </>) : <div style={{ color: '#334155', fontSize: 12, paddingTop: 20 }}>No budget data. Neural Engine will populate once active.</div>}
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
@@ -180,7 +180,7 @@ export default function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
                 <div key={app.id} style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 14, marginBottom: 10 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc', marginBottom: 4 }}>{app.actionType}</div><div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{app.description}</div>
                   {app.estimatedCost > 0 && <div style={{ fontSize: 11, color: '#f59e0b', marginBottom: 8 }}>Est. Rp {app.estimatedCost.toLocaleString('id-ID')}</div>}
-                  {app.status === 'Pending' ? (<div style={{ display: 'flex', gap: 8 }}><button onClick={() => handleApprove(app.id)} style={{ flex: 1, padding: '6px', background: '#10b981', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>Approve</button><button onClick={() => handleReject(app.id)} style={{ flex: 1, padding: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>Reject</button></div>) : <div style={{ fontSize: 11, fontWeight: 700, color: app.status === 'Approved' ? '#10b981' : '#ef4444' }}>{app.status}</div>}
+                  {app.status === 'Pending' ? (<div style={{ display: 'flex', gap: 8 }}><button onClick={() => handleApprove(app.id)} style={{ flex: 1, padding: '6px', background: '#760EFF', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>Approve</button><button onClick={() => handleReject(app.id)} style={{ flex: 1, padding: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>Reject</button></div>) : <div style={{ fontSize: 11, fontWeight: 700, color: app.status === 'Approved' ? '#760EFF' : '#ef4444' }}>{app.status}</div>}
                 </div>
               ))}
             </div>
@@ -196,7 +196,7 @@ export default function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
             </div>
             {schedules.length === 0 ? <div style={{ textAlign: 'center', padding: '40px 0', color: '#334155' }}><CalendarDays size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} /><div style={{ fontSize: 13 }}>No scheduled tasks. Add SOP above.</div></div> : schedules.map(s => (
               <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${room.accent}20`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <Clock size={18} color={s.status === 'completed' ? '#10b981' : '#f59e0b'} />
+                <Clock size={18} color={s.status === 'completed' ? '#760EFF' : '#f59e0b'} />
                 <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: s.status === 'completed' ? '#475569' : '#cbd5e1', textDecoration: s.status === 'completed' ? 'line-through' : 'none' }}>{s.title}</div><div style={{ fontSize: 10, color: '#475569', marginTop: 3 }}>📅 {s.schedule}</div></div>
                 <button onClick={async () => { if (db) await updateDoc(doc(db, 'agent_schedules', s.id), { status: 'deleted' }); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.5 }}><Trash2 size={14} /></button>
               </div>
@@ -214,14 +214,14 @@ export default function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
               <textarea value={editablePrompt} onChange={e => { setEditablePrompt(e.target.value); setPromptSaved(false); }} rows={14} style={{ width: '100%', background: '#0a1628', border: `1px solid ${room.accent}30`, borderRadius: 10, padding: '14px 16px', color: '#cbd5e1', fontSize: 12, fontFamily: 'monospace', lineHeight: 1.7, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
                 <button onClick={async () => { try { const { doc: fsDoc, setDoc } = await import('firebase/firestore'); await setDoc(fsDoc(db, 'system_prompts', room.id), { prompt: editablePrompt, role: room.id, updatedAt: new Date().toISOString(), updatedBy: 'Manager' }); setPromptSaved(true); } catch (e) { console.error(e); } }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: room.accent, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}><Save size={14} /> Save SOP</button>
-                {promptSaved && <span style={{ fontSize: 11, color: '#10b981', fontWeight: 700 }}>Saved to Firebase</span>}
+                {promptSaved && <span style={{ fontSize: 11, color: '#760EFF', fontWeight: 700 }}>Saved to Firebase</span>}
                 <button onClick={() => { setEditablePrompt(promptData.prompt); setPromptSaved(false); }} style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#64748b', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Reset Default</button>
               </div>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', letterSpacing: '1px', marginBottom: 14 }}>ACTIVE TOOL INTEGRATIONS</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-                {promptData.tools.map(tool => (<div key={tool} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 12px' }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} /><span style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8' }}>{tool}</span></div>))}
+                {promptData.tools.map(tool => (<div key={tool} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 12px' }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#760EFF', flexShrink: 0 }} /><span style={{ fontSize: 11, fontFamily: 'monospace', color: '#94a3b8' }}>{tool}</span></div>))}
               </div>
             </div>
           </div>
@@ -230,3 +230,4 @@ export default function RoomHubModal({ room, hubTab, setHubTab, onClose }: {
     </motion.div>
   );
 }
+

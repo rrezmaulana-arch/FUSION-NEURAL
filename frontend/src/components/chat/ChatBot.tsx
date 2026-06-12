@@ -162,7 +162,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
                   <motion.div
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-4 border-white rounded-full shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-purple-500 border-4 border-white rounded-full shadow-[0_0_12px_rgba(16,185,129,0.4)]"
                   />
                 </div>
                 <div>
@@ -172,8 +172,8 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
                   <div className="flex items-center gap-2 mt-0.5">
                     {activeAgents.length > 0 ? (
                       <>
-                        <Activity className="w-3 h-3 text-emerald-600 animate-pulse" />
-                        <span className="text-emerald-600/90 text-[11px] font-semibold uppercase tracking-wider">
+                        <Activity className="w-3 h-3 text-purple-600 animate-pulse" />
+                        <span className="text-purple-600/90 text-[11px] font-semibold uppercase tracking-wider">
                           Agen Aktif: {activeAgents.join(", ")}
                         </span>
                       </>
@@ -313,7 +313,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
           ) : (
             <motion.div key="open" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="relative">
               <Brain className="w-8 h-8 text-slate-800 relative z-10" />
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-4 border-white rounded-full animate-pulse" />
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 border-4 border-white rounded-full animate-pulse" />
             </motion.div>
           )}
         </AnimatePresence>
@@ -324,3 +324,4 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
 };
 
 export default ChatBot;
+

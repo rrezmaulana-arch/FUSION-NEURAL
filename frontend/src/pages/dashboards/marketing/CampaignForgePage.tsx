@@ -176,7 +176,7 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -496,3 +496,4 @@ Buat konten ${format} dengan gaya ${tone}. Langsung tulis konten tanpa penjelasa
     </div>
   );
 }
+

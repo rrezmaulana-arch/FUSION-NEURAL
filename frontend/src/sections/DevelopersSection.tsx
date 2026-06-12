@@ -91,7 +91,7 @@ function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
                     dangerouslySetInnerHTML={{ __html: m.name.replace('<br/>', '<br/>') }}
                   />
                   {isActive && (
-                     <div className="bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.4)] mt-0.5">
+                     <div className="bg-gradient-to-r from-purple-400 to-purple-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.4)] mt-0.5">
                         <Check size={13} className="text-white" strokeWidth={3} />
                      </div>
                   )}
@@ -130,7 +130,7 @@ function GachaCard({ m, offset, isActive, onClick, isDark }: GachaCardProps) {
 
               {/* Initial state Info */}
               <div className={`transition-all duration-500 overflow-hidden ${!isRevealed ? 'max-h-[50px] opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
-                  <div className={`flex items-center gap-3 ${isDark ? 'text-slate-400' : 'text-emerald-600'} text-[13px] font-bold tracking-wide`}>
+                  <div className={`flex items-center gap-3 ${isDark ? 'text-slate-400' : 'text-purple-600'} text-[13px] font-bold tracking-wide`}>
                       <span>{jobs[0]}</span>
                   </div>
               </div>
@@ -146,7 +146,7 @@ function TeamCarousel({ isDark }: { isDark: boolean }) {
     {
       name: 'Dzaky Al Fauzy Naw-Waf Akbar',
       nim: '243140707111046',
-      color: '#10b981',
+      color: '#760EFF',
       image: new URL('../assets/Dzaky Al Fauzy Naw-Waf Akbar - 243140707111046.jpeg', import.meta.url).href,
       jobdesk: [
         'Ketua Tim',
@@ -290,7 +290,7 @@ function TeamCarousel({ isDark }: { isDark: boolean }) {
                  let normalizedActive = active % L;
                  if (normalizedActive < 0) normalizedActive += L;
                  return (
-                   <div key={i} className={`h-2 rounded-full cursor-pointer transition-all duration-500 ease-out ${i === normalizedActive ? 'bg-emerald-500 shadow-[0_0_12px_#10b981] w-10' : `w-2 ${isDark ? 'bg-white/20 hover:bg-white/40' : 'bg-slate-300 hover:bg-slate-400'}`}`} onClick={() => select(i)} />
+                   <div key={i} className={`h-2 rounded-full cursor-pointer transition-all duration-500 ease-out ${i === normalizedActive ? 'bg-purple-500 shadow-[0_0_12px_#760EFF] w-10' : `w-2 ${isDark ? 'bg-white/20 hover:bg-white/40' : 'bg-slate-300 hover:bg-slate-400'}`}`} onClick={() => select(i)} />
                  )
               })}
            </div>
@@ -341,3 +341,4 @@ export default function DevelopersSection() {
     </section>
   );
 }
+

@@ -213,7 +213,7 @@ export default function ContentLaunchpadPage() {
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -631,7 +631,7 @@ export default function ContentLaunchpadPage() {
                     <td className="py-4 px-6 align-top text-right">
                       {post.status === 'pending' ? (
                          <div className="flex justify-end gap-2">
-                           <button onClick={() => handleApprove(post.id)} className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md hover:bg-emerald-100 transition-colors">Approve</button>
+                           <button onClick={() => handleApprove(post.id)} className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-md hover:bg-purple-100 transition-colors">Approve</button>
                            <button onClick={() => handleReject(post.id)} className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md hover:bg-rose-100 transition-colors">Reject</button>
                          </div>
                       ) : post.status === 'approved' ? (

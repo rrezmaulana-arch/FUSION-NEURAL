@@ -57,7 +57,7 @@ export default function DevicesSection() {
           <div data-device="left" className="flex-1 text-center lg:text-left">
             <span
               data-device="tag"
-              className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full bg-fn-emerald/10 border border-fn-emerald/20"
+              className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-purple mb-4 px-4 py-1.5 rounded-full bg-fn-purple/10 border border-fn-purple/20"
               style={{ opacity: 0 }}
             >
               {isEnglish ? 'Omnichannel Access' : 'Akses Omnisaluran'}

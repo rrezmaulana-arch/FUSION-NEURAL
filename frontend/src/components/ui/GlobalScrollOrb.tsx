@@ -24,7 +24,7 @@ export default function GlobalScrollOrb() {
       className="fixed inset-0 pointer-events-none z-0"
       aria-hidden="true"
     >
-      {/* Primary orb - emerald */}
+      {/* Primary orb - purple */}
       <motion.div
         style={{ top: y, left: x }}
         className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -34,7 +34,7 @@ export default function GlobalScrollOrb() {
           transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
           className="w-[500px] h-[500px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(16,185,129,0.18) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(118,14,255,0.18) 0%, transparent 70%)',
             filter: 'blur(40px)',
           }}
         />
@@ -53,7 +53,7 @@ export default function GlobalScrollOrb() {
           transition={{ repeat: Infinity, duration: 8, ease: 'easeInOut', delay: 2 }}
           className="w-[400px] h-[400px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)',
             filter: 'blur(50px)',
           }}
         />
@@ -61,3 +61,4 @@ export default function GlobalScrollOrb() {
     </div>
   );
 }
+

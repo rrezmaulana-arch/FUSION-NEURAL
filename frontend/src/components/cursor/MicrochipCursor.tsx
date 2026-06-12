@@ -83,7 +83,7 @@ export default function MicrochipCursor() {
         style={{ position: 'fixed', top: 0, left: 0, pointerEvents: 'none', zIndex: 9999 }}
       >
         {/* Chip body */}
-        <rect x="4" y="4" width="12" height="12" rx="2" fill="#10B981" opacity="0.95" />
+        <rect x="4" y="4" width="12" height="12" rx="2" fill="#760EFF" opacity="0.95" />
         {/* Grid lines */}
         <line x1="7" y1="4" x2="7" y2="16" stroke="#fff" strokeWidth="0.5" opacity="0.4" />
         <line x1="10" y1="4" x2="10" y2="16" stroke="#fff" strokeWidth="0.5" opacity="0.4" />
@@ -94,18 +94,18 @@ export default function MicrochipCursor() {
         {/* Center dot */}
         <circle cx="10" cy="10" r="1.5" fill="#fff" />
         {/* Pins */}
-        <line x1="1" y1="7" x2="4" y2="7" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="1" y1="10" x2="4" y2="10" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="1" y1="13" x2="4" y2="13" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="16" y1="7" x2="19" y2="7" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="16" y1="10" x2="19" y2="10" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="16" y1="13" x2="19" y2="13" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="7" y1="1" x2="7" y2="4" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="10" y1="1" x2="10" y2="4" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="13" y1="1" x2="13" y2="4" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="7" y1="16" x2="7" y2="19" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="10" y1="16" x2="10" y2="19" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="13" y1="16" x2="13" y2="19" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="1" y1="7" x2="4" y2="7" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="1" y1="10" x2="4" y2="10" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="1" y1="13" x2="4" y2="13" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="16" y1="7" x2="19" y2="7" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="16" y1="10" x2="19" y2="10" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="16" y1="13" x2="19" y2="13" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="7" y1="1" x2="7" y2="4" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="10" y1="1" x2="10" y2="4" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="13" y1="1" x2="13" y2="4" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="7" y1="16" x2="7" y2="19" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="10" y1="16" x2="10" y2="19" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="13" y1="16" x2="13" y2="19" stroke="#760EFF" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
 
       {/* Trail cursor — ring */}
@@ -117,8 +117,8 @@ export default function MicrochipCursor() {
         xmlns="http://www.w3.org/2000/svg"
         style={{ position: 'fixed', top: 0, left: 0, pointerEvents: 'none', zIndex: 9998, opacity: 0.4 }}
       >
-        <circle cx="20" cy="20" r="18" stroke="#10B981" strokeWidth="1.5" strokeDasharray="4 4" />
-        <circle cx="20" cy="20" r="12" stroke="#3B82F6" strokeWidth="0.8" opacity="0.5" />
+        <circle cx="20" cy="20" r="18" stroke="#760EFF" strokeWidth="1.5" strokeDasharray="4 4" />
+        <circle cx="20" cy="20" r="12" stroke="#A855F7" strokeWidth="0.8" opacity="0.5" />
       </svg>
     </>
   );

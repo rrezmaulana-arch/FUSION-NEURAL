@@ -54,7 +54,7 @@ export default function NavBar() {
         <a href="#" className="flex items-center gap-2 group" data-cursor>
           <img src={logoImg} alt="Fusion Neural" className="w-8 h-8 rounded-lg object-contain group-hover:scale-110 transition-transform" />
           <span className="font-space font-700 text-fn-navy text-lg tracking-tight">
-            FUSION<span className="text-fn-emerald">NEURAL</span>
+            FUSION<span className="text-fn-purple">NEURAL</span>
           </span>
         </a>
 
@@ -65,7 +65,7 @@ export default function NavBar() {
               key={link.label}
               href={link.href}
               data-cursor
-              className="font-inter text-sm text-fn-navy/70 hover:text-fn-emerald transition-colors font-medium tracking-wide"
+              className="font-inter text-sm text-fn-navy/70 hover:text-fn-purple transition-colors font-medium tracking-wide"
             >
               {link.label}
             </a>
@@ -76,7 +76,7 @@ export default function NavBar() {
         <div className="hidden md:flex items-center gap-3">
           <button
             onClick={toggle}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-space font-bold border border-fn-navy/20 text-fn-navy/60 hover:text-fn-emerald hover:border-fn-emerald/40 transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-space font-bold border border-fn-navy/20 text-fn-navy/60 hover:text-fn-purple hover:border-fn-purple/40 transition-all"
           >
             <Globe size={13} />
             {isEnglish ? 'ID' : 'EN'}
@@ -86,7 +86,7 @@ export default function NavBar() {
             data-cursor
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-space font-semibold text-white bg-fn-navy hover:bg-fn-navy-light transition-all shadow-lg btn-shimmer"
           >
-            <span className="w-2 h-2 rounded-full bg-fn-emerald animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-fn-purple animate-pulse" />
             {isEnglish ? 'Join Revolution' : 'Mulai Sekarang'}
           </a>
           <Link
@@ -126,7 +126,7 @@ export default function NavBar() {
               key={link.label}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="font-inter text-sm text-fn-navy/80 hover:text-fn-emerald py-2 px-3 rounded-lg hover:bg-fn-emerald/10 transition-all"
+              className="font-inter text-sm text-fn-navy/80 hover:text-fn-purple py-2 px-3 rounded-lg hover:bg-fn-purple/10 transition-all"
             >
               {link.label}
             </a>
@@ -150,3 +150,4 @@ export default function NavBar() {
     </motion.nav>
   );
 }
+

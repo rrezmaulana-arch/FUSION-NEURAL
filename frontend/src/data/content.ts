@@ -66,8 +66,8 @@ export const AGENTS = [
     title: 'AI Finance',
     role: 'CFO Virtual',
     level: 'Intelligence Level',
-    color: '#10B981',
-    glowColor: 'rgba(16,185,129,0.4)',
+    color: '#760EFF',
+    glowColor: 'rgba(118,14,255,0.4)',
     initial: 'F',
     description:
       'CFO virtual yang selalu aktif 24/7. Menghitung laba bersih legal setelah dipotong PPN 12% & PPh, memantau biaya infrastruktur per rupiah, menganalisis ROI kampanye, dan mengunci kebijakan margin minimum untuk agen AI.',
@@ -108,16 +108,16 @@ export const MULTI_SECTOR_STEPS = [
     label: '04',
     title: 'Hasil Teroptimasi',
     desc: 'Efisiensi dan pendapatan termaksimalkan. AI Finance mencatat hasil & Laba Bersih Legal untuk laporan Sutradara.',
-    color: '#10B981',
+    color: '#760EFF',
   },
 ];
 
 export const TECH_STACK = [
-  { id: 'groq', label: 'Groq AI (LLaMA-3)', short: 'AI', color: '#10B981', desc: 'Sumber perintah ke semua agen AI' },
-  { id: 'neural', label: 'Neural Core Engine', short: 'NC', color: '#8B5CF6', desc: 'Orkestrator pusat seluruh ekosistem' },
+  { id: 'groq', label: 'Groq AI (LLaMA-3)', short: 'AI', color: '#9333EA', desc: 'Sumber perintah ke semua agen AI' },
+  { id: 'neural', label: 'Neural Core Engine', short: 'NC', color: '#A855F7', desc: 'Orkestrator pusat seluruh ekosistem' },
   { id: 'firebase', label: 'Firebase Firestore', short: 'FB', color: '#F59E0B', desc: 'Database real-time terpusat' },
   { id: 'react', label: 'React + Vite', short: 'RV', color: '#3B82F6', desc: 'Dashboard premium responsif' },
-  { id: 'vercel', label: 'Vercel Hosting', short: 'VC', color: '#EC4899', desc: 'Deploy global edge network' },
+  { id: 'server', label: 'VPS Server', short: 'VS', color: '#EC4899', desc: 'Deploy di server sendiri (self-hosted)' },
 ];
 
 export const TRADITIONAL_VS_OPC = {
@@ -204,8 +204,8 @@ export const AGENTS_EN = [
     title: 'AI Finance',
     role: 'Virtual CFO',
     level: 'Intelligence Level',
-    color: '#10B981',
-    glowColor: 'rgba(16,185,129,0.4)',
+    color: '#760EFF',
+    glowColor: 'rgba(118,14,255,0.4)',
     initial: 'F',
     description:
       'Your always-on CFO. Calculates legal net profit after VAT 12% & income tax, monitors infrastructure costs per rupiah, analyzes campaign ROI, and locks minimum margin policies for all AI agents.',

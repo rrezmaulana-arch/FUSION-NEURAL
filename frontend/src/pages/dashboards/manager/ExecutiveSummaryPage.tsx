@@ -156,7 +156,7 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -212,7 +212,7 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
                 const count = dailyLogs.filter((l: any) => (l.agent || '').toLowerCase().includes(agent)).length;
                 const colors: Record<string, { bg: string; text: string; border: string }> = {
                   admin: { bg: 'bg-violet-500/10', text: 'text-violet-400', border: 'border-violet-500/30' },
-                  finance: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+                  finance: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30' },
                   marketing: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/30' },
                   manager: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30' },
                 };
@@ -260,15 +260,15 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
       {/* Order Revenue Banner */}
       {orderRevenue > 0 && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4"
+          className="flex items-center gap-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl p-4"
         >
-          <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-            <ShoppingBag size={20} className="text-emerald-400" />
+          <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+            <ShoppingBag size={20} className="text-purple-400" />
           </div>
           <div>
-            <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Revenue dari Order Klien</p>
-            <p className="text-xl font-black text-emerald-300">Rp {orderRevenue.toLocaleString('id-ID')}</p>
-            <p className="text-xs text-emerald-500/80">{orderCount} pesanan telah selesai dikonfirmasi</p>
+            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">Revenue dari Order Klien</p>
+            <p className="text-xl font-black text-purple-300">Rp {orderRevenue.toLocaleString('id-ID')}</p>
+            <p className="text-xs text-purple-500/80">{orderCount} pesanan telah selesai dikonfirmasi</p>
           </div>
         </motion.div>
       )}
@@ -338,7 +338,7 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
             </div>
           </div>
           <p className="text-sm font-bold text-slate-300">Return on Investment</p>
-          <div className={`flex items-center gap-1 mt-1 ${(roi ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+          <div className={`flex items-center gap-1 mt-1 ${(roi ?? 0) >= 0 ? 'text-purple-600' : 'text-rose-500'}`}>
             {(roi ?? 0) >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
             <span className="text-xs font-bold">{(roi ?? 0) >= 0 ? 'Profitable' : 'Deficit'}</span>
           </div>
@@ -348,7 +348,7 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
       {/* Efficiency & Burn Rate */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {[
-          { label: 'Total Revenue', value: `Rp ${totalRevenue.toLocaleString('id-ID')}`, icon: DollarSign, color: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30', sub: 'Termasuk order klien' },
+          { label: 'Total Revenue', value: `Rp ${totalRevenue.toLocaleString('id-ID')}`, icon: DollarSign, color: 'bg-purple-500/20 text-purple-400 border border-purple-500/30', sub: 'Termasuk order klien' },
           { label: 'Efficiency Ratio', value: `${efficiencyRatio}%`, icon: Percent, color: 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30', sub: 'Biaya vs pendapatan' },
           { label: 'Burn Rate', value: `${burnRate}%`, icon: Activity, color: burnAlert ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30', sub: 'Biaya operasional' },
         ].map((kpi, i) => (
@@ -401,8 +401,8 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
             >
               <defs>
                 <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#760EFF" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#760EFF" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorPredict" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
@@ -418,7 +418,7 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
                 formatter={(value: any) => [`Rp ${value.toLocaleString('id-ID')}`, 'Revenue']}
               />
               <ReferenceLine x="Day 20 (Today)" stroke="#94a3b8" strokeDasharray="3 3" label={{ position: 'top', value: 'Today', fill: '#94a3b8', fontSize: 10 }} />
-              <Area type="monotone" dataKey="actual" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" name="Actual Revenue" />
+              <Area type="monotone" dataKey="actual" stroke="#760EFF" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" name="Actual Revenue" />
               <Area type="monotone" dataKey="predict" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" fillOpacity={1} fill="url(#colorPredict)" name="AI Prediction" />
             </AreaChart>
           </ResponsiveContainer>
@@ -467,3 +467,4 @@ Berikan analisa strategis singkat dan actionable, fokus pada margin dan pengelua
     </div>
   );
 }
+

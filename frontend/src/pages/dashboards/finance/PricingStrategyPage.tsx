@@ -51,14 +51,14 @@ export default function PricingStrategyPage() {
       <PageHeader
         title="Pricing & Discount Strategy"
         subtitle="Atur harga jual, harga modal, dan diskon promosi (Terhubung dengan Simulator)"
-        accent="emerald"
+        accent="purple"
         icon={<Tags size={22} className="text-white" />}
       />
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
         <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
-            <DollarSign size={16} className="text-emerald-500" /> Katalog Harga
+            <DollarSign size={16} className="text-purple-500" /> Katalog Harga
           </h2>
         </div>
 
@@ -86,7 +86,7 @@ export default function PricingStrategyPage() {
                       <p className="text-[10px] text-slate-500 font-mono mt-0.5">{p.sku || p.id.slice(0,6)}</p>
                     </td>
                     <td className="p-4">
-                      <span className={`inline-flex px-2 py-1 rounded-md text-xs font-mono font-bold ${p.quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      <span className={`inline-flex px-2 py-1 rounded-md text-xs font-mono font-bold ${p.quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-purple-100 text-purple-700'}`}>
                         {p.quantity ?? p.qty ?? 0}
                       </span>
                     </td>
@@ -96,7 +96,7 @@ export default function PricingStrategyPage() {
                           type="number" 
                           value={editForm.price}
                           onChange={e => setEditForm({...editForm, price: parseInt(e.target.value) || 0})}
-                          className="w-32 px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 ring-emerald-400 outline-none"
+                          className="w-32 px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 ring-purple-400 outline-none"
                         />
                       ) : (
                         <span className="text-sm font-black text-slate-700">Rp {price.toLocaleString('id-ID')}</span>
@@ -108,7 +108,7 @@ export default function PricingStrategyPage() {
                           type="number" 
                           value={editForm.discount}
                           onChange={e => setEditForm({...editForm, discount: parseInt(e.target.value) || 0})}
-                          className="w-20 px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 ring-emerald-400 outline-none"
+                          className="w-20 px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 ring-purple-400 outline-none"
                         />
                       ) : (
                         <span className="text-sm font-bold text-rose-500 flex items-center gap-1">
@@ -120,12 +120,12 @@ export default function PricingStrategyPage() {
                       {isEditing ? (
                         <div className="flex justify-end gap-2">
                           <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 bg-slate-100 rounded-lg">Batal</button>
-                          <button disabled={saving} onClick={() => handleSave(p.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg shadow-md shadow-emerald-500/20">
+                          <button disabled={saving} onClick={() => handleSave(p.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-purple-500 hover:bg-purple-600 rounded-lg shadow-md shadow-purple-500/20">
                             {saving ? 'Loading...' : <><Save size={12}/> Simpan</>}
                           </button>
                         </div>
                       ) : (
-                        <button onClick={() => handleEdit(p)} className="text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors">
+                        <button onClick={() => handleEdit(p)} className="text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors">
                           Ubah Harga
                         </button>
                       )}
@@ -143,3 +143,4 @@ export default function PricingStrategyPage() {
     </div>
   );
 }
+

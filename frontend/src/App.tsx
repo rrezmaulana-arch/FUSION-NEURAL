@@ -20,7 +20,7 @@ const OrderPage = lazy(() => import('./pages/OrderPage'));
 // Simple loading screen for Suspense fallback
 const PageLoader = () => (
   <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
-    <div className="w-8 h-8 border-4 border-fn-emerald border-t-transparent rounded-full animate-spin"></div>
+    <div className="w-8 h-8 border-4 border-fn-purple border-t-transparent rounded-full animate-spin"></div>
   </div>
 );
 
@@ -48,3 +48,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

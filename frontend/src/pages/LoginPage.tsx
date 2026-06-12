@@ -41,7 +41,7 @@ export default function LoginPage() {
       
       {/* Background Effects */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-100/40 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-100/40 rounded-full blur-[120px]" />
         <div className="absolute -top-20 -right-20 w-[600px] h-[600px] bg-blue-100/40 rounded-full blur-[100px]" />
       </div>
 
@@ -55,13 +55,13 @@ export default function LoginPage() {
           <motion.div 
             animate={{ rotate: 360 }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="mb-6 text-emerald-500/80"
+            className="mb-6 text-purple-500/80"
           >
              <Atom strokeWidth={1} className="w-24 h-24" />
           </motion.div>
           <h1 className="text-5xl font-black tracking-tight leading-none mb-1 flex flex-col items-center">
             <span className="text-[#0B1221]">FUSION</span>
-            <span className="gradient-text-emerald">NEURAL</span>
+            <span className="gradient-text-purple">NEURAL</span>
           </h1>
           <p className="text-sm font-semibold tracking-widest uppercase text-slate-500 mt-4" style={{ letterSpacing: '0.15em' }}>
             Evolution from operator to director
@@ -81,14 +81,14 @@ export default function LoginPage() {
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Identity</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
                   </div>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:border-emerald-500 transition-all text-sm font-medium"
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:border-purple-500 transition-all text-sm font-medium"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -98,14 +98,14 @@ export default function LoginPage() {
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Passphrase</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
                   </div>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:border-emerald-500 transition-all text-sm font-medium"
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-3.5 pl-12 pr-4 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:border-purple-500 transition-all text-sm font-medium"
                     placeholder="••••••••"
                   />
                 </div>
@@ -135,3 +135,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

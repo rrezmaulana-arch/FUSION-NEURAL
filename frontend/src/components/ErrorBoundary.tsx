@@ -31,7 +31,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
           fontFamily: 'Inter, sans-serif', color: '#fff', padding: '2rem', textAlign: 'center'
         }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚡</div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10B981', marginBottom: '0.5rem' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#760EFF', marginBottom: '0.5rem' }}>
             FusionNeural — System Restart
           </h1>
           <p style={{ color: '#94A3B8', marginBottom: '1.5rem', maxWidth: '400px' }}>
@@ -40,7 +40,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
           <button
             onClick={() => window.location.reload()}
             style={{
-              background: '#10B981', color: '#fff', border: 'none', padding: '0.75rem 2rem',
+              background: '#760EFF', color: '#fff', border: 'none', padding: '0.75rem 2rem',
               borderRadius: '8px', fontSize: '1rem', cursor: 'pointer', fontWeight: 600
             }}
           >
@@ -60,3 +60,4 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
     return this.props.children;
   }
 }
+

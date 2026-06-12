@@ -48,7 +48,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   const config: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
     Draft:   { color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', icon: <Clock size={11}/>, label: 'Draft' },
     Sending: { color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',   icon: <Loader size={11} className="animate-spin"/>, label: 'Sending...' },
-    Sent:    { color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: <CheckCircle size={11}/>, label: 'Sent' },
+    Sent:    { color: 'text-purple-400 bg-purple-500/10 border-purple-500/20', icon: <CheckCircle size={11}/>, label: 'Sent' },
     Failed:  { color: 'text-red-400 bg-red-500/10 border-red-500/20', icon: <AlertTriangle size={11}/>, label: 'Failed' },
     Pending: { color: 'text-purple-400 bg-purple-500/10 border-purple-500/20', icon: <Clock size={11}/>, label: 'Pending Approval' },
   };
@@ -220,11 +220,11 @@ const AIDraftModal = ({ leads, onClose, onSuccess }: { leads: Lead[]; onClose: (
 
           {error && <p className="text-rose-600 text-xs bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{error}</p>}
           {result && (
-            <div className="text-emerald-600 text-xs bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-3 flex items-start gap-2">
+            <div className="text-purple-600 text-xs bg-purple-50 border border-purple-200 rounded-lg px-3 py-3 flex items-start gap-2">
               <CheckCircle size={14} className="shrink-0 mt-0.5"/>
               <div>
                 <p className="font-semibold">Draft berhasil dibuat!</p>
-                <p className="text-emerald-500 mt-0.5">{result.message}</p>
+                <p className="text-purple-500 mt-0.5">{result.message}</p>
               </div>
             </div>
           )}
@@ -498,7 +498,7 @@ export default function EmailCampaignPage() {
                           <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] border border-purple-500/20">{lead.segment}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`text-[10px] font-semibold ${lead.status === 'Active' ? 'text-emerald-400' : 'text-slate-500'}`}>{lead.status}</span>
+                          <span className={`text-[10px] font-semibold ${lead.status === 'Active' ? 'text-purple-400' : 'text-slate-500'}`}>{lead.status}</span>
                         </td>
                         <td className="px-4 py-3 text-slate-600">
                           {new Date(lead.addedAt).toLocaleDateString('id-ID', { day:'numeric', month:'short' })}
@@ -522,3 +522,4 @@ export default function EmailCampaignPage() {
     </div>
   );
 }
+

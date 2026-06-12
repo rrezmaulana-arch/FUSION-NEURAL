@@ -29,12 +29,12 @@ const TIERS = [
     setup: 4900000,
     monthly: 1800000,
     icon: Bot,
-    gradient: 'from-emerald-400 to-teal-500',
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-    pill: 'bg-emerald-100 text-emerald-700',
-    glow: 'shadow-emerald-100',
-    ring: 'ring-emerald-400/40',
+    gradient: 'from-purple-400 to-teal-500',
+    iconBg: 'bg-purple-50',
+    iconColor: 'text-purple-600',
+    pill: 'bg-purple-100 text-purple-700',
+    glow: 'shadow-purple-100',
+    ring: 'ring-purple-400/40',
     badge: null,
     features: {
       id: ['1 Agen AI Aktif 24/7', 'Laporan Mingguan Otomatis', 'Dasbor Standar', 'Otonom 24/7', 'Support via WhatsApp'],
@@ -122,10 +122,10 @@ export default function PricingSection() {
         <div className="text-center mb-14">
           <motion.div
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-fn-emerald/10 border border-fn-emerald/20 mb-5"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-fn-purple/10 border border-fn-purple/20 mb-5"
           >
-            <Cpu size={12} className="text-fn-emerald" />
-            <span className="text-xs font-bold text-fn-emerald uppercase tracking-widest">
+            <Cpu size={12} className="text-fn-purple" />
+            <span className="text-xs font-bold text-fn-purple uppercase tracking-widest">
               {isEnglish ? 'Pricing Architecture' : 'Arsitektur Harga'}
             </span>
           </motion.div>
@@ -170,7 +170,7 @@ export default function PricingSection() {
                         on ? 'bg-white text-fn-navy shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      {lvl === '50' ? <GitMerge size={14} className={on ? 'text-fn-emerald' : ''} /> : <Zap size={14} className={on ? 'text-fn-emerald' : ''} />}
+                      {lvl === '50' ? <GitMerge size={14} className={on ? 'text-fn-purple' : ''} /> : <Zap size={14} className={on ? 'text-fn-purple' : ''} />}
                       {lvl === '50'
                         ? (isEnglish ? '50% Hybrid' : '50% Hybrid')
                         : (isEnglish ? '100% Autopilot' : '100% Full Otonom')}
@@ -193,7 +193,7 @@ export default function PricingSection() {
                   <motion.span
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-[9px] font-black bg-fn-emerald text-white px-2 py-0.5 rounded-full"
+                    className="text-[9px] font-black bg-fn-purple text-white px-2 py-0.5 rounded-full"
                   >
                     HEMAT ~20%
                   </motion.span>
@@ -210,7 +210,7 @@ export default function PricingSection() {
                         on ? 'bg-white text-fn-navy shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      {cyc === 'monthly' ? <RefreshCw size={14} className={on ? 'text-fn-emerald' : ''} /> : <CalendarDays size={14} className={on ? 'text-fn-emerald' : ''} />}
+                      {cyc === 'monthly' ? <RefreshCw size={14} className={on ? 'text-fn-purple' : ''} /> : <CalendarDays size={14} className={on ? 'text-fn-purple' : ''} />}
                       {cyc === 'monthly'
                         ? (isEnglish ? 'Monthly' : 'Bulanan')
                         : (isEnglish ? 'Yearly' : 'Tahunan')}
@@ -232,7 +232,7 @@ export default function PricingSection() {
                 ? (isEnglish ? '50% Hybrid — AI runs with your approval at key decisions.' : '50% Hybrid — AI berjalan dengan persetujuan Anda di titik keputusan kunci.')
                 : (isEnglish ? '100% Autopilot — full autonomous execution, zero manual intervention.' : '100% Full Otonom — eksekusi autopilot penuh, tanpa intervensi manual.')}
               {billing === 'yearly' && (
-                <span className="text-fn-emerald font-semibold ml-1">
+                <span className="text-fn-purple font-semibold ml-1">
                   {isEnglish ? ' · Annual plan saves ~20%.' : ' · Tagihan tahunan hemat ~20%.'}
                 </span>
               )}
@@ -347,8 +347,8 @@ export default function PricingSection() {
                       <div>
                         <div className="flex items-center gap-1.5 mb-0.5">
                           {billing === 'monthly'
-                            ? <RefreshCw size={11} className="text-fn-emerald" />
-                            : <CalendarDays size={11} className="text-fn-emerald" />}
+                            ? <RefreshCw size={11} className="text-fn-purple" />
+                            : <CalendarDays size={11} className="text-fn-purple" />}
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                             {billing === 'monthly'
                               ? (isEnglish ? 'Monthly Sub' : 'Langganan Bulanan')
@@ -362,8 +362,8 @@ export default function PricingSection() {
                               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                               className="flex items-center gap-1"
                             >
-                              <Sparkles size={9} className="text-fn-emerald" />
-                              <span className="text-[10px] text-fn-emerald font-bold">
+                              <Sparkles size={9} className="text-fn-purple" />
+                              <span className="text-[10px] text-fn-purple font-bold">
                                 {isEnglish ? `Save ${fmtRp(savedAmt)}/yr` : `Hemat ${fmtRp(savedAmt)}/thn`}
                               </span>
                             </motion.div>
@@ -376,7 +376,7 @@ export default function PricingSection() {
                           initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
                           className="text-right"
                         >
-                          <span className="text-2xl font-black text-fn-emerald tabular-nums">
+                          <span className="text-2xl font-black text-fn-purple tabular-nums">
                             {fmtRp(subPrice)}
                           </span>
                           <span className="text-slate-400 text-xs ml-1">
@@ -406,8 +406,8 @@ export default function PricingSection() {
                   <div className="space-y-2.5">
                     {(isEnglish ? tier.features.en : tier.features.id).map((feat) => (
                       <div key={feat} className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-fn-emerald/12 flex items-center justify-center shrink-0 mt-0.5">
-                          <Check size={9} className="text-fn-emerald" />
+                        <div className="w-4 h-4 rounded-full bg-fn-purple/12 flex items-center justify-center shrink-0 mt-0.5">
+                          <Check size={9} className="text-fn-purple" />
                         </div>
                         <span className="text-sm text-slate-600 leading-snug">{feat}</span>
                       </div>
@@ -440,8 +440,8 @@ export default function PricingSection() {
           initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.45 }}
           className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 bg-white border border-slate-100 rounded-2xl px-6 py-5 shadow-sm"
         >
-          <div className="w-10 h-10 bg-fn-emerald/10 rounded-xl flex items-center justify-center shrink-0">
-            <RefreshCw size={18} className="text-fn-emerald" />
+          <div className="w-10 h-10 bg-fn-purple/10 rounded-xl flex items-center justify-center shrink-0">
+            <RefreshCw size={18} className="text-fn-purple" />
           </div>
           <div className="flex-1">
             <p className="text-sm font-bold text-fn-navy mb-0.5">
@@ -453,7 +453,7 @@ export default function PricingSection() {
                 : 'Biaya setup dibayar sekali untuk deployment & konfigurasi. Subscription (bulanan atau tahunan) mencakup operasional agen AI, biaya API model, pembaruan sistem, dan dukungan teknis berkelanjutan.'}
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 text-fn-emerald bg-fn-emerald/8 px-4 py-2 rounded-xl shrink-0">
+          <div className="hidden sm:flex items-center gap-1.5 text-fn-purple bg-fn-purple/8 px-4 py-2 rounded-xl shrink-0">
             <Sparkles size={13} />
             <span className="text-xs font-bold">
               {isEnglish ? 'Cancel anytime' : 'Batalkan kapan saja'}
@@ -475,3 +475,4 @@ export default function PricingSection() {
     </section>
   );
 }
+

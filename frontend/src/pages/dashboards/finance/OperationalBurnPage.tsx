@@ -67,7 +67,7 @@ export default function OperationalBurnPage() {
       <PageHeader
         title="Operational Burn"
         subtitle="Biaya infrastruktur — memantau setiap tetes pengeluaran sistem"
-        accent="emerald"
+        accent="purple"
         icon={<Flame size={22} className="text-white" />}
       />
 
@@ -106,7 +106,7 @@ export default function OperationalBurnPage() {
               initial={{ width: 0 }}
               animate={{ width: `${burnPct}%` }}
               transition={{ duration: 1.5, ease: 'easeOut' }}
-              className={`h-3 rounded-full ${isOverBudget ? 'bg-rose-500' : burnPct > 70 ? 'bg-amber-500' : 'bg-emerald-400'}`}
+              className={`h-3 rounded-full ${isOverBudget ? 'bg-rose-500' : burnPct > 70 ? 'bg-amber-500' : 'bg-purple-400'}`}
             />
           </div>
           <p className="text-slate-400 text-xs">{burnPct.toFixed(1)}% dari budget cap Rp {budgetCap.toLocaleString('id-ID')}</p>
@@ -165,7 +165,7 @@ export default function OperationalBurnPage() {
                   <p className="text-xs font-bold text-slate-700">{infra.name}</p>
                 </div>
                 <span className="text-sm font-black text-slate-800">
-                  {infra.monthly === 0 ? <span className="text-emerald-600 text-xs font-bold">FREE</span> : `Rp ${infra.monthly.toLocaleString('id-ID')}`}
+                  {infra.monthly === 0 ? <span className="text-purple-600 text-xs font-bold">FREE</span> : `Rp ${infra.monthly.toLocaleString('id-ID')}`}
                 </span>
               </div>
             ))}
@@ -190,11 +190,11 @@ export default function OperationalBurnPage() {
               value={inputCap}
               onChange={e => setInputCap(e.target.value)}
               placeholder={budgetCap.toString()}
-              className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-emerald-300"
+              className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-purple-300"
             />
           </div>
           <button onClick={handleSaveCap} disabled={isSaving}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-bold rounded-xl transition-all ${savedMsg ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white hover:bg-slate-700'} disabled:opacity-50`}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-bold rounded-xl transition-all ${savedMsg ? 'bg-purple-600 text-white' : 'bg-slate-800 text-white hover:bg-slate-700'} disabled:opacity-50`}
           >
             {savedMsg ? <><CheckCircle2 size={14} /> Tersimpan!</> : 'Simpan'}
           </button>
@@ -203,3 +203,4 @@ export default function OperationalBurnPage() {
     </div>
   );
 }
+

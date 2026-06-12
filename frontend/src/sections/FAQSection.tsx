@@ -59,7 +59,7 @@ const FAQ_DATA: FAQItem[] = [
 
 function FAQAccordion({ item, isOpen, onToggle, isEnglish }: { item: FAQItem; isOpen: boolean; onToggle: () => void; isEnglish: boolean }) {
   return (
-    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white hover:border-emerald-200 transition-colors">
+    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white hover:border-purple-200 transition-colors">
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-5 text-left"
@@ -116,7 +116,7 @@ export default function FAQSection() {
     <section id="faq" className="relative py-24 bg-slate-50" ref={sectionRef}>
       <div className="max-w-3xl mx-auto px-6">
         <div data-faq="content" className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 text-emerald-600 text-xs font-bold uppercase tracking-widest mb-4">
+          <div className="inline-flex items-center gap-2 text-purple-600 text-xs font-bold uppercase tracking-widest mb-4">
             <HelpCircle size={14} />
             {isEnglish ? 'Frequently Asked Questions' : 'Pertanyaan yang Sering Diajukan'}
           </div>
@@ -145,3 +145,4 @@ export default function FAQSection() {
     </section>
   );
 }
+

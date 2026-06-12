@@ -4,7 +4,7 @@
  * Role: Product Engineer (UI/UX & Full-Stack)
  * Copyright (c) 2026. All rights reserved.
  */
-import { Zap } from 'lucide-react';
+import logoImg from '../../assets/Logo (2).png';
 
 export default function Footer() {
   return (
@@ -12,23 +12,21 @@ export default function Footer() {
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-fn-emerald to-fn-blue flex items-center justify-center">
-            <Zap size={16} className="text-white" />
-          </div>
+          <img src={logoImg} alt="Fusion Neural" className="w-8 h-8 rounded-lg object-contain" />
           <span className="font-space font-bold text-white text-lg">
-            FUSION<span className="text-fn-emerald">NEURAL</span>
+            FUSION<span className="text-fn-purple-light">NEURAL</span>
           </span>
         </div>
 
         {/* Tagline */}
         <p className="text-white/30 text-sm font-inter text-center">
-          FusionNeural AI — An Autonomous Business Ecosystem Concept
+          FusionNeural AI — Ekosistem Bisnis Otonom Berbasis AI
         </p>
 
         {/* Status */}
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-fn-emerald animate-pulse" />
-          <span className="text-fn-emerald/60 text-xs font-inter">System Online · 24/7</span>
+          <span className="w-2 h-2 rounded-full bg-fn-purple-light animate-pulse" />
+          <span className="text-fn-purple-light/60 text-xs font-inter">System Online · 24/7</span>
         </div>
       </div>
 

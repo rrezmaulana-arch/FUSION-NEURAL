@@ -151,8 +151,8 @@ export default function AgentWorkstation({ agent, accent, active, taskActive, le
               <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.7 }} style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b' }} /> ON TASK
             </motion.div>
           ) : active ? (
-            <motion.div key="act" initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} style={{ fontSize: 9, fontWeight: 900, color: '#10b981', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', animation: 'blink 1s infinite' }} /> ACTIVE
+            <motion.div key="act" initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} style={{ fontSize: 9, fontWeight: 900, color: '#760EFF', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#760EFF', animation: 'blink 1s infinite' }} /> ACTIVE
             </motion.div>
           ) : (
             <motion.div key="id" initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} style={{ fontSize: 9, fontWeight: 900, color: accent, opacity: 0.6, letterSpacing: '1px' }}>RECHARGING</motion.div>
@@ -239,7 +239,7 @@ export default function AgentWorkstation({ agent, accent, active, taskActive, le
                 { label: 'LVL', val: level || 1, color: accent },
                 { label: 'EXP', val: `${exp}%`, color: '#f59e0b' },
                 { label: 'INT', val: Math.floor(60 + level * 2), color: '#3b82f6' },
-                { label: 'AGI', val: Math.floor(40 + level * 1.5), color: '#10b981' },
+                { label: 'AGI', val: Math.floor(40 + level * 1.5), color: '#760EFF' },
                 { label: 'STM', val: `${stamina.toFixed(0)}%`, color: stamina < 20 ? '#ef4444' : '#fbbf24' },
                 { label: 'RNK', val: getRank(level).slice(0, 3), color: '#8b5cf6' },
               ].map(stat => (
@@ -264,3 +264,4 @@ export default function AgentWorkstation({ agent, accent, active, taskActive, le
     </motion.div>
   );
 }
+

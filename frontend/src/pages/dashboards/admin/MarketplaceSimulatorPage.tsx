@@ -40,7 +40,7 @@ interface SimulatedOrder {
 
 const PLATFORMS = [
   { name: 'Shopee', color: 'border-orange-200', bg: 'bg-orange-50', text: 'text-orange-600' },
-  { name: 'Tokopedia', color: 'border-emerald-200', bg: 'bg-emerald-50', text: 'text-emerald-600' },
+  { name: 'Tokopedia', color: 'border-purple-200', bg: 'bg-purple-50', text: 'text-purple-600' },
   { name: 'TikTok Shop', color: 'border-slate-800', bg: 'bg-slate-100', text: 'text-slate-800' }
 ];
 
@@ -317,9 +317,9 @@ export default function MarketplaceSimulatorPage() {
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2"><ShoppingCart size={14}/> Total Transaksi</div>
           <div className="text-3xl font-black text-slate-800">{orders.length}</div>
         </motion.div>
-        <motion.div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-200 shadow-sm">
-          <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-2 flex items-center gap-2"><TrendingUp size={14}/> Gross Revenue</div>
-          <div className="text-xl font-black text-emerald-800">Rp {(totalRevenue / 1000000).toFixed(2)}M</div>
+        <motion.div className="bg-purple-50 rounded-2xl p-5 border border-purple-200 shadow-sm">
+          <div className="text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-2 flex items-center gap-2"><TrendingUp size={14}/> Gross Revenue</div>
+          <div className="text-xl font-black text-purple-800">Rp {(totalRevenue / 1000000).toFixed(2)}M</div>
         </motion.div>
         <div className="col-span-2 grid grid-cols-3 gap-2">
           {platformStats.map(p => (
@@ -371,7 +371,7 @@ export default function MarketplaceSimulatorPage() {
             className={`px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all ${
               isRunning 
                 ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20' 
-                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 shadow-lg shadow-emerald-500/20'
+                : 'bg-purple-500 hover:bg-purple-400 text-slate-900 shadow-lg shadow-purple-500/20'
             } ${autonomousOn ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isRunning ? <><Square size={16} /> Stop</> : <><Play size={16} fill="currentColor" /> Start</>}
@@ -383,7 +383,7 @@ export default function MarketplaceSimulatorPage() {
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-bold text-slate-800 flex items-center gap-2"><Zap size={16} className={isRunning ? "text-amber-500 animate-pulse" : "text-slate-400"} /> Live Order Stream</h3>
-            {isRunning && <span className="text-[10px] font-bold px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full animate-pulse">Menulis ke Database...</span>}
+            {isRunning && <span className="text-[10px] font-bold px-2 py-1 bg-purple-100 text-purple-700 rounded-full animate-pulse">Menulis ke Database...</span>}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {orders.length === 0 ? (
@@ -405,7 +405,7 @@ export default function MarketplaceSimulatorPage() {
                         <p className="text-sm text-slate-600">{o.product} <span className="font-bold text-slate-800">x{o.qty}</span></p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-black text-emerald-600">Rp {(o.price * o.qty).toLocaleString('id-ID')}</p>
+                        <p className="text-sm font-black text-purple-600">Rp {(o.price * o.qty).toLocaleString('id-ID')}</p>
                         <p className="text-[10px] text-slate-400 flex items-center gap-1 justify-end mt-1"><Clock size={10}/> {o.time}</p>
                       </div>
                     </motion.div>
@@ -423,7 +423,7 @@ export default function MarketplaceSimulatorPage() {
             {products.map(p => (
               <div key={p.id} className="flex justify-between items-center border-b border-slate-800 pb-2">
                 <span className="text-xs font-medium text-slate-300 truncate pr-4">{p.name}</span>
-                <span className={`text-xs font-mono font-bold ${p.quantity === 0 ? 'text-rose-500' : p.quantity < 10 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                <span className={`text-xs font-mono font-bold ${p.quantity === 0 ? 'text-rose-500' : p.quantity < 10 ? 'text-amber-400' : 'text-purple-400'}`}>
                   {p.quantity}
                 </span>
               </div>
@@ -434,3 +434,4 @@ export default function MarketplaceSimulatorPage() {
     </div>
   );
 }
+

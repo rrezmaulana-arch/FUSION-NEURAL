@@ -196,7 +196,7 @@ export default function AgentsSection() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <span
               data-agents="tag"
-              className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald px-4 py-1.5 rounded-full glass-emerald"
+              className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-purple px-4 py-1.5 rounded-full glass-purple"
               style={{ opacity: 0 }}
             >
               {isEnglish ? 'The Neural Council' : 'Dewan Neural'}
@@ -258,7 +258,7 @@ export default function AgentsSection() {
                 <motion.div
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ repeat: Infinity, duration: 2, delay: i * 0.5 }}
-                  className="text-fn-emerald text-sm"
+                  className="text-fn-purple text-sm"
                 >
                   ⟶
                 </motion.div>

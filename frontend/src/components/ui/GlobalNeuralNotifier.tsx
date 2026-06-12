@@ -68,13 +68,13 @@ export default function GlobalNeuralNotifier() {
             initial={{ opacity: 0, x: 50, scale: 0.9 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="pointer-events-auto w-80 bg-[#0f172a]/90 backdrop-blur-xl border border-slate-700/50 p-4 rounded-2xl shadow-2xl shadow-emerald-500/10 flex items-start gap-3"
+            className="pointer-events-auto w-80 bg-[#0f172a]/90 backdrop-blur-xl border border-slate-700/50 p-4 rounded-2xl shadow-2xl shadow-purple-500/10 flex items-start gap-3"
           >
-            <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400">
+            <div className="p-2 bg-purple-500/20 rounded-xl text-purple-400">
               <Bot size={20} />
             </div>
             <div className="flex-1">
-              <h4 className="text-emerald-400 text-xs font-black uppercase tracking-wider flex items-center gap-1">
+              <h4 className="text-purple-400 text-xs font-black uppercase tracking-wider flex items-center gap-1">
                 <CheckCircle2 size={12} /> {toast.agent}
               </h4>
               <p className="text-slate-300 text-sm mt-1 leading-tight line-clamp-2">
@@ -93,3 +93,4 @@ export default function GlobalNeuralNotifier() {
     </div>
   );
 }
+

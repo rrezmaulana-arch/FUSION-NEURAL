@@ -55,7 +55,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: ReactE
   PREPARING: { label: 'Disiapkan', color: 'bg-indigo-100 text-indigo-700', icon: <Package size={11} /> },
   needs_approval: { label: 'Perlu Approval', color: 'bg-orange-100 text-orange-700', icon: <AlertTriangle size={11} /> },
   shipped: { label: 'Dikirim', color: 'bg-purple-100 text-purple-700', icon: <Truck size={11} /> },
-  delivered: { label: 'Selesai', color: 'bg-emerald-100 text-emerald-700', icon: <CheckCircle2 size={11} /> },
+  delivered: { label: 'Selesai', color: 'bg-purple-100 text-purple-700', icon: <CheckCircle2 size={11} /> },
   cancelled: { label: 'Batal', color: 'bg-rose-100 text-rose-700', icon: <AlertTriangle size={11} /> },
   RETURN_REQUESTED: { label: 'Return', color: 'bg-rose-100 text-rose-700', icon: <AlertTriangle size={11} /> },
 };
@@ -238,8 +238,8 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
                   <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.3} />
                 </linearGradient>
                 <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.7} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.15} />
+                  <stop offset="0%" stopColor="#760EFF" stopOpacity={0.7} />
+                  <stop offset="100%" stopColor="#760EFF" stopOpacity={0.15} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
@@ -331,7 +331,7 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
                     {pipelineIdx >= 0 && (
                       <div className="flex gap-1 mt-2">
                         {PIPELINE.map((s, idx) => (
-                          <div key={s} className={`h-1 flex-1 rounded-full ${idx <= pipelineIdx ? 'bg-emerald-400' : 'bg-slate-100'}`} />
+                          <div key={s} className={`h-1 flex-1 rounded-full ${idx <= pipelineIdx ? 'bg-purple-400' : 'bg-slate-100'}`} />
                         ))}
                       </div>
                     )}
@@ -361,7 +361,7 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
                     )}
                     {canAdvance && status !== 'pending' && status !== 'PAID' && status !== 'PREPARING' && (
                       <button onClick={() => handleAdvance(order)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-xl"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 text-[10px] font-black rounded-xl"
                       >
                         <ChevronRight size={11} /> Advance
                       </button>
@@ -426,3 +426,4 @@ PENTING: Output murni JSON saja tanpa markdown. Format:
     </div>
   );
 }
+

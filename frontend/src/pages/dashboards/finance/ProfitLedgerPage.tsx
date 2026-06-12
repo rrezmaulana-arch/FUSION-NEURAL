@@ -244,14 +244,14 @@ export default function ProfitLedgerPage() {
   };
 
   const kpis = [
-    { label: 'Gross Revenue', value: `Rp ${income.toLocaleString('id-ID')}`, icon: ArrowUpRight, color: 'emerald', sub: 'Total Masuk' },
+    { label: 'Gross Revenue', value: `Rp ${income.toLocaleString('id-ID')}`, icon: ArrowUpRight, color: 'purple', sub: 'Total Masuk' },
     { label: 'Total Expenses', value: `Rp ${expense.toLocaleString('id-ID')}`, icon: ArrowDownRight, color: 'rose', sub: 'Total Keluar' },
     { label: 'Net Profit', value: `Rp ${netProfit.toLocaleString('id-ID')}`, icon: Wallet, color: netProfit >= 0 ? 'teal' : 'rose', sub: 'Laba Bersih' },
-    { label: 'Profit Margin', value: `${margin}%`, icon: Activity, color: parseFloat(margin) > 20 ? 'emerald' : 'amber', sub: 'Margin Bersih' },
+    { label: 'Profit Margin', value: `${margin}%`, icon: Activity, color: parseFloat(margin) > 20 ? 'purple' : 'amber', sub: 'Margin Bersih' },
   ];
 
   const colorMap: Record<string, string> = {
-    emerald: '#10b981', teal: '#14b8a6', rose: '#f43f5e', amber: '#f59e0b'
+    purple: '#760EFF', teal: '#14b8a6', rose: '#f43f5e', amber: '#f59e0b'
   };
 
   return (
@@ -259,20 +259,20 @@ export default function ProfitLedgerPage() {
 
       {/* ═══ HERO: Uang Perusahaan ═══ */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        className="relative rounded-3xl p-8 overflow-hidden border border-emerald-500/20"
+        className="relative rounded-3xl p-8 overflow-hidden border border-purple-500/20"
         style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)' }}
       >
         <div className="absolute top-0 right-0 w-80 h-80 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #34d399, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-0 w-60 h-60 opacity-10 pointer-events-none" style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }} />
+        <div className="absolute bottom-0 left-0 w-60 h-60 opacity-10 pointer-events-none" style={{ background: 'radial-gradient(circle, #760EFF, transparent 70%)' }} />
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/40">
-              <Building2 size={24} className="text-emerald-300" />
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/40">
+              <Building2 size={24} className="text-purple-300" />
             </div>
             <div>
               <h1 className="text-2xl font-black text-white tracking-tight">Uang Perusahaan</h1>
-              <p className="text-emerald-200/60 text-sm">Saldo kas & bank — data real-time dari semua transaksi</p>
+              <p className="text-purple-200/60 text-sm">Saldo kas & bank — data real-time dari semua transaksi</p>
             </div>
             <div className="ml-auto flex gap-2">
               <button onClick={downloadFullReport} disabled={isDownloadingReport}
@@ -288,19 +288,19 @@ export default function ProfitLedgerPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="bg-white/10 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
-              <p className="text-emerald-200/60 text-xs font-bold uppercase tracking-wider mb-2">Saldo Bersih</p>
+              <p className="text-purple-200/60 text-xs font-bold uppercase tracking-wider mb-2">Saldo Bersih</p>
               <p className="text-4xl font-black text-white">Rp {netProfit.toLocaleString('id-ID')}</p>
-              <p className="text-emerald-300/60 text-xs mt-2">{netProfit >= 0 ? '✓ Profit' : '✗ Defisit'} • Margin {margin}%</p>
+              <p className="text-purple-300/60 text-xs mt-2">{netProfit >= 0 ? '✓ Profit' : '✗ Defisit'} • Margin {margin}%</p>
             </div>
             <div className="bg-white/10 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
-              <p className="text-emerald-200/60 text-xs font-bold uppercase tracking-wider mb-2">Total Masuk</p>
-              <p className="text-3xl font-black text-emerald-200">+ Rp {income.toLocaleString('id-ID')}</p>
-              <p className="text-emerald-300/60 text-xs mt-2">Pendapatan dari semua sumber</p>
+              <p className="text-purple-200/60 text-xs font-bold uppercase tracking-wider mb-2">Total Masuk</p>
+              <p className="text-3xl font-black text-purple-200">+ Rp {income.toLocaleString('id-ID')}</p>
+              <p className="text-purple-300/60 text-xs mt-2">Pendapatan dari semua sumber</p>
             </div>
             <div className="bg-white/10 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
-              <p className="text-emerald-200/60 text-xs font-bold uppercase tracking-wider mb-2">Total Keluar</p>
+              <p className="text-purple-200/60 text-xs font-bold uppercase tracking-wider mb-2">Total Keluar</p>
               <p className="text-3xl font-black text-rose-200">- Rp {expense.toLocaleString('id-ID')}</p>
-              <p className="text-emerald-300/60 text-xs mt-2">Pengeluaran operasional</p>
+              <p className="text-purple-300/60 text-xs mt-2">Pengeluaran operasional</p>
             </div>
           </div>
         </div>
@@ -313,7 +313,7 @@ export default function ProfitLedgerPage() {
             className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-5 flex items-center justify-between border-b border-slate-100">
               <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
-                <CreditCard size={16} className="text-emerald-500" /> Tambah Transaksi Manual
+                <CreditCard size={16} className="text-purple-500" /> Tambah Transaksi Manual
               </h3>
               <button onClick={() => setShowAddForm(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X size={16} /></button>
             </div>
@@ -321,7 +321,7 @@ export default function ProfitLedgerPage() {
               {/* Type Toggle */}
               <div className="flex gap-2">
                 <button onClick={() => setTxType('INCOME')}
-                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${txType === 'INCOME' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                  className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${txType === 'INCOME' ? 'bg-purple-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                   <ArrowDownRight size={14} className="inline mr-1" /> Uang Masuk
                 </button>
                 <button onClick={() => setTxType('EXPENSE')}
@@ -334,12 +334,12 @@ export default function ProfitLedgerPage() {
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Jumlah (Rp)</label>
                   <input type="number" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: e.target.value }))}
-                    placeholder="0" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:border-emerald-400" />
+                    placeholder="0" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:border-purple-400" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Kategori</label>
                   <select value={txForm.category} onChange={e => setTxForm(f => ({ ...f, category: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400">
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400">
                     <option value="Sales">Penjualan</option>
                     <option value="Marketing">Marketing</option>
                     <option value="Procurement">Pembelian Barang</option>
@@ -353,7 +353,7 @@ export default function ProfitLedgerPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Deskripsi</label>
                 <input value={txForm.description} onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="Contoh: Pembayaran dari klien ABC" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                  placeholder="Contoh: Pembayaran dari klien ABC" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
               </div>
 
               {/* Metode Pembayaran */}
@@ -367,7 +367,7 @@ export default function ProfitLedgerPage() {
                   ].map(m => (
                     <button key={m.id} onClick={() => setTxForm(f => ({ ...f, method: m.id }))}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl border transition-all ${
-                        txForm.method === m.id ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        txForm.method === m.id ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                       }`}>
                       <m.icon size={14} /> {m.label}
                     </button>
@@ -381,7 +381,7 @@ export default function ProfitLedgerPage() {
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Bank</label>
                     <select value={txForm.bank} onChange={e => setTxForm(f => ({ ...f, bank: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400">
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400">
                       <option value="">Pilih Bank</option>
                       <option value="BCA">BCA</option>
                       <option value="BRI">BRI</option>
@@ -396,12 +396,12 @@ export default function ProfitLedgerPage() {
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Pengirim</label>
                     <input value={txForm.sender} onChange={e => setTxForm(f => ({ ...f, sender: e.target.value }))}
-                      placeholder="Nama pengirim" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                      placeholder="Nama pengirim" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Tujuan</label>
                     <input value={txForm.destination} onChange={e => setTxForm(f => ({ ...f, destination: e.target.value }))}
-                      placeholder="Rekening tujuan" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                      placeholder="Rekening tujuan" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
                   </div>
                 </div>
               )}
@@ -411,7 +411,7 @@ export default function ProfitLedgerPage() {
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Platform</label>
                     <select value={txForm.bank} onChange={e => setTxForm(f => ({ ...f, bank: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400">
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400">
                       <option value="">Pilih E-Wallet</option>
                       <option value="GoPay">GoPay</option>
                       <option value="OVO">OVO</option>
@@ -423,7 +423,7 @@ export default function ProfitLedgerPage() {
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Nama Akun</label>
                     <input value={txForm.sender} onChange={e => setTxForm(f => ({ ...f, sender: e.target.value }))}
-                      placeholder="Nama pemilik akun" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                      placeholder="Nama pemilik akun" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
                   </div>
                 </div>
               )}
@@ -431,7 +431,7 @@ export default function ProfitLedgerPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setShowAddForm(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Batal</button>
                 <button onClick={handleSaveTransaction} disabled={isSaving || !txForm.amount}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-40 transition-colors">
+                  className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-xl hover:bg-purple-700 disabled:opacity-40 transition-colors">
                   <Send size={14} /> {isSaving ? 'Menyimpan...' : 'Simpan Transaksi'}
                 </button>
               </div>
@@ -467,19 +467,19 @@ export default function ProfitLedgerPage() {
         className="relative rounded-3xl p-6 border border-white/5 overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0f172a 100%)' }}
       >
-        <div className="absolute top-0 right-0 w-96 h-96 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }} />
+        <div className="absolute top-0 right-0 w-96 h-96 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #760EFF, transparent 70%)' }} />
 
         <div className="relative z-10 flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h3 className="text-white font-black text-base flex items-center gap-2">
-              <TrendingUp size={18} className="text-emerald-400" /> Cash Flow Analysis
+              <TrendingUp size={18} className="text-purple-400" /> Cash Flow Analysis
             </h3>
             <p className="text-slate-400 text-xs mt-1">Live data dari koleksi finance_transactions Firestore</p>
           </div>
           <div className="flex bg-white/5 rounded-xl p-1 gap-1 border border-white/10">
             {(['cashflow', 'bar'] as const).map(t => (
               <button key={t} onClick={() => setActiveChart(t)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === t ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'text-slate-400 hover:text-white'}`}
+                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === t ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30' : 'text-slate-400 hover:text-white'}`}
               >
                 {t === 'cashflow' ? 'Trend Area' : 'Bar Breakdown'}
               </button>
@@ -497,8 +497,8 @@ export default function ProfitLedgerPage() {
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#760EFF" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#760EFF" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
@@ -514,7 +514,7 @@ export default function ProfitLedgerPage() {
                 <YAxis hide domain={['dataMin - 100000', 'dataMax + 100000']} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '10px', color: '#64748b', paddingTop: '12px' }} />
-                <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#incomeGrad)" name="Pemasukan" dot={false} />
+                <Area type="monotone" dataKey="income" stroke="#760EFF" strokeWidth={2.5} fillOpacity={1} fill="url(#incomeGrad)" name="Pemasukan" dot={false} />
                 <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2.5} fillOpacity={1} fill="url(#expenseGrad)" name="Pengeluaran" dot={false} />
                 <Area type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 3" fillOpacity={1} fill="url(#profitGrad)" name="Laba Bersih" dot={false} />
                 <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeDasharray="4 4" />
@@ -528,7 +528,7 @@ export default function ProfitLedgerPage() {
                 <YAxis hide />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '10px', color: '#64748b', paddingTop: '12px' }} />
-                <Bar dataKey="income" fill="#10b981" radius={[6, 6, 0, 0]} name="Pemasukan" maxBarSize={40} />
+                <Bar dataKey="income" fill="#760EFF" radius={[6, 6, 0, 0]} name="Pemasukan" maxBarSize={40} />
                 <Bar dataKey="expense" fill="#f43f5e" radius={[6, 6, 0, 0]} name="Pengeluaran" maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
@@ -551,7 +551,7 @@ export default function ProfitLedgerPage() {
                 animate={{ strokeDasharray: `${Math.min(parseFloat(roi), 100)}, 100` }}
                 transition={{ duration: 1.5, ease: 'easeOut' }}
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round"
+                fill="none" stroke="#760EFF" strokeWidth="3" strokeLinecap="round"
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -560,7 +560,7 @@ export default function ProfitLedgerPage() {
             </div>
           </div>
           <p className="text-sm font-bold text-slate-300">Return on Investment</p>
-          <div className={`flex items-center gap-1 mt-1.5 ${parseFloat(roi) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <div className={`flex items-center gap-1 mt-1.5 ${parseFloat(roi) >= 0 ? 'text-purple-400' : 'text-rose-400'}`}>
             {parseFloat(roi) >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
             <span className="text-xs font-bold">{parseFloat(roi) >= 20 ? 'Sangat Sehat' : parseFloat(roi) >= 0 ? 'Perlu Perhatian' : 'Merugi'}</span>
           </div>
@@ -571,12 +571,12 @@ export default function ProfitLedgerPage() {
           className="md:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm overflow-hidden"
         >
           <div>
-            <h3 className="text-emerald-600 font-black flex items-center gap-2 mb-1">
+            <h3 className="text-purple-600 font-black flex items-center gap-2 mb-1">
               <Brain size={18} /> AI Tax & Runway Predictor
             </h3>
             <p className="text-slate-500 text-xs mb-4">Prediksi kewajiban pajak UMKM (PP23/2018) & rekomendasi pencadangan kas strategis.</p>
             <button onClick={handlePredict} disabled={isPredicting}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm disabled:opacity-50"
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm disabled:opacity-50"
             >
               {isPredicting ? <><RefreshCw size={15} className="animate-spin" /> Menganalisis...</> : <><Brain size={15} /> Jalankan Prediksi AI</>}
             </button>
@@ -593,11 +593,11 @@ export default function ProfitLedgerPage() {
                     <p className="text-2xl font-black text-white">Rp {prediction.tax.toLocaleString('id-ID')}</p>
                     <p className="text-[10px] text-slate-500 mt-1">0.5% dari Gross Revenue (PP23/2018)</p>
                   </div>
-                  <div className="bg-emerald-500/10 rounded-2xl p-4 border border-emerald-500/20">
-                    <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-bold mb-2 uppercase tracking-wider">
+                  <div className="bg-purple-500/10 rounded-2xl p-4 border border-purple-500/20">
+                    <div className="flex items-center gap-2 text-purple-400 text-[10px] font-bold mb-2 uppercase tracking-wider">
                       <Brain size={12} /> AI Strategic Advice
                     </div>
-                    <p className="text-xs text-emerald-100 leading-relaxed">"{prediction.advice}"</p>
+                    <p className="text-xs text-purple-100 leading-relaxed">"{prediction.advice}"</p>
                   </div>
                 </motion.div>
               )}
@@ -626,20 +626,20 @@ export default function ProfitLedgerPage() {
                   <motion.div key={t.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors group"
                   >
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-50' : 'bg-rose-50'}`}>
-                      <DollarSign size={13} className={isIncome ? 'text-emerald-500' : 'text-rose-500'} />
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-purple-50' : 'bg-rose-50'}`}>
+                      <DollarSign size={13} className={isIncome ? 'text-purple-500' : 'text-rose-500'} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-slate-700 text-xs font-medium truncate">{label}</p>
                       <p className="text-slate-400 text-[10px]">{cat}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`text-sm font-black ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <span className={`text-sm font-black ${isIncome ? 'text-purple-600' : 'text-rose-600'}`}>
                         {isIncome ? '+' : '-'}Rp {(t.amount || 0).toLocaleString('id-ID')}
                       </span>
                       <button
                         onClick={() => generatePDF(t.id, t.amount || 0, isIncome ? 'INCOME' : 'EXPENSE')}
-                        className={`opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-3 py-1.5 ${isIncome ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600' : 'bg-rose-50 hover:bg-rose-100 text-rose-600'} text-[10px] font-bold rounded-lg transition-all`}
+                        className={`opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-3 py-1.5 ${isIncome ? 'bg-purple-50 hover:bg-purple-100 text-purple-600' : 'bg-rose-50 hover:bg-rose-100 text-rose-600'} text-[10px] font-bold rounded-lg transition-all`}
                       >
                         <Download size={11} /> PDF
                       </button>
@@ -654,3 +654,4 @@ export default function ProfitLedgerPage() {
     </div>
   );
 }
+

@@ -224,7 +224,7 @@ export default function MarketingAnalyticsPage() {
                     <td className="py-3 font-bold text-slate-700 text-sm">{c.name}</td>
                     <td className="py-3 text-slate-400 text-xs">{c.plat}</td>
                     <td className="py-3 text-rose-500 font-mono font-bold text-xs">{c.spend}</td>
-                    <td className="py-3 text-emerald-600 font-mono font-bold text-xs">{c.rev}</td>
+                    <td className="py-3 text-purple-600 font-mono font-bold text-xs">{c.rev}</td>
                     <td className="py-3">
                       <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-[10px] font-bold">
                         {c.roas}
@@ -240,3 +240,4 @@ export default function MarketingAnalyticsPage() {
     </div>
   );
 }
+

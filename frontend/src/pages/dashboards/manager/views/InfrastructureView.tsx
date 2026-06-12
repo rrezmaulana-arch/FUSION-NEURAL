@@ -13,13 +13,13 @@ import { collection, onSnapshot } from 'firebase/firestore';
 
 const SERVERS = [
   { name: 'Groq (Brain)', icon: Cpu, color: '#0ea5e9', quota: '500K tokens/day' },
-  { name: 'Gemini (Vision)', icon: Crosshair, color: '#10b981', quota: '1M tokens/day' },
+  { name: 'Gemini (Vision)', icon: Crosshair, color: '#760EFF', quota: '1M tokens/day' },
   { name: 'HuggingFace (Image)', icon: HardDrive, color: '#f43f5e', quota: '1K credits/day' },
   { name: 'Firebase (Core)', icon: Database, color: '#f59e0b', quota: 'Unlimited' },
 ];
 
 const RANK_COLOR: Record<string, string> = {
-  Trainee: '#94a3b8', Junior: '#10b981', Senior: '#3b82f6',
+  Trainee: '#94a3b8', Junior: '#760EFF', Senior: '#3b82f6',
   Veteran: '#8b5cf6', Grandmaster: '#f59e0b', Overlord: '#ef4444',
 };
 
@@ -118,9 +118,9 @@ export default function InfrastructureView() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: 'rgba(14, 165, 233, 0.1)', borderRadius: '4px 20px 4px 20px', border: '1px solid rgba(14, 165, 233, 0.3)' }}>
             <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }}>
-              <Activity size={16} color="#10b981" />
+              <Activity size={16} color="#760EFF" />
             </motion.div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981', letterSpacing: 1, fontFamily: 'monospace' }}>SYSTEM NOMINAL</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#760EFF', letterSpacing: 1, fontFamily: 'monospace' }}>SYSTEM NOMINAL</span>
           </div>
         </div>
 
@@ -160,11 +160,11 @@ export default function InfrastructureView() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: '#10b981', letterSpacing: 1 }}>ONLINE</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: '#760EFF', letterSpacing: 1 }}>ONLINE</span>
                     <motion.div
                       animate={{ opacity: [1, 0.2, 1], scale: [1, 1.2, 1] }}
                       transition={{ repeat: Infinity, duration: Math.random() * 1 + 1 }}
-                      style={{ width: 6, height: 6, background: '#10b981', boxShadow: '0 0 8px #10b981', transform: 'rotate(45deg)' }}
+                      style={{ width: 6, height: 6, background: '#760EFF', boxShadow: '0 0 8px #760EFF', transform: 'rotate(45deg)' }}
                     />
                   </div>
                 </motion.div>
@@ -189,7 +189,7 @@ export default function InfrastructureView() {
                 textAlign: 'center'
               }}>
                 <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace', letterSpacing: 2, marginBottom: 8 }}>CAPITAL RESERVES</div>
-                <div style={{ fontSize: 36, fontWeight: 900, color: '#10b981', textShadow: '0 0 20px rgba(16,185,129,0.6)', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: 36, fontWeight: 900, color: '#760EFF', textShadow: '0 0 20px rgba(16,185,129,0.6)', fontFamily: 'monospace' }}>
                   Rp {companyBudget.toLocaleString('id-ID')}
                 </div>
               </div>
@@ -347,4 +347,5 @@ export default function InfrastructureView() {
     </motion.div>
   );
 }
+
 

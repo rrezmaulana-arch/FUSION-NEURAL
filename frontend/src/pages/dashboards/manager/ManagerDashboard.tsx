@@ -89,7 +89,7 @@ export default function ManagerDashboard() {
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -168,12 +168,12 @@ export default function ManagerDashboard() {
                   <div className="space-y-5">
                     <div className={`rounded-2xl p-4 border ${
                       evalResult.target_agent === 'none' || evalResult.target_agent === 'error'
-                        ? 'bg-emerald-500/10 border-emerald-500/30'
+                        ? 'bg-purple-500/10 border-purple-500/30'
                         : 'bg-amber-500/10 border-amber-500/30'
                     }`}>
                       <div className="flex items-center gap-2 mb-1">
                         {evalResult.target_agent === 'none' ? (
-                          <><CheckCircle2 size={16} className="text-emerald-400" /><span className="font-bold text-emerald-400 text-sm">Semua Agen Normal</span></>
+                          <><CheckCircle2 size={16} className="text-purple-400" /><span className="font-bold text-purple-400 text-sm">Semua Agen Normal</span></>
                         ) : evalResult.target_agent === 'error' ? (
                           <><AlertTriangle size={16} className="text-rose-400" /><span className="font-bold text-rose-400 text-sm">Evaluasi Gagal</span></>
                         ) : (
@@ -246,7 +246,7 @@ export default function ManagerDashboard() {
               </motion.div>
             ))}
             <span className="text-xs text-slate-400 font-medium ml-2">
-              <span className="w-1.5 h-1.5 inline-block bg-emerald-400 rounded-full animate-pulse mr-1" /> 
+              <span className="w-1.5 h-1.5 inline-block bg-purple-400 rounded-full animate-pulse mr-1" /> 
               {performers.filter(p => p.status === 'Online').length} active nodes
             </span>
           </div>
@@ -387,7 +387,7 @@ export default function ManagerDashboard() {
                     <div>
                       <p className="text-sm font-bold text-slate-200">{p.name}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'Online' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : p.status === 'Busy' ? 'bg-amber-400' : 'bg-slate-600'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'Online' ? 'bg-purple-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : p.status === 'Busy' ? 'bg-amber-400' : 'bg-slate-600'}`} />
                         <span className="text-xs text-slate-400">{p.status}</span>
                       </div>
                     </div>
@@ -419,7 +419,7 @@ export default function ManagerDashboard() {
               </div>
               <div className="pr-2">
                 <p className="text-xs font-bold text-slate-200">Data Center Alpha</p>
-                <p className="text-[10px] font-bold text-emerald-400 mt-0.5">99.9% Uptime</p>
+                <p className="text-[10px] font-bold text-purple-400 mt-0.5">99.9% Uptime</p>
               </div>
             </motion.div>
           </div>

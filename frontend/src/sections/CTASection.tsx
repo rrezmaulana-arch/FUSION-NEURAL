@@ -79,14 +79,14 @@ export default function CTASection() {
       <div
         ref={glowRef}
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(147,51,234,0.12) 0%, transparent 70%)' }}
       />
 
       <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
         {/* Tag */}
         <span
           data-cta="tag"
-          className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-8 px-4 py-1.5 rounded-full glass-emerald"
+          className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-purple mb-8 px-4 py-1.5 rounded-full glass-purple"
           style={{ opacity: 0 }}
         >
           {isEnglish ? 'The Autonomous Revolution' : 'Revolusi Bisnis Otonom'}
@@ -124,7 +124,7 @@ export default function CTASection() {
             to={currentUser ? "/dashboard" : "/login"}
             data-cursor
             className="group relative px-10 py-4 rounded-full font-space font-semibold text-white text-base overflow-hidden shadow-2xl btn-shimmer inline-block"
-            style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+            style={{ background: 'linear-gradient(135deg, #9333EA, #7C3AED)' }}
           >
             <span className="relative z-10">
               {currentUser
@@ -137,7 +137,7 @@ export default function CTASection() {
           <Link
             to="/pemesanan"
             data-cursor
-            className="px-10 py-4 rounded-full font-space font-semibold text-fn-navy text-base glass border border-fn-navy/15 hover:border-fn-emerald/40 hover:text-fn-emerald transition-all inline-block"
+            className="px-10 py-4 rounded-full font-space font-semibold text-fn-navy text-base glass border border-fn-navy/15 hover:border-fn-purple/40 hover:text-fn-purple transition-all inline-block"
           >
             {isEnglish ? 'View Pricing Plans' : 'Lihat Paket Harga'}
           </Link>
@@ -157,3 +157,4 @@ export default function CTASection() {
     </section>
   );
 }
+

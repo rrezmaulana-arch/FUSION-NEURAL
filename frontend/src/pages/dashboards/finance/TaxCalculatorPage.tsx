@@ -151,7 +151,7 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
         subtitle="
             Kalkulasi PPN 12% & PPh otomatis — hasil dikirim ke Manager & Marketing secara real-time
           "
-        accent="emerald"
+        accent="purple"
         actions={
           <>
             <button
@@ -178,7 +178,7 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
           { label: 'Gross Revenue', value: `Rp ${(grossRevenue / 1e6).toFixed(2)}M`, color: 'bg-slate-50 border-slate-200', icon: <TrendingUp size={15} className="text-slate-500" /> },
           { label: 'Est. PPN 12%', value: `Rp ${(estPPN / 1e3).toFixed(0)}K`, color: 'bg-amber-50 border-amber-200', icon: <Percent size={15} className="text-amber-500" /> },
           { label: 'Est. PPh 0.5%', value: `Rp ${(estPPh / 1e3).toFixed(0)}K`, color: 'bg-orange-50 border-orange-200', icon: <Percent size={15} className="text-orange-500" /> },
-          { label: 'Est. Net Revenue', value: `Rp ${(estNet / 1e6).toFixed(2)}M`, color: 'bg-emerald-50 border-emerald-200', icon: <CheckCircle2 size={15} className="text-emerald-500" /> },
+          { label: 'Est. Net Revenue', value: `Rp ${(estNet / 1e6).toFixed(2)}M`, color: 'bg-purple-50 border-purple-200', icon: <CheckCircle2 size={15} className="text-purple-500" /> },
         ].map((item, i) => (
           <motion.div
             key={i}
@@ -200,10 +200,10 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl p-4"
+            className="flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-2xl p-4"
           >
-            <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
-            <p className="text-sm font-bold text-emerald-700">{savedMsg}</p>
+            <CheckCircle2 size={18} className="text-purple-500 shrink-0" />
+            <p className="text-sm font-bold text-purple-700">{savedMsg}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -228,7 +228,7 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
                   { label: 'Gross Revenue', value: `Rp ${taxResult.gross_revenue.toLocaleString('id-ID')}`, color: 'text-white' },
                   { label: `PPN (${taxResult.ppn_rate}%)`, value: `- Rp ${taxResult.ppn_amount.toLocaleString('id-ID')}`, color: 'text-amber-400' },
                   { label: `PPh UMKM (${taxResult.pph_rate}%)`, value: `- Rp ${taxResult.pph_amount.toLocaleString('id-ID')}`, color: 'text-orange-400' },
-                  { label: 'Net Setelah Pajak', value: `Rp ${taxResult.net_after_tax.toLocaleString('id-ID')}`, color: 'text-emerald-400' },
+                  { label: 'Net Setelah Pajak', value: `Rp ${taxResult.net_after_tax.toLocaleString('id-ID')}`, color: 'text-purple-400' },
                 ].map((row, i) => (
                   <div key={i} className="flex justify-between items-center py-2 border-b border-white/10">
                     <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">{row.label}</span>
@@ -271,7 +271,7 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
             </div>
           ) : taxLogs.map((log) => {
             const agentColor: Record<string, string> = {
-              Finance: 'bg-emerald-500/20 text-emerald-400',
+              Finance: 'bg-purple-500/20 text-purple-400',
               Admin: 'bg-blue-500/20 text-blue-400',
             };
             return (
@@ -310,3 +310,4 @@ Berikan ringkasan analisis pajak singkat (2-3 kalimat) dalam Bahasa Indonesia. T
     </div>
   );
 }
+

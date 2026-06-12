@@ -64,7 +64,7 @@ interface ManagerState {
 // Default posisi agen (layout visual — tidak berubah)
 const DEFAULT_POSITIONS: Record<string, { x: number; y: number; initial: string; color: string }> = {
   manager:   { x: 50, y: 50, initial: 'MGR', color: 'bg-indigo-100 text-indigo-600' },
-  admin:     { x: 20, y: 30, initial: 'ADM', color: 'bg-emerald-100 text-emerald-600' },
+  admin:     { x: 20, y: 30, initial: 'ADM', color: 'bg-purple-100 text-purple-600' },
   marketing: { x: 80, y: 30, initial: 'MKT', color: 'bg-amber-100 text-amber-600' },
   finance:   { x: 50, y: 80, initial: 'FIN', color: 'bg-rose-100 text-rose-600' },
 };
@@ -174,3 +174,4 @@ export const useManagerStore = create<ManagerState>((set) => ({
 
 // Auto-initialize when file is imported
 useManagerStore.getState().initializeListeners();
+

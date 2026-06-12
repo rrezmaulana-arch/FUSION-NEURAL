@@ -49,7 +49,7 @@ function NeuralCore() {
         <mesh ref={outerRef}>
           <sphereGeometry args={[1.6, 64, 64]} />
           <MeshDistortMaterial
-            color="#d4f5ec"
+            color="#e5d4f5"
             transparent
             opacity={0.18}
             distort={0.15}
@@ -64,7 +64,7 @@ function NeuralCore() {
         <mesh>
           <sphereGeometry args={[1.62, 32, 32]} />
           <meshBasicMaterial
-            color="#10B981"
+            color="#760EFF"
             wireframe
             transparent
             opacity={0.08}
@@ -75,8 +75,8 @@ function NeuralCore() {
         <mesh ref={innerRef}>
           <icosahedronGeometry args={[0.9, 2]} />
           <meshStandardMaterial
-            color="#10B981"
-            emissive="#10B981"
+            color="#760EFF"
+            emissive="#760EFF"
             emissiveIntensity={1.4}
             wireframe
             transparent
@@ -88,8 +88,8 @@ function NeuralCore() {
         <mesh ref={coreRef}>
           <sphereGeometry args={[0.35, 32, 32]} />
           <meshStandardMaterial
-            color="#3B82F6"
-            emissive="#3B82F6"
+            color="#A855F7"
+            emissive="#A855F7"
             emissiveIntensity={2.5}
             transparent
             opacity={0.95}
@@ -98,12 +98,12 @@ function NeuralCore() {
 
         {/* (White core removed as requested) */}
 
-        {/* Orbital ring 1 — emerald */}
+        {/* Orbital ring 1 — purple */}
         <mesh ref={ring1Ref} rotation={[Math.PI / 2.2, 0.3, 0]}>
           <torusGeometry args={[2.05, 0.018, 16, 120]} />
           <meshStandardMaterial
-            color="#10B981"
-            emissive="#10B981"
+            color="#760EFF"
+            emissive="#760EFF"
             emissiveIntensity={1.8}
             transparent
             opacity={0.65}
@@ -114,21 +114,21 @@ function NeuralCore() {
         <mesh ref={ring2Ref} rotation={[Math.PI / 3.5, Math.PI / 4, 0.2]}>
           <torusGeometry args={[1.75, 0.012, 16, 100]} />
           <meshStandardMaterial
-            color="#3B82F6"
-            emissive="#3B82F6"
+            color="#A855F7"
+            emissive="#A855F7"
             emissiveIntensity={1.4}
             transparent
             opacity={0.5}
           />
         </mesh>
 
-        {/* Sparkles — emerald */}
+        {/* Sparkles — purple */}
         <Sparkles
           count={80}
           scale={3.5}
           size={2}
           speed={0.35}
-          color="#10B981"
+          color="#760EFF"
           opacity={0.8}
         />
         {/* Sparkles — blue */}
@@ -137,7 +137,7 @@ function NeuralCore() {
           scale={2.5}
           size={1.2}
           speed={0.6}
-          color="#93c5fd"
+          color="#d8b4fe"
           opacity={0.6}
         />
       </group>
@@ -152,13 +152,13 @@ function AmbientParticles() {
   const [{ positions, colors }] = useState(() => {
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
-    const emerald = new THREE.Color('#10B981');
-    const blue = new THREE.Color('#3B82F6');
+    const purple = new THREE.Color('#760EFF');
+    const blue = new THREE.Color('#A855F7');
     for (let i = 0; i < count; i++) {
       positions[i * 3] = (Math.random() - 0.5) * 14;
       positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
       positions[i * 3 + 2] = (Math.random() - 0.5) * 6;
-      const c = Math.random() > 0.5 ? emerald : blue;
+      const c = Math.random() > 0.5 ? purple : blue;
       colors[i * 3] = c.r;
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;
@@ -210,10 +210,10 @@ export default function HeroScene() {
         {/* Lighting */}
         <ambientLight intensity={0.5} />
         <directionalLight position={[5, 5, 5]} intensity={1.0} color="#ffffff" />
-        <pointLight position={[-4, 3, 3]} intensity={3} color="#10B981" distance={10} />
-        <pointLight position={[4, -3, -3]} intensity={2} color="#3B82F6" distance={10} />
+        <pointLight position={[-4, 3, 3]} intensity={3} color="#760EFF" distance={10} />
+        <pointLight position={[4, -3, -3]} intensity={2} color="#A855F7" distance={10} />
         <pointLight position={[0, 0, 5]} intensity={1} color="#ffffff" />
-        <pointLight position={[0, -4, 0]} intensity={0.5} color="#10B981" />
+        <pointLight position={[0, -4, 0]} intensity={0.5} color="#760EFF" />
 
         <NeuralCore />
         <AmbientParticles />
@@ -230,3 +230,4 @@ export default function HeroScene() {
     </Canvas>
   );
 }
+

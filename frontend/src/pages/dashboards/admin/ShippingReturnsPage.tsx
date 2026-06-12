@@ -122,7 +122,7 @@ export default function ShippingReturnsPage() {
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -162,7 +162,7 @@ export default function ShippingReturnsPage() {
                 <p className="text-xs text-slate-400">{searchResult.customer} • {searchResult.platform}</p>
               </div>
               <span className={`px-3 py-1 text-xs font-bold rounded-lg ${
-                searchResult.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
+                searchResult.status === 'delivered' ? 'bg-purple-100 text-purple-700' :
                 searchResult.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
                 searchResult.status === 'PAID' ? 'bg-amber-100 text-amber-700' :
                 'bg-slate-100 text-slate-700'
@@ -191,17 +191,17 @@ export default function ShippingReturnsPage() {
                     <div className="flex flex-col items-center flex-1">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
                         isCurrent ? 'bg-blue-600 text-white' :
-                        isComplete ? 'bg-emerald-500 text-white' :
+                        isComplete ? 'bg-purple-500 text-white' :
                         'bg-slate-100 text-slate-400'
                       }`}>
                         <step.icon size={12} />
                       </div>
-                      <span className={`text-[8px] mt-1 text-center ${isCurrent ? 'text-blue-600 font-bold' : isComplete ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <span className={`text-[8px] mt-1 text-center ${isCurrent ? 'text-blue-600 font-bold' : isComplete ? 'text-purple-600' : 'text-slate-400'}`}>
                         {step.label}
                       </span>
                     </div>
                     {i < STATUS_TIMELINE.length - 1 && (
-                      <div className={`h-0.5 flex-1 mx-1 rounded ${i < currentIdx ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                      <div className={`h-0.5 flex-1 mx-1 rounded ${i < currentIdx ? 'bg-purple-400' : 'bg-slate-200'}`} />
                     )}
                   </div>
                 );
@@ -309,3 +309,4 @@ export default function ShippingReturnsPage() {
     </div>
   );
 }
+

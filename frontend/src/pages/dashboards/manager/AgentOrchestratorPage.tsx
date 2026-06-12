@@ -167,8 +167,8 @@ function AgentWorkstation({ agent, accent, active, taskActive, level, onOpenHub 
               <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.7 }} style={{ width:5, height:5, borderRadius:'50%', background:'#f59e0b' }} /> ON TASK
             </motion.div>
           ) : active ? (
-            <motion.div key="act" initial={{ opacity:0, x:-5 }} animate={{ opacity:1, x:0 }} style={{ fontSize: 9, fontWeight: 900, color: '#10b981', letterSpacing: '1px', display:'flex', alignItems:'center', gap:4 }}>
-              <div style={{ width:5, height:5, borderRadius:'50%', background:'#10b981', animation:'blink 1s infinite' }} /> ACTIVE
+            <motion.div key="act" initial={{ opacity:0, x:-5 }} animate={{ opacity:1, x:0 }} style={{ fontSize: 9, fontWeight: 900, color: '#760EFF', letterSpacing: '1px', display:'flex', alignItems:'center', gap:4 }}>
+              <div style={{ width:5, height:5, borderRadius:'50%', background:'#760EFF', animation:'blink 1s infinite' }} /> ACTIVE
             </motion.div>
           ) : (
             <motion.div key="id" initial={{ opacity:0, x:-5 }} animate={{ opacity:1, x:0 }} style={{ fontSize: 9, fontWeight: 900, color: accent, opacity: 0.6, letterSpacing: '1px' }}>
@@ -360,7 +360,7 @@ function AgentWorkstation({ agent, accent, active, taskActive, level, onOpenHub 
                 { label: 'LVL', val: level || 1, color: accent },
                 { label: 'EXP', val: `${exp}%`, color: '#f59e0b' },
                 { label: 'INT', val: Math.floor(60 + level * 2), color: '#3b82f6' },
-                { label: 'AGI', val: Math.floor(40 + level * 1.5), color: '#10b981' },
+                { label: 'AGI', val: Math.floor(40 + level * 1.5), color: '#760EFF' },
                 { label: 'STM', val: `${stamina.toFixed(0)}%`, color: stamina < 20 ? '#ef4444' : '#fbbf24' },
                 { label: 'RNK', val: getRank(level).slice(0, 3), color: '#8b5cf6' },
               ].map(stat => (
@@ -424,8 +424,8 @@ function RoomView({ room, logs, activeTasks, onBack, onOpenHub }: { room: typeof
           </div>
         </div>
         <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:20, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.35)' : 'rgba(255,255,255,0.08)'}`, fontSize:12, fontWeight:700, color: active ? '#10b981' : '#475569' }}>
-            <div style={{ width:7, height:7, borderRadius:'50%', background: active ? '#10b981' : '#475569', animation: active ? 'blink 1.5s infinite' : 'none' }} />
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:20, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.35)' : 'rgba(255,255,255,0.08)'}`, fontSize:12, fontWeight:700, color: active ? '#760EFF' : '#475569' }}>
+            <div style={{ width:7, height:7, borderRadius:'50%', background: active ? '#760EFF' : '#475569', animation: active ? 'blink 1.5s infinite' : 'none' }} />
             {active ? 'PROCESSING' : 'STANDBY'}
           </div>
           <motion.button
@@ -525,8 +525,8 @@ function RoomCard({ room, logs, onClick, index }: { room: typeof ROOMS[0], logs:
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:24, background: active ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border:`1px solid ${active ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`, boxShadow: active ? '0 0 10px rgba(16,185,129,0.2)' : 'none' }}>
-            <div style={{ width:6, height:6, borderRadius:'50%', background: active ? '#10b981' : '#334155', animation: active ? 'blink 1.5s infinite' : 'none', boxShadow: active ? '0 0 8px #10b981' : 'none' }} />
-            <span style={{ fontSize:11, fontWeight:800, color: active ? '#10b981' : '#475569', letterSpacing:'0.5px' }}>{active ? 'LIVE' : 'IDLE'}</span>
+            <div style={{ width:6, height:6, borderRadius:'50%', background: active ? '#760EFF' : '#334155', animation: active ? 'blink 1.5s infinite' : 'none', boxShadow: active ? '0 0 8px #760EFF' : 'none' }} />
+            <span style={{ fontSize:11, fontWeight:800, color: active ? '#760EFF' : '#475569', letterSpacing:'0.5px' }}>{active ? 'LIVE' : 'IDLE'}</span>
           </div>
         </div>
 
@@ -573,7 +573,7 @@ function MainView({ logs, onSelectRoom }: { logs: Log[], onSelectRoom:(id:string
       <div id="ao-stats" style={{ display:'flex', gap:20, marginBottom:32 }}>
         {[
           { icon: Network, label:'Total Zones', val: ROOMS.length, accent:'#6366f1' },
-          { icon: Zap, label:'Active Now', val: totalActive, accent:'#10b981' },
+          { icon: Zap, label:'Active Now', val: totalActive, accent:'#760EFF' },
           { icon: Activity, label:'Events Logged', val: logs.length, accent:'#f59e0b' },
           { icon: Cpu, label:'AI Models', val: ROOMS.reduce((s,r)=>s+r.agents.length,0), accent:'#3b82f6' },
         ].map(({ icon: Icon, label, val, accent }) => (
@@ -635,7 +635,7 @@ function GlobalLogs({ logs }: { logs: Log[] }) {
                     <span style={{ color: zone.accent, background:`linear-gradient(to right, ${zone.accent}20, ${zone.accent}05)`, padding:'4px 10px', borderRadius:8, fontSize:11, fontWeight:800, border:`1px solid ${zone.accent}30` }}>{zone.label}</span>
                   </td>
                   <td style={{ padding:'14px 24px' }}>
-                    <span style={{ color:'#10b981', display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700 }}><div style={{width:6,height:6,borderRadius:'50%',background:'#10b981',boxShadow:'0 0 8px #10b981'}}></div>SUCCESS</span>
+                    <span style={{ color:'#760EFF', display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700 }}><div style={{width:6,height:6,borderRadius:'50%',background:'#760EFF',boxShadow:'0 0 8px #760EFF'}}></div>SUCCESS</span>
                   </td>
                   <td style={{ padding:'14px 24px', color:'#cbd5e1', maxWidth:400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{log.details}</td>
                 </tr>
@@ -745,7 +745,7 @@ export default function AgentOrchestratorPage() {
               </button>
               <button 
                 onClick={() => { setViewLayer('Infrastructure'); play('layerSwitch'); }}
-                style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: viewLayer === 'Infrastructure' ? '#10b981' : 'transparent', color: viewLayer === 'Infrastructure' ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s' }}
+                style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: viewLayer === 'Infrastructure' ? '#760EFF' : 'transparent', color: viewLayer === 'Infrastructure' ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s' }}
               >
                 <Database size={14} /> INFRA DECK
               </button>
@@ -763,7 +763,7 @@ export default function AgentOrchestratorPage() {
             </button>
 
             {/* WebSocket Signal Indicator */}
-            <div title={wsConnected ? 'Neural Signal Stream aktif' : 'Mencoba terhubung...'} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: wsConnected ? '#10b981' : '#475569', background: wsConnected ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${wsConnected ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}`, padding: '5px 10px', borderRadius: 8 }}>
+            <div title={wsConnected ? 'Neural Signal Stream aktif' : 'Mencoba terhubung...'} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: wsConnected ? '#760EFF' : '#475569', background: wsConnected ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${wsConnected ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}`, padding: '5px 10px', borderRadius: 8 }}>
               {wsConnected ? <Wifi size={11} /> : <WifiOff size={11} />}
               {wsConnected ? 'LIVE' : 'SYNC'}
             </div>
@@ -834,8 +834,8 @@ export default function AgentOrchestratorPage() {
                               <div style={{ width: 6, height: 6, background: '#ec4899', borderRadius: '50%', boxShadow: '0 0 8px #ec4899' }} /> AI MARKETING
                             </motion.div>
                             
-                            <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', delay: 2 }} style={{ position: 'absolute', top: '83%', left: '74%', transform: 'translate(-50%, -50%)', background: 'rgba(16, 185, 129, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(16, 185, 129, 0.8)', borderRight: '4px solid #10b981', borderRadius: '12px 4px 4px 12px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #10b981', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: 6, flexDirection: 'row-reverse' }}>
-                              <div style={{ width: 6, height: 6, background: '#10b981', borderRadius: '50%', boxShadow: '0 0 8px #10b981' }} /> AI FINANCE
+                            <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', delay: 2 }} style={{ position: 'absolute', top: '83%', left: '74%', transform: 'translate(-50%, -50%)', background: 'rgba(16, 185, 129, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(16, 185, 129, 0.8)', borderRight: '4px solid #760EFF', borderRadius: '12px 4px 4px 12px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #760EFF', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: 6, flexDirection: 'row-reverse' }}>
+                              <div style={{ width: 6, height: 6, background: '#760EFF', borderRadius: '50%', boxShadow: '0 0 8px #760EFF' }} /> AI FINANCE
                             </motion.div>
                           </div>
                         </div>
@@ -863,8 +863,8 @@ export default function AgentOrchestratorPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                   <Zap size={18} color='#fbbf24' />
                   <span style={{ fontSize: 15, fontWeight: 800, color: '#f8fafc', letterSpacing: '0.5px' }}>Automation Status</span>
-                  <div className="ao-mono" style={{ marginLeft: 'auto', fontSize: 10, color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', padding: '4px 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+                  <div className="ao-mono" style={{ marginLeft: 'auto', fontSize: 10, color: '#760EFF', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', padding: '4px 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#760EFF' }} />
                     ACTIVE
                   </div>
                 </div>
@@ -886,7 +886,7 @@ export default function AgentOrchestratorPage() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>{room.label}</div>
-                          <div className="ao-mono" style={{ fontSize: 10, color: isActive ? '#10b981' : '#475569' }}>
+                          <div className="ao-mono" style={{ fontSize: 10, color: isActive ? '#760EFF' : '#475569' }}>
                             {isActive ? `● ACTIVE — ${todayLogs.length} events today` : `○ IDLE — ${todayLogs.length} events today`}
                           </div>
                         </div>
@@ -944,3 +944,4 @@ export default function AgentOrchestratorPage() {
     </div>
   );
 }
+

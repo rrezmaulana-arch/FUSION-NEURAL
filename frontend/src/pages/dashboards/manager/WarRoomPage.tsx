@@ -93,7 +93,7 @@ export default function WarRoomPage() {
   const getAgentColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      case 'finance': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'finance': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
       case 'marketing': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
       case 'manager': return 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30';
       default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
@@ -148,7 +148,7 @@ export default function WarRoomPage() {
             {messages.length > 1 && !isSimulating && (
               <button 
                 onClick={downloadMeetingLog}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-3 rounded-xl transition-colors flex items-center gap-2"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-3 rounded-xl transition-colors flex items-center gap-2"
               >
                 <Download size={16} /> Log
               </button>
@@ -227,3 +227,4 @@ export default function WarRoomPage() {
     </div>
   );
 }
+

@@ -8,7 +8,7 @@ import { useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { TECH_STACK } from '../data/content';
-import { Brain, Network, Database, Code2, Globe } from 'lucide-react';
+import { Brain, Network, Database, Code2, Server } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -18,7 +18,7 @@ const nodeIcons: Record<string, React.ReactNode> = {
   neural: <Network size={24} />,
   firebase: <Database size={20} />,
   react: <Code2 size={20} />,
-  vercel: <Globe size={20} />,
+  server: <Server size={20} />,
 };
 
 function NodeCard({ node, small }: { node: typeof TECH_STACK[0]; small?: boolean }) {
@@ -127,13 +127,13 @@ export default function TechStackSection() {
       <div className="max-w-6xl mx-auto px-6 relative z-10">
         {/* Header */}
         <div data-tech="header" className="text-center mb-16">
-          <span className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-emerald mb-4 px-4 py-1.5 rounded-full bg-fn-emerald/10 border border-fn-emerald/20" style={{ opacity: 0 }}>
+          <span className="inline-block text-xs font-inter font-medium tracking-widest uppercase text-fn-purple mb-4 px-4 py-1.5 rounded-full bg-fn-purple/10 border border-fn-purple/20" style={{ opacity: 0 }}>
             {isEnglish ? 'Neural Path · Tech Stack' : 'Jalur Neural · Tumpukan Teknologi'}
           </span>
           <h2 className="font-space font-bold text-4xl md:text-6xl text-white" style={{ opacity: 0 }}>
             {isEnglish ? 'The Nervous System' : 'Sistem Saraf'}
             <br />
-            <span className="text-fn-emerald">{isEnglish ? 'of the Ecosystem' : 'Ekosistem FusionNeural'}</span>
+            <span className="text-fn-purple-light">{isEnglish ? 'of the Ecosystem' : 'Ekosistem FusionNeural'}</span>
           </h2>
           <p className="mt-4 text-white/50 font-inter text-lg max-w-xl mx-auto" style={{ opacity: 0 }}>
             {isEnglish
@@ -151,26 +151,26 @@ export default function TechStackSection() {
 
           {/* Connector 1 */}
           <div className="flex lg:flex-row flex-col items-center mx-2 lg:mx-4">
-            <FlowDots color="#10b981" />
+            <FlowDots color="#9333EA" />
           </div>
 
           {/* Center */}
           <div data-tech="center" className="mx-2 lg:mx-4 select-none" style={{ opacity: 0 }}>
             <div
               className="relative px-8 py-6 rounded-3xl text-center min-w-[200px] bg-[#112240]"
-              style={{ border: '1px solid rgba(16,185,129,0.5)' }}
+              style={{ border: '1px solid rgba(147,51,234,0.5)' }}
             >
               <div
                 className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg mx-auto mb-4"
-                style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}
+                style={{ background: 'rgba(147,51,234,0.15)', color: '#9333EA' }}
               >
                 {nodeIcons[neuralNode.id] || <Network size={28} />}
               </div>
               <h3 className="font-space font-bold text-white text-xl">{neuralNode.label}</h3>
-              <p className="text-fn-emerald text-xs font-inter mt-1">{neuralNode.desc}</p>
+              <p className="text-fn-purple-light text-xs font-inter mt-1">{neuralNode.desc}</p>
               <div className="flex gap-2 justify-center mt-4 flex-wrap">
                 {['Groq API', 'Firestore', 'Auth', 'Real-time'].map(tag => (
-                  <span key={tag} className="px-2 py-0.5 rounded-full text-xs font-inter text-fn-emerald bg-fn-emerald/10 border border-fn-emerald/20">
+                  <span key={tag} className="px-2 py-0.5 rounded-full text-xs font-inter text-fn-purple-light bg-fn-purple/10 border border-fn-purple/20">
                     {tag}
                   </span>
                 ))}

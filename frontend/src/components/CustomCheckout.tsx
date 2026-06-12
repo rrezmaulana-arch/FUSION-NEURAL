@@ -106,7 +106,7 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-[60] px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -214,7 +214,7 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
                         {paymentResult.bank ? `${paymentResult.bank.toUpperCase()} Virtual Account` : 'QRIS / E-Wallet'}
                       </h3>
                       <p className="text-xs text-slate-500 uppercase tracking-widest flex items-center gap-1 mt-1">
-                        <ShieldCheck size={12} className="text-emerald-500" /> Automatic Verification
+                        <ShieldCheck size={12} className="text-purple-500" /> Automatic Verification
                       </p>
                     </div>
                   </div>
@@ -232,7 +232,7 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
                           onClick={() => handleCopy(paymentResult.va_number || `${paymentResult.biller_code}${paymentResult.bill_key}`)}
                           className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
                         >
-                          {copied ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                          {copied ? <CheckCircle2 size={16} className="text-purple-500" /> : <Copy size={16} />}
                           {copied ? 'Tersalin' : 'Salin'}
                         </button>
                       </div>
@@ -304,7 +304,7 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Service Fee</span>
-                <span className="text-emerald-500 font-semibold">Free</span>
+                <span className="text-purple-500 font-semibold">Free</span>
               </div>
             </div>
             <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
@@ -314,7 +314,7 @@ export const CustomCheckout: React.FC<CustomCheckoutProps> = ({ orderData, onSuc
           </div>
 
           <div className="flex gap-3 text-xs text-slate-400 items-start p-2">
-            <ShieldCheck size={16} className="shrink-0 text-emerald-500 mt-0.5" />
+            <ShieldCheck size={16} className="shrink-0 text-purple-500 mt-0.5" />
             <p>PCI DSS Compliant. Your transaction is encrypted and secure via Midtrans Gateway.</p>
           </div>
         </div>
@@ -372,3 +372,4 @@ const TimeUnit = ({ value, label, isDanger }: { value: string, label: string, is
     <span className="text-[10px] font-bold text-slate-400 mt-2">{label}</span>
   </div>
 );
+

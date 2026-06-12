@@ -86,7 +86,7 @@ export const useAdminStore = create<AdminState>((set) => ({
           status: data.status || 'OK',
           style: data.status === 'Error'
             ? 'bg-rose-50 text-rose-600'
-            : 'bg-emerald-50 text-emerald-600',
+            : 'bg-purple-50 text-purple-600',
         } as LogEntry;
       });
       set({ adminLogs: logs });
@@ -96,3 +96,4 @@ export const useAdminStore = create<AdminState>((set) => ({
 
 // Auto-initialize when file is imported
 useAdminStore.getState().initializeListeners();
+

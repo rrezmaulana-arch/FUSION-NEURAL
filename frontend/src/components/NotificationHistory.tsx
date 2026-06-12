@@ -112,7 +112,7 @@ export default function NotificationHistory({ onClose }: { onClose: () => void }
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {n.status !== 'read' && (
-                  <button onClick={() => markAsRead(n.id)} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-emerald-500" title="Tandai dibaca">
+                  <button onClick={() => markAsRead(n.id)} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-purple-500" title="Tandai dibaca">
                     <Check size={12} />
                   </button>
                 )}
@@ -127,3 +127,4 @@ export default function NotificationHistory({ onClose }: { onClose: () => void }
     </motion.div>
   );
 }
+

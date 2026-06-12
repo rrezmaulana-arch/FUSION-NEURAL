@@ -73,8 +73,8 @@ export default function HeroSection() {
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(16,185,129,0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(16,185,129,0.05) 1px, transparent 1px)
+            linear-gradient(rgba(147,51,234,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(147,51,234,0.05) 1px, transparent 1px)
           `,
           backgroundSize: '60px 60px',
         }}
@@ -83,11 +83,11 @@ export default function HeroSection() {
       {/* Soft radial blobs */}
       <div
         className="absolute top-20 left-1/4 w-[600px] h-[600px] rounded-full pointer-events-none hidden md:block"
-        style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.07) 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(147,51,234,0.07) 0%, transparent 70%)' }}
       />
       <div
         className="absolute bottom-20 right-1/4 w-[500px] h-[500px] rounded-full pointer-events-none hidden md:block"
-        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.06) 0%, transparent 70%)' }}
       />
 
       {/* Kontainer Utama */}
@@ -99,11 +99,11 @@ export default function HeroSection() {
           {/* Badge */}
           <div
             data-hero="badge"
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass border border-fn-emerald/25 mb-6 md:mb-8"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass border border-fn-purple/25 mb-6 md:mb-8"
             style={{ opacity: 0 }}
           >
-            <span className="w-2 h-2 rounded-full bg-fn-emerald animate-pulse" />
-            <span className="text-[10px] md:text-xs font-inter font-medium text-fn-emerald tracking-widest uppercase">
+            <span className="w-2 h-2 rounded-full bg-fn-purple animate-pulse" />
+            <span className="text-[10px] md:text-xs font-inter font-medium text-fn-purple tracking-widest uppercase">
               {isEnglish ? 'FusionNeural AI · Industry 5.0' : 'FusionNeural AI · Industri 5.0'}
             </span>
           </div>
@@ -132,10 +132,10 @@ export default function HeroSection() {
           >
             {isEnglish ? (
               <>From <span className="text-fn-navy font-semibold">Operator</span> to{' '}
-              <span className="gradient-text-emerald font-semibold">Director</span>. An autonomous business ecosystem powered by 4 AI Agents — active 24/7 without manual intervention.</>
+              <span className="gradient-text-purple font-semibold">Director</span>. An autonomous business ecosystem powered by 4 AI Agents — active 24/7 without manual intervention.</>
             ) : (
               <>Dari <span className="text-fn-navy font-semibold">Operator</span> menjadi{' '}
-              <span className="gradient-text-emerald font-semibold">Sutradara</span>. Ekosistem bisnis otonom bertenaga 4 Agen AI — Manager, Admin, Marketing &amp; Finance — aktif 24/7.</>
+              <span className="gradient-text-purple font-semibold">Sutradara</span>. Ekosistem bisnis otonom bertenaga 4 Agen AI — Manager, Admin, Marketing &amp; Finance — aktif 24/7.</>
             )}
           </p>
 
@@ -151,14 +151,14 @@ export default function HeroSection() {
               className="group flex items-center justify-center gap-2.5 px-7 py-4 md:py-3.5 rounded-full bg-fn-navy text-white font-space font-semibold text-sm hover:bg-fn-navy-light transition-all shadow-xl btn-shimmer w-full sm:w-auto"
             >
               {isEnglish ? 'Order Now' : 'Pesan Sekarang'}
-              <Zap size={15} className="text-fn-emerald group-hover:scale-110 transition-transform" />
+              <Zap size={15} className="text-fn-purple group-hover:scale-110 transition-transform" />
             </Link>
             <Link
               to="/login"
               data-cursor
-              className="flex items-center justify-center gap-2.5 px-7 py-4 md:py-3.5 rounded-full glass border border-fn-emerald/30 text-fn-navy font-space font-semibold text-sm hover:border-fn-emerald/60 hover:bg-fn-emerald/5 transition-all w-full sm:w-auto"
+              className="flex items-center justify-center gap-2.5 px-7 py-4 md:py-3.5 rounded-full glass border border-fn-purple/30 text-fn-navy font-space font-semibold text-sm hover:border-fn-purple/60 hover:bg-fn-purple/5 transition-all w-full sm:w-auto"
             >
-              <ShieldCheck size={16} className="text-fn-emerald" />
+              <ShieldCheck size={16} className="text-fn-purple" />
               {isEnglish ? 'Dashboard Access' : 'Masuk Dashboard'}
             </Link>
           </div>
@@ -205,7 +205,7 @@ export default function HeroSection() {
           {isEnglish ? 'Scroll to explore' : 'Scroll untuk menjelajahi'}
         </span>
         <div style={{ animation: 'bounceY 1.5s ease-in-out infinite' }}>
-          <ArrowDown size={16} className="text-fn-emerald" />
+          <ArrowDown size={16} className="text-fn-purple" />
         </div>
         <style>{`@keyframes bounceY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(8px)} }`}</style>
       </div>

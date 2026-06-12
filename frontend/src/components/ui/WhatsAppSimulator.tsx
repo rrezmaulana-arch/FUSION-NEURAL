@@ -56,16 +56,16 @@ export default function WhatsAppSimulator() {
             <div className="bg-[#075E54] px-4 py-3 flex items-center justify-between shadow-md z-10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
-                  <div className="w-full h-full bg-emerald-500 flex items-center justify-center">
+                  <div className="w-full h-full bg-purple-500 flex items-center justify-center">
                     <span className="text-white font-bold text-sm">AI</span>
                   </div>
                 </div>
                 <div>
                   <h3 className="text-white font-bold text-sm leading-tight">Neural Finance Bot</h3>
-                  <p className="text-emerald-100 text-[10px]">online</p>
+                  <p className="text-purple-100 text-[10px]">online</p>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-emerald-100 hover:text-white transition-colors">
+              <button onClick={() => setIsOpen(false)} className="text-purple-100 hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -105,3 +105,4 @@ export default function WhatsAppSimulator() {
     </>
   );
 }
+

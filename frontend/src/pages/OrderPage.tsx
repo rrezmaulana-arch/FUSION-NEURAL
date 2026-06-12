@@ -316,10 +316,10 @@ export default function OrderPage() {
           <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Beranda</span>
         </Link>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-fn-emerald/10 flex items-center justify-center border border-fn-emerald/20">
-            <ShieldCheck size={12} className="text-fn-emerald" />
+          <div className="w-6 h-6 rounded-md bg-fn-purple/10 flex items-center justify-center border border-fn-purple/20">
+            <ShieldCheck size={12} className="text-fn-purple" />
           </div>
-          <span className="text-[10px] font-bold text-fn-emerald tracking-widest uppercase">Secure Channel</span>
+          <span className="text-[10px] font-bold text-fn-purple tracking-widest uppercase">Secure Channel</span>
         </div>
       </header>
 
@@ -331,19 +331,19 @@ export default function OrderPage() {
           <div className="text-center mb-10 pt-4">
             <div className="relative w-16 h-16 mx-auto mb-4">
               <div className="w-16 h-16 bg-fn-navy rounded-2xl flex items-center justify-center shadow-lg shadow-fn-navy/20">
-                <Cpu size={28} className="text-fn-emerald" />
+                <Cpu size={28} className="text-fn-purple" />
               </div>
               <motion.div
                 animate={{ scale: [1, 1.3, 1] }}
                 transition={{ repeat: Infinity, duration: 2.5 }}
-                className="absolute -bottom-1 -right-1 w-4 h-4 bg-fn-emerald border-4 border-white rounded-full"
+                className="absolute -bottom-1 -right-1 w-4 h-4 bg-fn-purple border-4 border-white rounded-full"
               />
             </div>
             <h1 className="text-2xl sm:text-3xl font-space font-bold text-fn-navy">System Deployment</h1>
             <p className="text-sm text-slate-500 mt-2">FusionNeural — Frontline Architect AI</p>
             <div className="flex items-center justify-center gap-1.5 mt-3">
-              <Lock size={11} className="text-fn-emerald" />
-              <span className="text-[10px] text-fn-emerald font-bold uppercase tracking-widest">Restricted: Order Consultation Only</span>
+              <Lock size={11} className="text-fn-purple" />
+              <span className="text-[10px] text-fn-purple font-bold uppercase tracking-widest">Restricted: Order Consultation Only</span>
             </div>
           </div>
 
@@ -352,7 +352,7 @@ export default function OrderPage() {
             <div className="flex justify-center py-10">
               <div className="flex items-center gap-3 text-slate-400 text-sm">
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}>
-                  <Sparkles size={18} className="text-fn-emerald" />
+                  <Sparkles size={18} className="text-fn-purple" />
                 </motion.div>
                 Menginisialisasi Frontline Architect…
               </div>
@@ -380,7 +380,7 @@ export default function OrderPage() {
                   {msg.sender === 'user' ? (
                     <User size={15} className="text-white" />
                   ) : (
-                    <Zap size={15} className="text-fn-emerald" />
+                    <Zap size={15} className="text-fn-purple" />
                   )}
                 </div>
 
@@ -403,11 +403,11 @@ export default function OrderPage() {
             {isTyping && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-3">
                 <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center shrink-0">
-                  <Zap size={15} className="text-fn-emerald" />
+                  <Zap size={15} className="text-fn-purple" />
                 </div>
                 <div className="bg-white border border-slate-200 px-5 py-4 rounded-2xl rounded-tl-sm flex items-center gap-2 shadow-sm">
                   {[0, 150, 300].map((d) => (
-                    <span key={d} className="w-2 h-2 bg-fn-emerald/50 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                    <span key={d} className="w-2 h-2 bg-fn-purple/50 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
                   ))}
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Sinkronisasi…</span>
                 </div>
@@ -419,7 +419,7 @@ export default function OrderPage() {
           <AnimatePresence>
             {isProcessingPayment && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-slate-900 rounded-2xl p-5 shadow-lg flex items-center gap-4 border border-slate-800">
-                 <div className="w-10 h-10 rounded-full border-2 border-t-fn-emerald border-r-fn-emerald border-b-slate-700 border-l-slate-700 animate-spin"></div>
+                 <div className="w-10 h-10 rounded-full border-2 border-t-fn-purple border-r-fn-purple border-b-slate-700 border-l-slate-700 animate-spin"></div>
                  <div>
                    <p className="text-white font-bold text-sm">Menghubungkan ke Gateway Pembayaran (Midtrans)...</p>
                    <p className="text-slate-400 text-xs">Mohon selesaikan pembayaran di jendela popup.</p>
@@ -433,10 +433,10 @@ export default function OrderPage() {
             {showConfirmForm && !orderSaved && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-fn-emerald/30 rounded-2xl p-6 shadow-lg"
+                className="bg-white border border-fn-purple/30 rounded-2xl p-6 shadow-lg"
               >
                 <div className="flex items-center gap-2 mb-4">
-                  <CheckCircle2 size={18} className="text-fn-emerald" />
+                  <CheckCircle2 size={18} className="text-fn-purple" />
                   <p className="text-sm font-bold text-fn-navy">Konfirmasi Data Pesanan</p>
                 </div>
                 <p className="text-xs text-slate-500 mb-4">Isi data berikut untuk memproses pembayaran. Data ini digunakan untuk registrasi sistem Kakak.</p>
@@ -446,7 +446,7 @@ export default function OrderPage() {
                     <input
                       type="text" value={confirmName} onChange={e => setConfirmName(e.target.value)}
                       placeholder="Contoh: Budi Santoso"
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-fn-navy outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-fn-navy outline-none focus:border-fn-purple focus:ring-2 focus:ring-fn-purple/10"
                     />
                   </div>
                   <div>
@@ -456,7 +456,7 @@ export default function OrderPage() {
                     <input
                       type="tel" value={confirmPhone} onChange={e => setConfirmPhone(e.target.value)}
                       placeholder="Contoh: 08123456789"
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-fn-navy outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-fn-navy outline-none focus:border-fn-purple focus:ring-2 focus:ring-fn-purple/10"
                     />
                   </div>
                   {confirmFormError && <p className="text-xs text-red-500 font-medium">{confirmFormError}</p>}
@@ -482,10 +482,10 @@ export default function OrderPage() {
                 initial={{ opacity: 0, scale: 0.97, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                className="border-2 border-fn-emerald rounded-2xl overflow-hidden shadow-lg"
+                className="border-2 border-fn-purple rounded-2xl overflow-hidden shadow-lg"
               >
                 {/* Header */}
-                <div className="bg-fn-emerald px-5 py-3 flex items-center gap-2">
+                <div className="bg-fn-purple px-5 py-3 flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-white" />
                   <p className="text-white text-xs font-black uppercase tracking-widest">✦ Pembayaran Berhasil</p>
                 </div>
@@ -545,7 +545,7 @@ export default function OrderPage() {
                   handleSend(chip.msg);
                 }}
                 disabled={isTyping || !systemPrompt || isProcessingPayment}
-                className="text-xs font-semibold px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-fn-emerald hover:text-white hover:border-fn-emerald transition-all disabled:opacity-40 shadow-sm"
+                className="text-xs font-semibold px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-fn-purple hover:text-white hover:border-fn-purple transition-all disabled:opacity-40 shadow-sm"
               >
                 {chip.label}
               </button>
@@ -571,7 +571,7 @@ export default function OrderPage() {
                 ? 'Menunggu pembayaran selesai...'
                 : 'Ketik pesan Anda…'
             }
-            className="w-full bg-white border border-slate-200 text-fn-navy rounded-2xl pl-5 pr-14 py-4 outline-none focus:border-fn-emerald focus:ring-2 focus:ring-fn-emerald/10 transition-all disabled:opacity-50 text-sm shadow-sm"
+            className="w-full bg-white border border-slate-200 text-fn-navy rounded-2xl pl-5 pr-14 py-4 outline-none focus:border-fn-purple focus:ring-2 focus:ring-fn-purple/10 transition-all disabled:opacity-50 text-sm shadow-sm"
           />
           <button
             onClick={() => handleSend()}
@@ -602,8 +602,8 @@ export default function OrderPage() {
               transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
               className="relative z-10 flex flex-col items-center px-6"
             >
-              <div className="w-24 h-24 bg-fn-emerald/10 border border-fn-emerald/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(20,184,166,0.2)]">
-                <ShieldCheck size={48} className="text-fn-emerald" />
+              <div className="w-24 h-24 bg-fn-purple/10 border border-fn-purple/30 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(20,184,166,0.2)]">
+                <ShieldCheck size={48} className="text-fn-purple" />
               </div>
               <h2 className="text-3xl font-black text-white tracking-tight mb-3 text-center">Secure Payment Gateway</h2>
               <p className="text-slate-300 text-center max-w-md leading-relaxed text-sm">
@@ -616,3 +616,4 @@ export default function OrderPage() {
     </div>
   );
 }
+

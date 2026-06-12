@@ -42,7 +42,7 @@ interface Transcript {
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AGENT_COLORS: Record<string, string> = {
   'Neural Admin':     '#a855f7',
-  'Neural Finance':   '#10b981',
+  'Neural Finance':   '#760EFF',
   'Neural Marketing': '#ec4899',
   'Neural Manager':   '#3b82f6',
 };
@@ -58,7 +58,7 @@ const COL_CONFIG = {
   'To Do':      { color: '#3b82f6', glow: 'rgba(59,130,246,0.05)' },
   'In Progress':{ color: '#f59e0b', glow: 'rgba(245,158,11,0.05)' },
   'Review':     { color: '#a855f7', glow: 'rgba(168,85,247,0.05)' },
-  'Done':       { color: '#10b981', glow: 'rgba(16,185,129,0.05)' },
+  'Done':       { color: '#760EFF', glow: 'rgba(16,185,129,0.05)' },
 } as const;
 
 const PRIORITY_ORDER = { critical: 0, high: 1, normal: 2, low: 3 };
@@ -250,7 +250,7 @@ export default function NeuralTasksPage() {
               { icon: Activity, val: stats.total, label: 'Total', color: '#64748b' },
               { icon: Zap, val: stats.active, label: 'Active', color: '#f59e0b' },
               { icon: Shield, val: stats.review, label: 'Review', color: '#a855f7' },
-              { icon: CheckCircle2, val: stats.done, label: 'Done', color: '#10b981' },
+              { icon: CheckCircle2, val: stats.done, label: 'Done', color: '#760EFF' },
             ].map(({ icon: Icon, val, label, color }) => (
               <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800/70 bg-slate-900/40">
                 <Icon size={14} style={{ color }} />
@@ -265,7 +265,7 @@ export default function NeuralTasksPage() {
               style={{
                 background: autonomousOn ? 'rgba(16,185,129,0.05)' : 'rgba(100,116,139,0.1)',
                 borderColor: autonomousOn ? 'rgba(16,185,129,0.4)' : 'rgba(100,116,139,0.3)',
-                color: autonomousOn ? '#10b981' : '#64748b',
+                color: autonomousOn ? '#760EFF' : '#64748b',
               }}>
               <Power size={14} className={autonomousOn ? 'animate-pulse' : ''} />
               {autonomousOn ? 'AUTO: ON' : 'AUTO: OFF'}
@@ -712,3 +712,4 @@ function TaskCard({ task, col, onMove, onDelete }: {
     </motion.div>
   );
 }
+

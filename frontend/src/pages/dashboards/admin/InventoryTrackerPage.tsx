@@ -41,7 +41,7 @@ const statusConfig = (qty: number, min: number) => {
   if (qty <= 0) return { label: 'Habis', color: 'bg-rose-100 text-rose-700 border-rose-200', dot: 'bg-rose-500', bar: 'bg-rose-500' };
   if (qty <= min) return { label: 'Kritis', color: 'bg-rose-50 text-rose-600 border-rose-200', dot: 'bg-rose-500 animate-pulse', bar: 'bg-rose-400' };
   if (qty <= min * 2) return { label: 'Menipis', color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400 animate-pulse', bar: 'bg-amber-400' };
-  return { label: 'Aman', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', bar: 'bg-emerald-500' };
+  return { label: 'Aman', color: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500', bar: 'bg-purple-500' };
 };
 
 // Helper: ambil jumlah stok dari field quantity atau qty (seed data lama)
@@ -430,7 +430,7 @@ PERINTAH DARI ADMIN: ${cmd}`;
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -456,7 +456,7 @@ PERINTAH DARI ADMIN: ${cmd}`;
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Total SKU', value: stats.total, icon: <Package size={16} />, c: 'bg-slate-50 border-slate-200' },
-          { label: 'Stok Aman', value: stats.aman, icon: <CheckCircle2 size={16} />, c: 'bg-emerald-50 border-emerald-200' },
+          { label: 'Stok Aman', value: stats.aman, icon: <CheckCircle2 size={16} />, c: 'bg-purple-50 border-purple-200' },
           { label: 'Menipis', value: stats.menipis, icon: <AlertTriangle size={16} />, c: 'bg-amber-50 border-amber-200' },
           { label: 'Kritis', value: stats.kritis, icon: <AlertTriangle size={16} />, c: 'bg-rose-50 border-rose-200' },
         ].map((s, i) => (
@@ -471,14 +471,14 @@ PERINTAH DARI ADMIN: ${cmd}`;
       {/* Dynamic Pricing AI Log */}
       {pricingLogs.length > 0 && (
         <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-lg">
-          <h3 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <h3 className="text-xs font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
             <Sparkles size={14} /> AI Dynamic Pricing Active
           </h3>
           <div className="space-y-2">
             <AnimatePresence>
               {pricingLogs.map(log => (
                 <motion.div key={log.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex gap-2 text-xs font-mono">
-                  <span className={log.type === 'up' ? 'text-rose-400' : 'text-emerald-400'}>{log.text}</span>
+                  <span className={log.type === 'up' ? 'text-rose-400' : 'text-purple-400'}>{log.text}</span>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -612,7 +612,7 @@ PERINTAH DARI ADMIN: ${cmd}`;
                 
                 {/* Actions Overlay */}
                 <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[1px]">
-                   <button onClick={() => handleEditClick(product)} className="w-9 h-9 rounded-full bg-white text-slate-700 flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600 hover:scale-110 transition-all shadow-lg"><Edit2 size={16} /></button>
+                   <button onClick={() => handleEditClick(product)} className="w-9 h-9 rounded-full bg-white text-slate-700 flex items-center justify-center hover:bg-purple-50 hover:text-purple-600 hover:scale-110 transition-all shadow-lg"><Edit2 size={16} /></button>
                    <button onClick={() => handleDelete(product.id, product.name)} className="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 hover:scale-110 transition-all shadow-lg"><Trash2 size={16} /></button>
                 </div>
 
@@ -664,8 +664,8 @@ PERINTAH DARI ADMIN: ${cmd}`;
           className="w-full flex items-center justify-between px-5 py-4 bg-slate-900 text-white hover:bg-slate-800 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-              <Terminal size={15} className="text-emerald-400" />
+            <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+              <Terminal size={15} className="text-purple-400" />
             </div>
             <div className="text-left">
               <p className="text-sm font-black tracking-wide">AI Admin Terminal</p>
@@ -676,7 +676,7 @@ PERINTAH DARI ADMIN: ${cmd}`;
             <div className="flex gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
             </div>
             {isChatOpen
               ? <ChevronDown size={16} className="text-slate-400" />
@@ -701,15 +701,15 @@ PERINTAH DARI ADMIN: ${cmd}`;
                     animate={{ opacity: 1, y: 0 }}
                     className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                   >
-                    <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${msg.role === 'ai' ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-slate-700'}`}>
+                    <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${msg.role === 'ai' ? 'bg-purple-500/20 border border-purple-500/30' : 'bg-slate-700'}`}>
                       {msg.role === 'ai'
-                        ? <Bot size={13} className="text-emerald-400" />
+                        ? <Bot size={13} className="text-purple-400" />
                         : <span className="text-slate-300 font-bold text-[10px]">A</span>}
                     </div>
                     <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
                       msg.role === 'ai'
                         ? 'bg-slate-800 text-slate-200 rounded-tl-none'
-                        : 'bg-emerald-600 text-white rounded-tr-none'
+                        : 'bg-purple-600 text-white rounded-tr-none'
                     }`}>
                       {msg.content}
                     </div>
@@ -717,11 +717,11 @@ PERINTAH DARI ADMIN: ${cmd}`;
                 ))}
                 {isProcessing && (
                   <div className="flex gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                      <Bot size={13} className="text-emerald-400" />
+                    <div className="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                      <Bot size={13} className="text-purple-400" />
                     </div>
                     <div className="bg-slate-800 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2">
-                      <Loader2 size={12} className="text-emerald-400 animate-spin" />
+                      <Loader2 size={12} className="text-purple-400 animate-spin" />
                       <span className="text-slate-400 text-[11px] font-mono">AI sedang memproses...</span>
                     </div>
                   </div>
@@ -751,13 +751,13 @@ PERINTAH DARI ADMIN: ${cmd}`;
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendCommand(); } }}
                   placeholder="Ketik perintah ke AI Admin... (Enter untuk kirim)"
-                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 outline-none focus:border-emerald-500/50 focus:ring-1 ring-emerald-500/20 transition-colors font-mono"
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 outline-none focus:border-purple-500/50 focus:ring-1 ring-purple-500/20 transition-colors font-mono"
                   disabled={isProcessing}
                 />
                 <button
                   onClick={handleSendCommand}
                   disabled={isProcessing || !chatInput.trim()}
-                  className="w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
+                  className="w-10 h-10 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
                 >
                   <Send size={15} className="text-white" />
                 </button>
@@ -770,3 +770,4 @@ PERINTAH DARI ADMIN: ${cmd}`;
     </div>
   );
 }
+

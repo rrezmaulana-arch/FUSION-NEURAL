@@ -176,7 +176,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
   };
 
   const performanceColor = (score: number) => {
-    if (score >= 8) return 'text-emerald-600 bg-emerald-50';
+    if (score >= 8) return 'text-purple-600 bg-purple-50';
     if (score >= 5) return 'text-amber-600 bg-amber-50';
     return 'text-rose-600 bg-rose-50';
   };
@@ -192,7 +192,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
       {/* Feedback Toast */}
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -212,7 +212,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
             <button onClick={() => setIsAdding(!isAdding)}
           className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 shadow-[0_0_15px_rgba(30,41,59,0.3)] transition-all"
         >
-          <Plus size={16} className="animate-pulse text-emerald-400" /> Tambah Supplier
+          <Plus size={16} className="animate-pulse text-purple-400" /> Tambah Supplier
         </button>
           </>
         }
@@ -280,7 +280,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
                     >
                       <div className="mb-2 flex items-start justify-between">
                         <h5 className="font-black text-slate-800 text-sm">{rec.name}</h5>
-                        <div className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                        <div className="flex items-center gap-1 bg-purple-50 text-purple-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">
                           <Star size={10} /> {rec.performance_score}/10
                         </div>
                       </div>
@@ -362,7 +362,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
                         value={(form as any)[f.key]}
                         onChange={e => setForm(p => ({ ...p, [f.key]: f.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value }))}
                         placeholder={f.placeholder}
-                        className="w-full text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 ring-emerald-300"
+                        className="w-full text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 ring-purple-300"
                       />
                     </div>
                   ))}
@@ -371,7 +371,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Skor Performa (1-10)</label>
                   <input type="range" min={1} max={10} value={form.performance_score}
                     onChange={e => setForm(p => ({ ...p, performance_score: parseInt(e.target.value) }))}
-                    className="w-full accent-emerald-500"
+                    className="w-full accent-purple-500"
                   />
                   <span className="text-xs text-slate-600 font-bold">{form.performance_score}/10</span>
                 </div>
@@ -421,7 +421,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
                     <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black ${performanceColor(sup.performance_score || 5)}`}>
                       <Star size={10} /> Rating {sup.performance_score || '–'}/10
                     </div>
-                    <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">
+                    <div className="flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-600 rounded-lg text-[10px] font-black">
                       <TrendingUp size={10} /> {(sup.performance_score || 5) * 10}% On-time
                     </div>
                   </div>
@@ -465,7 +465,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
           {/* Market Trends Widget */}
           <div className="bg-white/70 backdrop-blur-md border border-slate-100 rounded-2xl p-5 shadow-sm">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <TrendingUp size={14} className="text-emerald-500" /> Market Trends
+              <TrendingUp size={14} className="text-purple-500" /> Market Trends
             </h3>
             <p className="text-xs text-slate-400 mb-2">Estimasi fluktuasi harga bahan baku (berdasarkan database vendor):</p>
             
@@ -478,7 +478,7 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
                     initial={{ height: 0 }}
                     animate={{ height: `${h}%` }}
                     transition={{ duration: 0.5, delay: i * 0.05 }}
-                    className="bg-emerald-400 rounded-t-sm flex-1 opacity-75 hover:opacity-100 transition-opacity"
+                    className="bg-purple-400 rounded-t-sm flex-1 opacity-75 hover:opacity-100 transition-opacity"
                   />
                 ))}
               </div>
@@ -519,3 +519,4 @@ Berikan analisis singkat maksimum 3 kalimat yang berisi pro & kontra, serta risi
     </div>
   );
 }
+

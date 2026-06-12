@@ -134,7 +134,7 @@ export default function StrategicAuditPage() {
   const agentColor = (agent: string) => {
     if (agent.includes('Admin')) return 'bg-blue-500/20 text-blue-400';
     if (agent.includes('Marketing')) return 'bg-purple-500/20 text-purple-400';
-    if (agent.includes('Finance')) return 'bg-emerald-500/20 text-emerald-400';
+    if (agent.includes('Finance')) return 'bg-purple-500/20 text-purple-400';
     if (agent.includes('Manager')) return 'bg-teal-500/20 text-teal-400';
     return 'bg-slate-500/20 text-slate-400';
   };
@@ -283,7 +283,7 @@ export default function StrategicAuditPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handleApprove(app)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all">
+                    <button onClick={() => handleApprove(app)} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30 rounded-lg text-xs font-bold transition-all">
                       <CheckCircle2 size={14} /> Approve & Deploy
                     </button>
                     <button onClick={() => handleRejectScold(app.id, app.agentId, app.orderId)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 rounded-lg text-xs font-bold transition-all">
@@ -374,10 +374,10 @@ export default function StrategicAuditPage() {
       <AnimatePresence>
         {successMsg && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl p-4"
+            className="flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-2xl p-4"
           >
-            <CheckCircle2 size={18} className="text-emerald-500" />
-            <p className="font-bold text-emerald-700 text-sm">{successMsg}</p>
+            <CheckCircle2 size={18} className="text-purple-500" />
+            <p className="font-bold text-purple-700 text-sm">{successMsg}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -390,13 +390,13 @@ export default function StrategicAuditPage() {
           className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
         >
             <div className={`p-5 border-b border-slate-100 flex items-center gap-3 ${
-              evalResult.target_agent === 'none' ? 'bg-emerald-50' :
+              evalResult.target_agent === 'none' ? 'bg-purple-50' :
               evalResult.target_agent === 'error' ? 'bg-rose-50' : 'bg-amber-50'
             }`}>
               {evalResult.target_agent === 'none' ? (
-                <><CheckCircle2 size={18} className="text-emerald-600" />
-                <div><p className="font-bold text-emerald-800">Semua Agen Bekerja Normal</p>
-                <p className="text-xs text-emerald-600 mt-0.5">Tidak ada re-alignment yang diperlukan.</p></div></>
+                <><CheckCircle2 size={18} className="text-purple-600" />
+                <div><p className="font-bold text-purple-800">Semua Agen Bekerja Normal</p>
+                <p className="text-xs text-purple-600 mt-0.5">Tidak ada re-alignment yang diperlukan.</p></div></>
               ) : evalResult.target_agent === 'error' ? (
                 <><AlertTriangle size={18} className="text-rose-500" />
                 <div><p className="font-bold text-rose-700">Audit Gagal</p>
@@ -611,3 +611,4 @@ export default function StrategicAuditPage() {
     </div>
   );
 }
+

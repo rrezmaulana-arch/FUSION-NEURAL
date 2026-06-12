@@ -17,7 +17,7 @@ const ROOMS_META: Record<string, { label: string; accent: string }> = {
   admin:      { label: 'OPS Admin',     accent: '#8b5cf6' },
   manager:    { label: 'Manager CMD',   accent: '#3b82f6' },
   marketing:  { label: 'Creative MKT',  accent: '#ec4899' },
-  finance:    { label: 'Finance Vault', accent: '#10b981' },
+  finance:    { label: 'Finance Vault', accent: '#760EFF' },
   frontliner: { label: 'Comms & Sales', accent: '#f59e0b' },
   core:       { label: 'Data Core',     accent: '#6366f1' },
 };
@@ -78,7 +78,7 @@ export default function GlobalLogs({ logs }: Props) {
                     <span style={{ color: zone.accent, background: `${zone.accent}15`, padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: `1px solid ${zone.accent}25` }}>{zone.label}</span>
                   </td>
                   <td style={{ padding: '12px 20px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid rgba(16,185,129,0.25)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#760EFF', background: 'rgba(16,185,129,0.1)', padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid rgba(16,185,129,0.25)' }}>
                       <CheckCircle2 size={10} /> SUCCESS
                     </span>
                   </td>
@@ -92,3 +92,4 @@ export default function GlobalLogs({ logs }: Props) {
     </motion.div>
   );
 }
+

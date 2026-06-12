@@ -71,7 +71,7 @@ export default function BankReconPage() {
     <div className="space-y-6 pb-10">
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-lg ${
-          feedback.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          feedback.type === 'success' ? 'bg-purple-600 text-white' : 'bg-rose-600 text-white'
         }`}>
           {feedback.msg}
         </div>
@@ -80,10 +80,10 @@ export default function BankReconPage() {
       <PageHeader
         title="Arus Kas"
         subtitle="Semua transaksi masuk & keluar — terhubung dengan Simulator, Admin, dan Marketing."
-        accent="emerald"
+        accent="purple"
         actions={
           <button onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-colors">
             <ArrowUpRight size={14} /> Tambah Transaksi
           </button>
         }
@@ -93,10 +93,10 @@ export default function BankReconPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <ArrowDownRight size={16} className="text-emerald-500" />
+            <ArrowDownRight size={16} className="text-purple-500" />
             <span className="text-[10px] font-bold text-slate-400 uppercase">Total Masuk</span>
           </div>
-          <p className="text-2xl font-black text-emerald-600">+ Rp {totalIncome.toLocaleString('id-ID')}</p>
+          <p className="text-2xl font-black text-purple-600">+ Rp {totalIncome.toLocaleString('id-ID')}</p>
           <p className="text-[10px] text-slate-400 mt-1">Dari Simulator, Admin, Marketing</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
@@ -109,10 +109,10 @@ export default function BankReconPage() {
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <Wallet size={16} className={balance >= 0 ? 'text-emerald-500' : 'text-rose-500'} />
+            <Wallet size={16} className={balance >= 0 ? 'text-purple-500' : 'text-rose-500'} />
             <span className="text-[10px] font-bold text-slate-400 uppercase">Saldo Bersih</span>
           </div>
-          <p className={`text-2xl font-black ${balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <p className={`text-2xl font-black ${balance >= 0 ? 'text-purple-600' : 'text-rose-600'}`}>
             {balance >= 0 ? '+' : ''} Rp {balance.toLocaleString('id-ID')}
           </p>
           <p className="text-[10px] text-slate-400 mt-1">Income - Expense</p>
@@ -127,7 +127,7 @@ export default function BankReconPage() {
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Tipe</label>
               <select value={txForm.type} onChange={e => setTxForm(f => ({ ...f, type: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400">
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400">
                 <option value="INCOME">Uang Masuk</option>
                 <option value="EXPENSE">Uang Keluar</option>
               </select>
@@ -135,12 +135,12 @@ export default function BankReconPage() {
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Jumlah (Rp)</label>
               <input type="number" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: e.target.value }))}
-                placeholder="0" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                placeholder="0" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Metode</label>
               <select value={txForm.method} onChange={e => setTxForm(f => ({ ...f, method: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400">
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400">
                 <option value="transfer">Transfer Bank</option>
                 <option value="cash">Tunai</option>
                 <option value="ewallet">E-Wallet</option>
@@ -149,13 +149,13 @@ export default function BankReconPage() {
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Deskripsi</label>
               <input value={txForm.description} onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Keterangan..." className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                placeholder="Keterangan..." className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-3">
             <button onClick={() => setShowAddForm(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Batal</button>
             <button onClick={handleAddTransaction} disabled={isSaving || !txForm.amount}
-              className="px-5 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-40">
+              className="px-5 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl hover:bg-purple-700 disabled:opacity-40">
               {isSaving ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
@@ -177,15 +177,15 @@ export default function BankReconPage() {
             const isIncome = tx.transaction_type === 'INCOME' || tx.type === 'INCOME';
             return (
               <div key={tx.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isIncome ? 'bg-emerald-50' : 'bg-rose-50'}`}>
-                  {isIncome ? <ArrowDownRight size={14} className="text-emerald-500" /> : <ArrowUpRight size={14} className="text-rose-500" />}
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isIncome ? 'bg-purple-50' : 'bg-rose-50'}`}>
+                  {isIncome ? <ArrowDownRight size={14} className="text-purple-500" /> : <ArrowUpRight size={14} className="text-rose-500" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-slate-700 truncate">{tx.description || tx.category || '-'}</p>
                   <p className="text-[10px] text-slate-400">{tx.category} • {tx.method || '-'}</p>
                 </div>
                 <div className="text-right">
-                  <p className={`text-sm font-black ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <p className={`text-sm font-black ${isIncome ? 'text-purple-600' : 'text-rose-600'}`}>
                     {isIncome ? '+' : '-'}Rp {(tx.amount || 0).toLocaleString('id-ID')}
                   </p>
                   <p className="text-[10px] text-slate-400">{tx.created_at?.substring?.(0, 10) || ''}</p>
@@ -198,3 +198,4 @@ export default function BankReconPage() {
     </div>
   );
 }
+

@@ -87,7 +87,7 @@ export default function AudienceCRMPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             { title: 'VIP / Whales', desc: 'Pelanggan dengan LTV tertinggi, belanja rutin.', count: audienceStats.vip, icon: Star, iconBg: 'bg-amber-50', iconText: 'text-amber-500', btnBg: 'bg-amber-50', btnText: 'text-amber-600', btnHover: 'hover:bg-amber-100' },
-            { title: 'Active Buyers', desc: 'Belanja minimal 1x dalam 30 hari terakhir.', count: audienceStats.active, icon: UserCheck, iconBg: 'bg-emerald-50', iconText: 'text-emerald-500', btnBg: 'bg-emerald-50', btnText: 'text-emerald-600', btnHover: 'hover:bg-emerald-100' },
+            { title: 'Active Buyers', desc: 'Belanja minimal 1x dalam 30 hari terakhir.', count: audienceStats.active, icon: UserCheck, iconBg: 'bg-purple-50', iconText: 'text-purple-500', btnBg: 'bg-purple-50', btnText: 'text-purple-600', btnHover: 'hover:bg-purple-100' },
             { title: 'Churn Risk', desc: 'Tidak belanja lebih dari 60 hari. Butuh promo reaktivasi.', count: audienceStats.churn, icon: UserMinus, iconBg: 'bg-rose-50', iconText: 'text-rose-500', btnBg: 'bg-rose-50', btnText: 'text-rose-600', btnHover: 'hover:bg-rose-100' },
           ].map((seg, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
@@ -189,10 +189,10 @@ export default function AudienceCRMPage() {
 
           <div className="p-0">
             {[
-              { name: 'Welcome Series (New Users)', trigger: 'User Signs Up', status: 'Active', conv: '12.4%', color: 'emerald' },
-              { name: 'Abandoned Cart Recovery', trigger: 'Cart inactive for 2 hours', status: 'Active', conv: '8.2%', color: 'emerald' },
+              { name: 'Welcome Series (New Users)', trigger: 'User Signs Up', status: 'Active', conv: '12.4%', color: 'purple' },
+              { name: 'Abandoned Cart Recovery', trigger: 'Cart inactive for 2 hours', status: 'Active', conv: '8.2%', color: 'purple' },
               { name: 'Win-back Promo (Churn Risk)', trigger: 'No purchase for 60 days', status: 'Paused', conv: '3.1%', color: 'amber' },
-              { name: 'Post-Purchase Review Request', trigger: 'Order marked as Delivered', status: 'Active', conv: '22.0%', color: 'emerald' },
+              { name: 'Post-Purchase Review Request', trigger: 'Order marked as Delivered', status: 'Active', conv: '22.0%', color: 'purple' },
             ].map((flow, i) => (
               <div key={i} className="flex items-center justify-between p-5 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-4">
@@ -209,7 +209,7 @@ export default function AudienceCRMPage() {
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Conversion</p>
                     <p className="text-sm font-black text-slate-700">{flow.conv}</p>
                   </div>
-                  <span className={`px-3 py-1 text-[10px] font-bold rounded-full ${flow.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                  <span className={`px-3 py-1 text-[10px] font-bold rounded-full ${flow.status === 'Active' ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-600'}`}>
                     {flow.status}
                   </span>
                 </div>
@@ -221,3 +221,4 @@ export default function AudienceCRMPage() {
     </div>
   );
 }
+

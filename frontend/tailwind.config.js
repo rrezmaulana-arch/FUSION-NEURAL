@@ -14,6 +14,9 @@ export default {
     extend: {
       colors: {
         'fn-emerald': '#10B981',
+        'fn-purple': '#760EFF',
+        'fn-purple-light': '#923cff',
+        'fn-purple-dark': '#5805c9',
         'fn-navy': '#0F172A',
         'fn-navy-light': '#1E293B',
         'fn-blue': '#3B82F6',

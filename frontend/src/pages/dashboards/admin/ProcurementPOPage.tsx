@@ -169,7 +169,7 @@ export default function ProcurementPOPage() {
 
       <div className="flex gap-2 border-b border-slate-200 mb-6">
         <button onClick={() => setActiveTab('po')} className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'po' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Purchase Orders</button>
-        <button onClick={() => setActiveTab('qc')} className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'qc' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Quality Control (Receiving)</button>
+        <button onClick={() => setActiveTab('qc')} className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'qc' ? 'border-purple-500 text-purple-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Quality Control (Receiving)</button>
       </div>
 
       {activeTab === 'po' && (
@@ -182,7 +182,7 @@ export default function ProcurementPOPage() {
             >
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  po.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' :
+                  po.status === 'APPROVED' ? 'bg-purple-50 text-purple-600' :
                   po.status === 'RECEIVED' ? 'bg-blue-50 text-blue-600' :
                   po.status === 'REJECTED' ? 'bg-rose-50 text-rose-600' :
                   po.status === 'PENDING_FINANCE_APPROVAL' ? 'bg-amber-50 text-amber-600' :
@@ -203,7 +203,7 @@ export default function ProcurementPOPage() {
                 <div className="text-left sm:text-right">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</p>
                   <span className={`px-3 py-1 text-[10px] font-bold rounded-md ${
-                    po.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
+                    po.status === 'APPROVED' ? 'bg-purple-100 text-purple-700' :
                     po.status === 'RECEIVED' ? 'bg-blue-100 text-blue-700' :
                     po.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
                     po.status === 'PENDING_FINANCE_APPROVAL' ? 'bg-amber-100 text-amber-700' :
@@ -234,7 +234,7 @@ export default function ProcurementPOPage() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleReceive(po)} disabled={processingQc === po.id}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50">
+                      className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50">
                       {processingQc === po.id ? 'Memproses...' : 'Terima & Masuk Inventory'}
                     </button>
                     <button onClick={() => handleReject(po)} disabled={processingQc === po.id}
@@ -248,14 +248,14 @@ export default function ProcurementPOPage() {
           </div>
 
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><CheckCircle2 size={18} className="text-emerald-500"/> Riwayat Receiving</h3>
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><CheckCircle2 size={18} className="text-purple-500"/> Riwayat Receiving</h3>
             <div className="space-y-3">
               {receivingHistory.length === 0 ? (
                 <div className="p-6 text-center text-slate-400 text-sm">Belum ada riwayat receiving.</div>
               ) : receivingHistory.map((po, i) => (
                 <div key={po.id || i} className="flex gap-3 items-start pb-3 border-b border-slate-100 last:border-0 last:pb-0">
                   <div className="mt-0.5">
-                    {po.status === 'RECEIVED' ? <CheckCircle2 size={14} className="text-emerald-500" /> : <AlertTriangle size={14} className="text-rose-500" />}
+                    {po.status === 'RECEIVED' ? <CheckCircle2 size={14} className="text-purple-500" /> : <AlertTriangle size={14} className="text-rose-500" />}
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-700">{po.po_id || po.id} <span className="font-normal text-slate-400">({po.supplier})</span></p>
@@ -270,3 +270,4 @@ export default function ProcurementPOPage() {
     </div>
   );
 }
+

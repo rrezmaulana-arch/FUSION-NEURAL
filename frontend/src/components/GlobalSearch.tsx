@@ -82,7 +82,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
               id: doc.id, type: 'transaction',
               title: d.description || '-',
               subtitle: `${d.transaction_type || '-'} • Rp ${(d.amount || 0).toLocaleString('id-ID')}`,
-              icon: <DollarSign size={14} className="text-emerald-500" />,
+              icon: <DollarSign size={14} className="text-purple-500" />,
               route: '/dashboard'
             });
           }
@@ -183,3 +183,4 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
     </motion.div>
   );
 }
+

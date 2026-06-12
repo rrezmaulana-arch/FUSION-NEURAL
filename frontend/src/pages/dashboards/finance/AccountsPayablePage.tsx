@@ -74,10 +74,10 @@ export default function AccountsPayablePage() {
       <PageHeader
         title="Invoicing & AP/AR"
         subtitle="Kelola tagihan supplier (Hutang/AP) dan pencairan dana marketplace (Piutang/AR)."
-        accent="emerald"
+        accent="purple"
         actions={
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm">
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-colors shadow-sm">
             <Receipt size={14} /> Buat Invoice Baru
           </button>
         }
@@ -94,36 +94,36 @@ export default function AccountsPayablePage() {
             <div className="p-5 space-y-4">
               <div className="flex gap-2 mb-2">
                 <button onClick={() => setInvType('ap')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${invType === 'ap' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Hutang (AP)</button>
-                <button onClick={() => setInvType('ar')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${invType === 'ar' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Piutang (AR)</button>
+                <button onClick={() => setInvType('ar')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${invType === 'ar' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Piutang (AR)</button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">{invType === 'ap' ? 'Supplier / Vendor' : 'Sumber (Marketplace/B2B)'}</label>
                   <input value={invForm.entity} onChange={e => setInvForm(f => ({ ...f, entity: e.target.value }))}
-                    placeholder={invType === 'ap' ? 'Nama supplier...' : 'Nama marketplace...'} className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                    placeholder={invType === 'ap' ? 'Nama supplier...' : 'Nama marketplace...'} className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Jumlah (Rp)</label>
                   <input type="number" value={invForm.amount} onChange={e => setInvForm(f => ({ ...f, amount: e.target.value }))}
-                    placeholder="0" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                    placeholder="0" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Jatuh Tempo</label>
                   <input type="date" value={invForm.dueDate} onChange={e => setInvForm(f => ({ ...f, dueDate: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Catatan (Opsional)</label>
                   <input value={invForm.notes} onChange={e => setInvForm(f => ({ ...f, notes: e.target.value }))}
-                    placeholder="Catatan tambahan..." className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-400" />
+                    placeholder="Catatan tambahan..." className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400" />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setShowForm(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Batal</button>
                 <button onClick={handleCreateInvoice} disabled={isSaving || !invForm.entity || !invForm.amount || !invForm.dueDate}
-                  className="px-5 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  className="px-5 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                   {isSaving ? 'Menyimpan...' : 'Simpan Invoice'}
                 </button>
               </div>
@@ -135,7 +135,7 @@ export default function AccountsPayablePage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Accounts Payable', val: `Rp ${(apList.filter(a => a.status === 'UNPAID').reduce((sum, a) => sum + (a.amount || 0), 0) / 1000000).toFixed(1)}M`, icon: ArrowUpRight, iconBg: 'bg-rose-50', iconText: 'text-rose-500' },
-          { label: 'Total Accounts Receivable', val: `Rp ${(arList.filter(a => a.status === 'PENDING').reduce((sum, a) => sum + (a.amount || 0), 0) / 1000000).toFixed(1)}M`, icon: ArrowDownRight, iconBg: 'bg-emerald-50', iconText: 'text-emerald-500' },
+          { label: 'Total Accounts Receivable', val: `Rp ${(arList.filter(a => a.status === 'PENDING').reduce((sum, a) => sum + (a.amount || 0), 0) / 1000000).toFixed(1)}M`, icon: ArrowDownRight, iconBg: 'bg-purple-50', iconText: 'text-purple-500' },
           { label: 'AP Jatuh Tempo (<7 Hari)', val: `Rp ${(apList.filter(a => a.status === 'UNPAID').reduce((sum, a) => sum + (a.amount || 0), 0) / 1000000).toFixed(1)}M`, icon: AlertCircle, iconBg: 'bg-amber-50', iconText: 'text-amber-500' },
           { label: 'AR Menunggu Cair', val: `Rp ${(arList.filter(a => a.status === 'PENDING').reduce((sum, a) => sum + (a.amount || 0), 0) / 1000000).toFixed(1)}M`, icon: Clock, iconBg: 'bg-blue-50', iconText: 'text-blue-500' }
         ].map((s, i) => (
@@ -153,8 +153,8 @@ export default function AccountsPayablePage() {
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="border-b border-slate-100 p-4 flex items-center gap-2">
-          <button onClick={() => setActiveTab('ap')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${activeTab === 'ap' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}>Accounts Payable (Hutang Supplier)</button>
-          <button onClick={() => setActiveTab('ar')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${activeTab === 'ar' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}>Accounts Receivable (Piutang Marketplace)</button>
+          <button onClick={() => setActiveTab('ap')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${activeTab === 'ap' ? 'bg-purple-50 text-purple-700' : 'text-slate-500 hover:bg-slate-50'}`}>Accounts Payable (Hutang Supplier)</button>
+          <button onClick={() => setActiveTab('ar')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${activeTab === 'ar' ? 'bg-purple-50 text-purple-700' : 'text-slate-500 hover:bg-slate-50'}`}>Accounts Receivable (Piutang Marketplace)</button>
         </div>
 
         <div className="p-0 overflow-x-auto">
@@ -177,9 +177,9 @@ export default function AccountsPayablePage() {
                     <td className="p-4 text-slate-600">{inv.entity}</td>
                     <td className="p-4 text-slate-500 text-xs">{inv.due || inv.dueDate}</td>
                     <td className="p-4 font-mono font-bold text-slate-800">Rp {(inv.amount || 0).toLocaleString('id-ID')}</td>
-                    <td className="p-4"><span className={`px-2 py-1 text-[10px] font-bold rounded ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{inv.status}</span></td>
+                    <td className="p-4"><span className={`px-2 py-1 text-[10px] font-bold rounded ${inv.status === 'PAID' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}`}>{inv.status}</span></td>
                     <td className="p-4">
-                      {inv.status === 'UNPAID' && <button onClick={() => markPaid(inv.id)} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 underline">Tandai Dibayar</button>}
+                      {inv.status === 'UNPAID' && <button onClick={() => markPaid(inv.id)} className="text-[10px] font-bold text-purple-600 hover:text-purple-700 underline">Tandai Dibayar</button>}
                     </td>
                   </tr>
                 )) : (
@@ -187,7 +187,7 @@ export default function AccountsPayablePage() {
                 )
               ) : (
                 arList.length > 0 ? arList.map((inv, i) => {
-                  const badgeClass = inv.status === 'SETTLED' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700';
+                  const badgeClass = inv.status === 'SETTLED' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
                   return (
                     <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                       <td className="p-4 font-bold text-slate-700 flex items-center gap-2"><FileSpreadsheet size={14} className="text-slate-400" /> {inv.id}</td>
@@ -196,7 +196,7 @@ export default function AccountsPayablePage() {
                       <td className="p-4 font-mono font-bold text-slate-800">Rp {(inv.amount || 0).toLocaleString('id-ID')}</td>
                       <td className="p-4"><span className={`px-2 py-1 ${badgeClass} text-[10px] font-bold rounded`}>{inv.status}</span></td>
                       <td className="p-4">
-                        {inv.status === 'PENDING' && <button onClick={() => markPaid(inv.id, true)} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 underline">Konfirmasi Masuk Bank</button>}
+                        {inv.status === 'PENDING' && <button onClick={() => markPaid(inv.id, true)} className="text-[10px] font-bold text-purple-600 hover:text-purple-700 underline">Konfirmasi Masuk Bank</button>}
                       </td>
                     </tr>
                   );
@@ -211,3 +211,4 @@ export default function AccountsPayablePage() {
     </div>
   );
 }
+
