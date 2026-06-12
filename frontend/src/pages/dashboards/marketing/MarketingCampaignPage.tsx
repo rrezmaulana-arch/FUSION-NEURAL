@@ -1,21 +1,22 @@
 /**
  * FUSION NEURAL — Marketing: Kampanye
- * Wrapper page combining Campaign Forge + Email Campaigns + Content Launchpad into tabbed view
+ * Flow: Jadwal Konten → Generate Kampanye → Email Campaign
+ * Campaign brief hanya dibutuhkan saat mau upload/posting.
  */
 import { useState } from 'react';
-import { Sparkles, Mail, CalendarDays } from 'lucide-react';
+import { CalendarDays, Sparkles, Mail } from 'lucide-react';
 import CampaignForgePage from './CampaignForgePage';
 import EmailCampaignPage from './EmailCampaignPage';
 import ContentLaunchpadPage from './ContentLaunchpadPage';
 
 const TABS = [
-  { id: 'generator' as const, label: 'Generator', icon: Sparkles },
-  { id: 'email' as const, label: 'Email', icon: Mail },
-  { id: 'schedule' as const, label: 'Jadwal Konten', icon: CalendarDays },
+  { id: 'schedule' as const, label: 'Jadwal Konten', icon: CalendarDays, desc: 'Atur & jadwalkan konten' },
+  { id: 'generator' as const, label: 'Generate Kampanye', icon: Sparkles, desc: 'Buat caption & brief' },
+  { id: 'email' as const, label: 'Email Campaign', icon: Mail, desc: 'Kirim email marketing' },
 ];
 
 export default function MarketingCampaignPage() {
-  const [activeTab, setActiveTab] = useState<'generator' | 'email' | 'schedule'>('generator');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'generator' | 'email'>('schedule');
 
   return (
     <div>
@@ -30,6 +31,7 @@ export default function MarketingCampaignPage() {
                 ? 'bg-purple-600 text-white shadow-sm'
                 : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
             }`}
+            title={tab.desc}
           >
             <tab.icon size={14} />
             {tab.label}
@@ -38,9 +40,9 @@ export default function MarketingCampaignPage() {
       </div>
 
       {/* Tab Content */}
+      {activeTab === 'schedule' && <ContentLaunchpadPage />}
       {activeTab === 'generator' && <CampaignForgePage />}
       {activeTab === 'email' && <EmailCampaignPage />}
-      {activeTab === 'schedule' && <ContentLaunchpadPage />}
     </div>
   );
 }

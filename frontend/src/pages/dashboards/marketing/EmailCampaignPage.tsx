@@ -70,14 +70,14 @@ const HtmlPreviewModal = ({ campaign, onClose }: { campaign: Campaign; onClose: 
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
       onClick={e => e.stopPropagation()}
-      className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden border border-purple-500/20 bg-[#0d0617]"
+      className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-2xl"
     >
-      <div className="flex items-center justify-between p-4 border-b border-white/5">
+      <div className="flex items-center justify-between p-4 border-b border-slate-100">
         <div>
-          <h3 className="text-white font-bold text-sm">{campaign.campaignName}</h3>
-          <p className="text-purple-300/60 text-xs mt-0.5">Subject: {campaign.subject}</p>
+          <h3 className="text-slate-800 font-bold text-sm">{campaign.campaignName}</h3>
+          <p className="text-slate-400 text-xs mt-0.5">Subject: {campaign.subject}</p>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
           <X size={16}/>
         </button>
       </div>
@@ -142,66 +142,66 @@ const AIDraftModal = ({ leads, onClose, onSuccess }: { leads: Lead[]; onClose: (
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-purple-500/20 bg-[#0d0617]"
+        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl"
       >
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center border border-purple-500/20">
-              <Sparkles size={16} className="text-purple-300"/>
+            <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
+              <Sparkles size={16} className="text-purple-500"/>
             </div>
             <div>
-              <h3 className="text-white font-bold text-sm">AI Campaign Studio</h3>
-              <p className="text-purple-300/60 text-xs">Neural Marketing akan menulis & menyiapkan email</p>
+              <h3 className="text-slate-800 font-bold text-sm">AI Campaign Studio</h3>
+              <p className="text-slate-400 text-xs">Neural Marketing akan menulis & menyiapkan email</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"><X size={16}/></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"><X size={16}/></button>
         </div>
 
         <div className="p-5 space-y-4">
           {/* Campaign Name */}
           <div>
-            <label className="text-xs text-purple-300/70 font-semibold uppercase tracking-wider mb-2 block">Nama Kampanye</label>
+            <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2 block">Nama Kampanye</label>
             <input
               value={campaignName}
               onChange={e => setCampaignName(e.target.value)}
               placeholder="Misal: Promo Lebaran 2026"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-400 transition-colors"
             />
           </div>
 
           {/* Brief */}
           <div>
-            <label className="text-xs text-purple-300/70 font-semibold uppercase tracking-wider mb-2 block">Brief Kampanye</label>
+            <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2 block">Brief Kampanye</label>
             <textarea
               value={brief}
               onChange={e => setBrief(e.target.value)}
               placeholder="Deskripsikan kampanye emailnya secara detail... Misal: 'Buat email promo diskon 50% untuk produk fashion premium. Target: member VIP yang sudah belanja > 3 kali. Nada: eksklusif, personal, urgent.'"
               rows={4}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-400 transition-colors resize-none"
             />
           </div>
 
           {/* Recipients */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-purple-300/70 font-semibold uppercase tracking-wider">Pilih Penerima ({selectedEmails.length} dipilih)</label>
+              <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Pilih Penerima ({selectedEmails.length} dipilih)</label>
               <div className="flex items-center gap-2">
                 <select
                   value={segmentFilter}
                   onChange={e => setSegmentFilter(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none"
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600 focus:outline-none"
                 >
                   {segments.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <button onClick={selectAll} className="text-[10px] text-purple-400 hover:text-purple-300 font-semibold">All</button>
-                <button onClick={clearAll} className="text-[10px] text-slate-500 hover:text-slate-300 font-semibold">Clear</button>
+                <button onClick={selectAll} className="text-[10px] text-purple-600 hover:text-purple-800 font-semibold">All</button>
+                <button onClick={clearAll} className="text-[10px] text-slate-400 hover:text-slate-600 font-semibold">Clear</button>
               </div>
             </div>
-            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 max-h-48 overflow-y-auto space-y-1.5">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 max-h-48 overflow-y-auto space-y-1.5">
               {filteredLeads.length === 0 ? (
-                <p className="text-slate-500 text-xs text-center py-4">Belum ada leads. Tambahkan kontak terlebih dahulu.</p>
+                <p className="text-slate-400 text-xs text-center py-4">Belum ada leads. Tambahkan kontak terlebih dahulu.</p>
               ) : filteredLeads.map(lead => (
-                <label key={lead.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer group">
+                <label key={lead.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={selectedEmails.includes(lead.email)}
@@ -209,22 +209,22 @@ const AIDraftModal = ({ leads, onClose, onSuccess }: { leads: Lead[]; onClose: (
                     className="w-3.5 h-3.5 accent-purple-500"
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs text-slate-200 font-medium block truncate">{lead.name || lead.email}</span>
-                    <span className="text-[10px] text-slate-500 truncate">{lead.email}</span>
+                    <span className="text-xs text-slate-700 font-medium block truncate">{lead.name || lead.email}</span>
+                    <span className="text-[10px] text-slate-400 truncate">{lead.email}</span>
                   </div>
-                  <span className="text-[9px] text-purple-400/70 bg-purple-500/10 px-1.5 py-0.5 rounded-full shrink-0">{lead.segment}</span>
+                  <span className="text-[9px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full shrink-0">{lead.segment}</span>
                 </label>
               ))}
             </div>
           </div>
 
-          {error && <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-rose-600 text-xs bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{error}</p>}
           {result && (
-            <div className="text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-3 flex items-start gap-2">
+            <div className="text-emerald-600 text-xs bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-3 flex items-start gap-2">
               <CheckCircle size={14} className="shrink-0 mt-0.5"/>
               <div>
                 <p className="font-semibold">Draft berhasil dibuat!</p>
-                <p className="text-emerald-300/70 mt-0.5">{result.message}</p>
+                <p className="text-emerald-500 mt-0.5">{result.message}</p>
               </div>
             </div>
           )}
@@ -266,23 +266,23 @@ const AddLeadModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="w-full max-w-sm rounded-2xl border border-purple-500/20 bg-[#0d0617]">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h3 className="text-white font-bold text-sm">Tambah Kontak Baru</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400"><X size={16}/></button>
+        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <h3 className="text-slate-800 font-bold text-sm">Tambah Kontak Baru</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X size={16}/></button>
         </div>
         <div className="p-5 space-y-3">
           {[['email','Email *','text'],['name','Nama','text'],['segment','Segment','text']].map(([key, label, type]) => (
             <div key={key}>
-              <label className="text-xs text-purple-300/70 font-semibold uppercase tracking-wider mb-1.5 block">{label}</label>
+              <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1.5 block">{label}</label>
               <input type={type} value={(form as any)[key]} onChange={e => setForm(p => ({...p, [key]: e.target.value}))}
                 placeholder={key === 'segment' ? 'General, VIP, Cold...' : ''}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"/>
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-400 transition-colors"/>
             </div>
           ))}
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-rose-600 text-xs">{error}</p>}
           <button onClick={handleSubmit} disabled={loading}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+            className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-purple-700 transition-colors">
             {loading ? <Loader size={14} className="animate-spin"/> : <Plus size={14}/>}
             {loading ? 'Menyimpan...' : 'Simpan Kontak'}
           </button>
