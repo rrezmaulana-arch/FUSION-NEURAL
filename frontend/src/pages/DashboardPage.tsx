@@ -41,6 +41,7 @@ const WarRoomPage = lazy(() => import('./dashboards/manager/WarRoomPage'));
 const StrategicAuditPage = lazy(() => import('./dashboards/manager/StrategicAuditPage'));
 const NeuralTasksPage = lazy(() => import('./dashboards/manager/NeuralTasksPage'));
 const GlobalNeuralNotifier = lazy(() => import('../components/ui/GlobalNeuralNotifier'));
+import logoImg from '../assets/Logo (2).png';
 
 // Loading fallback for lazy components
 const PageLoader = () => <PageSkeleton />;
@@ -345,9 +346,7 @@ export default function DashboardPage() {
         
         <div className={`flex items-center ${effectiveIsCollapsed ? 'justify-center' : 'justify-between'} px-5 py-6 transition-all duration-500 ${safeRole === 'manager' ? 'border-none' : 'border-b border-black/5'}`}>
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${config.theme.gradient} flex items-center justify-center shadow-lg shrink-0 ${effectiveIsCollapsed ? 'mx-auto' : ''}`}>
-              <Cloud size={20} className="text-white" />
-            </div>
+            <img src={logoImg} alt="FN" className={`w-10 h-10 rounded-2xl object-contain shrink-0 ${effectiveIsCollapsed ? 'mx-auto' : ''}`} />
 
             {!effectiveIsCollapsed && (
               <div className="whitespace-nowrap transition-opacity duration-300">

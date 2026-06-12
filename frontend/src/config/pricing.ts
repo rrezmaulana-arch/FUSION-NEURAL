@@ -1,41 +1,38 @@
 /**
  * Project: FUSION NEURAL
- * Created by: Miftah Afreza Maulana (rrez_.maulana)
- * Role: Product Engineer (UI/UX & Full-Stack)
- * Copyright (c) 2026. All rights reserved.
+ * Pricing config — sesuai Business Plan
+ * Source of truth untuk semua harga di landing page dan order page.
  */
-// src/config/pricing.ts
-// Single Source of Truth for FusionNeural Pricing
 
 export interface TierPricing {
   name: string;
-  p50: number; // 50% Sinergi Hybrid (Setup)
-  p50Monthly: number; // 50% Sinergi Hybrid (Monthly)
-  p100: number; // 100% Full Otonom AI (Setup)
-  p100Monthly: number; // 100% Full Otonom AI (Monthly)
+  setup: number;      // One-time setup fee
+  monthly: number;    // Monthly subscription
+  agents: number;     // Number of AI agents
+  description: string;
 }
 
 export const PRICING: Record<string, TierPricing> = {
-  tier1: {
-    name: 'Starter Agent (1 Agen AI)',
-    p50: 2900000,
-    p50Monthly: 990000,
-    p100: 4900000,
-    p100Monthly: 1790000,
+  starter: {
+    name: 'Starter Agent',
+    setup: 4900000,
+    monthly: 1800000,
+    agents: 1,
+    description: 'Satu agen AI sesuai pilihan (Admin/Finance/Marketing)',
   },
-  tier2: {
-    name: 'Dual Synergy (2 Agen AI)',
-    p50: 5400000,
-    p50Monthly: 1750000,
-    p100: 8900000,
-    p100Monthly: 2950000,
+  dual: {
+    name: 'Dual Synergy',
+    setup: 8900000,
+    monthly: 3000000,
+    agents: 2,
+    description: 'Dua agen AI tersinkronisasi untuk sinergi operasional lebih tinggi',
   },
-  tier3: {
-    name: 'Full One Man Company (4 Agen AI)',
-    p50: 8400000,
-    p50Monthly: 2690000,
-    p100: 14900000,
-    p100Monthly: 4750000,
+  full: {
+    name: 'Full One Man Company',
+    setup: 14900000,
+    monthly: 4800000,
+    agents: 4,
+    description: 'Ekosistem penuh: Admin + Finance + Marketing + Manager',
   },
 };
 

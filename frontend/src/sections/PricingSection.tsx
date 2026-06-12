@@ -18,7 +18,7 @@ type BillingCycle = 'monthly' | 'yearly';
 
 const TIERS = [
   {
-    id: 'tier1',
+    id: 'starter',
     agents: 1,
     name: { id: 'Starter Agent', en: 'Starter Agent' },
     tagline: { id: '1 Agen AI Pilihan Anda', en: '1 AI Agent of Your Choice' },
@@ -26,9 +26,8 @@ const TIERS = [
       id: 'Manager, Admin, Marketing, atau Finance — satu agen yang bekerja 24/7 untuk Anda.',
       en: 'Manager, Admin, Marketing, or Finance — one agent working 24/7 for you.',
     },
-    setup50: 2900000,   setup100: 4900000,
-    sub50m: 990000,     sub100m: 1790000,
-    sub50y: 9500000,    sub100y: 17200000,
+    setup: 4900000,
+    monthly: 1800000,
     icon: Bot,
     gradient: 'from-emerald-400 to-teal-500',
     iconBg: 'bg-emerald-50',
@@ -43,7 +42,7 @@ const TIERS = [
     },
   },
   {
-    id: 'tier2',
+    id: 'dual',
     agents: 2,
     name: { id: 'Dual Synergy', en: 'Dual Synergy' },
     tagline: { id: '2 Agen AI Tersinkronisasi', en: '2 Synchronized AI Agents' },
@@ -51,9 +50,8 @@ const TIERS = [
       id: '2 agen AI yang bekerja bersama untuk akselerasi operasional medium bisnis Anda.',
       en: '2 AI agents working together for medium-scale operational acceleration.',
     },
-    setup50: 5400000,   setup100: 8900000,
-    sub50m: 1750000,    sub100m: 2950000,
-    sub50y: 16800000,   sub100y: 28300000,
+    setup: 8900000,
+    monthly: 3000000,
     icon: GitMerge,
     gradient: 'from-indigo-400 to-violet-500',
     iconBg: 'bg-indigo-50',
@@ -68,7 +66,7 @@ const TIERS = [
     },
   },
   {
-    id: 'tier3',
+    id: 'full',
     agents: 4,
     name: { id: 'Full One Man Company', en: 'Full One Man Company' },
     tagline: { id: '4 Agen AI — Ekosistem Penuh', en: '4 AI Agents — Full Ecosystem' },
@@ -76,9 +74,8 @@ const TIERS = [
       id: 'Arsitektur otonom penuh. 4 Agen bekerja, Anda cukup menjadi Sutradara.',
       en: 'Full autonomous architecture. 4 Agents work, you just direct.',
     },
-    setup50: 8400000,   setup100: 14900000,
-    sub50m: 2690000,    sub100m: 4750000,
-    sub50y: 25800000,   sub100y: 45600000,
+    setup: 14900000,
+    monthly: 4800000,
     icon: Network,
     gradient: 'from-purple-400 to-pink-500',
     iconBg: 'bg-purple-50',
@@ -261,9 +258,9 @@ export default function PricingSection() {
           {TIERS.map((tier, i) => {
             const isSelected = selected === tier.id;
             const Icon       = tier.icon;
-            const setupPrice = autonomy === '50' ? tier.setup50  : tier.setup100;
-            const subMonthly = autonomy === '50' ? tier.sub50m   : tier.sub100m;
-            const subYearly  = autonomy === '50' ? tier.sub50y   : tier.sub100y;
+            const setupPrice = tier.setup;
+            const subMonthly = tier.monthly;
+            const subYearly  = tier.monthly * 10; // 2 bulan gratis
             const subPrice   = billing === 'monthly' ? subMonthly : subYearly;
             const savedAmt   = subMonthly * 12 - subYearly;
 

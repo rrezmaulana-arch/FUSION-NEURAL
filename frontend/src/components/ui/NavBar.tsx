@@ -6,7 +6,8 @@
  */
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { Zap, LogIn, LayoutDashboard, Globe } from 'lucide-react';
+import { LogIn, LayoutDashboard, Globe } from 'lucide-react';
+import logoImg from '../../assets/Logo (2).png';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
@@ -51,9 +52,7 @@ export default function NavBar() {
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         {/* Logo */}
         <a href="#" className="flex items-center gap-2 group" data-cursor>
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-fn-emerald to-fn-blue flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <Zap size={16} className="text-white" />
-          </div>
+          <img src={logoImg} alt="Fusion Neural" className="w-8 h-8 rounded-lg object-contain group-hover:scale-110 transition-transform" />
           <span className="font-space font-700 text-fn-navy text-lg tracking-tight">
             FUSION<span className="text-fn-emerald">NEURAL</span>
           </span>

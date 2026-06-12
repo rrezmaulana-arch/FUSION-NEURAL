@@ -207,8 +207,7 @@ export default function OrderPage() {
 
     // FIX #3: Ambil tier dari URL params (bukan scan teks chat)
     const { tierKey, autonomy } = parseTierFromParams(searchParams);
-    const isFullAuto = autonomy.includes('100');
-    const price = isFullAuto ? PRICING[tierKey].p100 : PRICING[tierKey].p50;
+    const price = PRICING[tierKey]?.setup || 4900000;
     const snap: OrderSnapshot = {
       name, phone, tierKey,
       tier: getTierName(tierKey),
