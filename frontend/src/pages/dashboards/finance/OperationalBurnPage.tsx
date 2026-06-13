@@ -86,30 +86,28 @@ export default function OperationalBurnPage() {
 
       {/* Budget Gauge */}
       <motion.div id="burn-gauge" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        className="relative rounded-3xl p-8 overflow-hidden shadow-xl"
-        style={{ background: isOverBudget ? 'linear-gradient(135deg,#7F1D1D,#991B1B)' : 'linear-gradient(135deg,#0F172A,#1E293B)' }}
+        className={`relative rounded-3xl p-8 overflow-hidden shadow-sm border ${isOverBudget ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}
       >
-        <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-4">
-            <Flame size={16} className={isOverBudget ? 'text-rose-400' : 'text-amber-400'} />
-            <span className={`text-xs font-bold uppercase tracking-widest ${isOverBudget ? 'text-rose-400' : 'text-amber-400'}`}>
+            <Flame size={16} className={isOverBudget ? 'text-rose-500' : 'text-amber-500'} />
+            <span className={`text-xs font-bold uppercase tracking-widest ${isOverBudget ? 'text-rose-600' : 'text-amber-500'}`}>
               {isOverBudget ? 'OVER BUDGET' : 'Burn Monitor'}
             </span>
           </div>
           <div className="flex items-end gap-3 mb-2">
-            <span className="text-4xl font-black text-white">Rp {totalBurn.toLocaleString('id-ID')}</span>
-            <span className="text-slate-400 text-sm mb-1">/ bulan</span>
+            <span className={`text-4xl font-black ${isOverBudget ? 'text-rose-600' : 'text-slate-800'}`}>Rp {totalBurn.toLocaleString('id-ID')}</span>
+            <span className={`${isOverBudget ? 'text-rose-500' : 'text-slate-500'} text-sm mb-1`}>/ bulan</span>
           </div>
-          <div className="w-full bg-white/10 rounded-full h-3 mb-2">
+          <div className={`w-full rounded-full h-3 mb-2 ${isOverBudget ? 'bg-rose-200' : 'bg-slate-100'}`}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${burnPct}%` }}
               transition={{ duration: 1.5, ease: 'easeOut' }}
-              className={`h-3 rounded-full ${isOverBudget ? 'bg-rose-500' : burnPct > 70 ? 'bg-amber-500' : 'bg-purple-400'}`}
+              className={`h-3 rounded-full ${isOverBudget ? 'bg-rose-500' : burnPct > 70 ? 'bg-amber-500' : 'bg-purple-500'}`}
             />
           </div>
-          <p className="text-slate-400 text-xs">{burnPct.toFixed(1)}% dari budget cap Rp {budgetCap.toLocaleString('id-ID')}</p>
+          <p className={`${isOverBudget ? 'text-rose-600' : 'text-slate-500'} text-xs`}>{burnPct.toFixed(1)}% dari budget cap Rp {budgetCap.toLocaleString('id-ID')}</p>
         </div>
       </motion.div>
 

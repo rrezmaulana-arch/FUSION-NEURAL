@@ -17,11 +17,15 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from dotenv import load_dotenv
 
-load_dotenv()
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.join(os.path.dirname(_BACKEND_DIR), ".env")
+load_dotenv(dotenv_path)
 
 router = APIRouter()
 
-# â”€â”€â”€ Configs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ── Configs ───────────────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────────────────────────
 GOOGLE_DRIVE_CREDS_PATH = os.path.join(os.path.dirname(__file__), "google_drive_credentials.json")
 GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "1-4ZF5YIZTnhWU786hTtBaefMSEo56I9l")
 

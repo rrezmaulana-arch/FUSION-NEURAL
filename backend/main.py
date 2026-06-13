@@ -58,7 +58,8 @@ from routers.websocket_signals import router as ws_router, broadcaster  # type: 
 from services.auth import verify_token as verify_firebase_token  # type: ignore
 
 # ── Load environment variables ────────────────────────────────────────────────
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(_BACKEND_DIR), ".env")
+load_dotenv(dotenv_path)
 
 # ── External API Keys (shared with integrations.py) ─────────────────────────
 INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")

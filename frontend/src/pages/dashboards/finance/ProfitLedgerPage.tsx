@@ -259,48 +259,44 @@ export default function ProfitLedgerPage() {
 
       {/* ═══ HERO: Uang Perusahaan ═══ */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        className="relative rounded-3xl p-8 overflow-hidden border border-purple-500/20"
-        style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)' }}
+        className="relative rounded-3xl p-8 overflow-hidden bg-white border border-slate-200 shadow-sm"
       >
-        <div className="absolute top-0 right-0 w-80 h-80 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #34d399, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-0 w-60 h-60 opacity-10 pointer-events-none" style={{ background: 'radial-gradient(circle, #760EFF, transparent 70%)' }} />
-
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/40">
-              <Building2 size={24} className="text-purple-300" />
+            <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center border border-purple-100">
+              <Building2 size={24} className="text-purple-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-white tracking-tight">Uang Perusahaan</h1>
-              <p className="text-purple-200/60 text-sm">Saldo kas & bank — data real-time dari semua transaksi</p>
+              <h1 className="text-2xl font-black text-slate-800 tracking-tight">Uang Perusahaan</h1>
+              <p className="text-slate-500 text-sm">Saldo kas & bank — data real-time dari semua transaksi</p>
             </div>
             <div className="ml-auto flex gap-2">
               <button onClick={downloadFullReport} disabled={isDownloadingReport}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white text-sm font-bold rounded-2xl border border-white/20 transition-all backdrop-blur-sm disabled:opacity-50">
+                className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-2xl border border-slate-200 transition-all shadow-sm disabled:opacity-50">
                 <Download size={15} /> {isDownloadingReport ? 'Membuat...' : 'Download Laporan'}
               </button>
               <button onClick={() => setShowAddForm(!showAddForm)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 text-white text-sm font-bold rounded-2xl border border-white/20 transition-all backdrop-blur-sm">
+                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-2xl shadow-sm transition-all">
                 <Plus size={16} /> Tambah Transaksi
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-white/10 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
-              <p className="text-purple-200/60 text-xs font-bold uppercase tracking-wider mb-2">Saldo Bersih</p>
-              <p className="text-4xl font-black text-white">Rp {netProfit.toLocaleString('id-ID')}</p>
-              <p className="text-purple-300/60 text-xs mt-2">{netProfit >= 0 ? '✓ Profit' : '✗ Defisit'} • Margin {margin}%</p>
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Saldo Bersih</p>
+              <p className="text-4xl font-black text-slate-800">Rp {netProfit.toLocaleString('id-ID')}</p>
+              <p className="text-slate-500 text-xs mt-2">{netProfit >= 0 ? '✓ Profit' : '✗ Defisit'} • Margin {margin}%</p>
             </div>
-            <div className="bg-white/10 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
-              <p className="text-purple-200/60 text-xs font-bold uppercase tracking-wider mb-2">Total Masuk</p>
-              <p className="text-3xl font-black text-purple-200">+ Rp {income.toLocaleString('id-ID')}</p>
-              <p className="text-purple-300/60 text-xs mt-2">Pendapatan dari semua sumber</p>
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Masuk</p>
+              <p className="text-3xl font-black text-purple-600">+ Rp {income.toLocaleString('id-ID')}</p>
+              <p className="text-slate-500 text-xs mt-2">Pendapatan dari semua sumber</p>
             </div>
-            <div className="bg-white/10 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
-              <p className="text-purple-200/60 text-xs font-bold uppercase tracking-wider mb-2">Total Keluar</p>
-              <p className="text-3xl font-black text-rose-200">- Rp {expense.toLocaleString('id-ID')}</p>
-              <p className="text-purple-300/60 text-xs mt-2">Pengeluaran operasional</p>
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Keluar</p>
+              <p className="text-3xl font-black text-rose-500">- Rp {expense.toLocaleString('id-ID')}</p>
+              <p className="text-slate-500 text-xs mt-2">Pengeluaran operasional</p>
             </div>
           </div>
         </div>
@@ -444,42 +440,35 @@ export default function ProfitLedgerPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-            className="relative rounded-2xl p-5 overflow-hidden border border-white/5"
-            style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.6) 100%)' }}
+            className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"
           >
-            <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at top right, ${colorMap[kpi.color]}, transparent 70%)` }} />
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${colorMap[kpi.color]}20`, border: `1px solid ${colorMap[kpi.color]}40` }}>
-                  <kpi.icon size={15} style={{ color: colorMap[kpi.color] }} />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{kpi.sub}</span>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${colorMap[kpi.color]}15`, border: `1px solid ${colorMap[kpi.color]}30` }}>
+                <kpi.icon size={15} style={{ color: colorMap[kpi.color] }} />
               </div>
-              <p className="text-xl font-black text-white leading-tight truncate">{kpi.value}</p>
-              <p className="text-[10px] text-slate-500 mt-1">{kpi.label}</p>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{kpi.sub}</span>
             </div>
+            <p className="text-xl font-black text-slate-800 leading-tight truncate">{kpi.value}</p>
+            <p className="text-[10px] text-slate-400 mt-1">{kpi.label}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Hero Chart Card */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        className="relative rounded-3xl p-6 border border-white/5 overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0f172a 100%)' }}
+        className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm"
       >
-        <div className="absolute top-0 right-0 w-96 h-96 opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #760EFF, transparent 70%)' }} />
-
-        <div className="relative z-10 flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
-            <h3 className="text-white font-black text-base flex items-center gap-2">
-              <TrendingUp size={18} className="text-purple-400" /> Cash Flow Analysis
+            <h3 className="text-slate-800 font-black text-base flex items-center gap-2">
+              <TrendingUp size={18} className="text-purple-600" /> Cash Flow Analysis
             </h3>
-            <p className="text-slate-400 text-xs mt-1">Live data dari koleksi finance_transactions Firestore</p>
+            <p className="text-slate-500 text-xs mt-1">Live data dari koleksi finance_transactions Firestore</p>
           </div>
-          <div className="flex bg-white/5 rounded-xl p-1 gap-1 border border-white/10">
+          <div className="flex bg-slate-50 rounded-xl p-1 gap-1 border border-slate-200">
             {(['cashflow', 'bar'] as const).map(t => (
               <button key={t} onClick={() => setActiveChart(t)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === t ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30' : 'text-slate-400 hover:text-white'}`}
+                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === t ? 'bg-white text-purple-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
               >
                 {t === 'cashflow' ? 'Trend Area' : 'Bar Breakdown'}
               </button>
@@ -509,22 +498,22 @@ export default function ProfitLedgerPage() {
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569' }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
                 <YAxis hide domain={['dataMin - 100000', 'dataMax + 100000']} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '10px', color: '#64748b', paddingTop: '12px' }} />
                 <Area type="monotone" dataKey="income" stroke="#760EFF" strokeWidth={2.5} fillOpacity={1} fill="url(#incomeGrad)" name="Pemasukan" dot={false} />
                 <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2.5} fillOpacity={1} fill="url(#expenseGrad)" name="Pengeluaran" dot={false} />
                 <Area type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 3" fillOpacity={1} fill="url(#profitGrad)" name="Laba Bersih" dot={false} />
-                <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeDasharray="4 4" />
+                <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="4 4" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569' }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
                 <YAxis hide />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '10px', color: '#64748b', paddingTop: '12px' }} />

@@ -40,6 +40,7 @@ const ExecutiveSummaryPage = lazy(() => import('./dashboards/manager/ExecutiveSu
 const WarRoomPage = lazy(() => import('./dashboards/manager/WarRoomPage'));
 const StrategicAuditPage = lazy(() => import('./dashboards/manager/StrategicAuditPage'));
 const NeuralTasksPage = lazy(() => import('./dashboards/manager/NeuralTasksPage'));
+const OwnerDashboardPage = lazy(() => import('./dashboards/manager/OwnerDashboardPage'));
 const GlobalNeuralNotifier = lazy(() => import('../components/ui/GlobalNeuralNotifier'));
 import logoImg from '../assets/Logo (2).png';
 
@@ -99,7 +100,8 @@ const ROLE_CONFIG: Record<string, RoleConfigType> = {
     title: 'Automation Hub',
     theme: { gradient: 'from-[#4f46e5] to-[#6366f1]', text: 'text-indigo-400', glow: 'bg-indigo-500/10' },
     menus: [
-      { path: '/dashboard', label: 'Automation Center', icon: Network },
+      { path: '/dashboard', label: 'Ringkasan Pemilik', icon: LayoutDashboard },
+      { path: '/dashboard/orchestrator', label: 'Automation Center', icon: Network },
       { path: '/dashboard/neural-tasks', label: 'Task Board', icon: ClipboardList },
       { path: '/dashboard/strategic-audit', label: 'Approval Queue', icon: Shield },
       { path: '/dashboard/executive', label: 'Daily Briefing', icon: TrendingUp },
@@ -152,7 +154,7 @@ export default function DashboardPage() {
       case 'finance': return <FinanceOverviewPage />;
       case 'marketing': return <MarketingCampaignPage />;
       case 'manager':
-      default: return <AgentOrchestratorPage />;
+      default: return <OwnerDashboardPage />;
     }
   };
 

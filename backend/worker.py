@@ -3,8 +3,9 @@ from celery import Celery
 import asyncio
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.join(os.path.dirname(_BACKEND_DIR), ".env")
+load_dotenv(dotenv_path)
 
 # Gunakan Native Redis URI dari env, atau fallback ke localhost
 REDIS_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
