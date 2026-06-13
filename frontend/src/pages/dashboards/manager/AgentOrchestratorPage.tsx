@@ -815,7 +815,7 @@ export default function AgentOrchestratorPage() {
                         {/* Scrollable Container */}
                         <div className="ao-scroll" style={{ borderRadius: 13, overflowX: 'auto', overflowY: 'hidden', background: '#050a14' }}>
                           <div style={{ width: '100%', minWidth: '800px', maxWidth: '930px', margin: '0 auto', position: 'relative', aspectRatio: '44/26' }}>
-                            <WalkingCanvas key="layout-v3-refresh" activeAgents={activeAgentIds} />
+                            <WalkingCanvas key="layout-v3-refresh" activeAgents={wsActiveIds} />
                             
                             {/* Room Labels (Gamified Sci-Fi HUD Pointers) - Sticks to Map */}
                             <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }} style={{ position: 'absolute', top: '25%', left: '26%', transform: 'translate(-50%, -50%)', background: 'rgba(245, 158, 11, 0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(245, 158, 11, 0.8)', borderLeft: '4px solid #f59e0b', borderRadius: '4px 12px 12px 4px', padding: '6px 14px', color: '#fff', textShadow: '0 0 10px #f59e0b', fontSize: 10, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)', display: 'flex', alignItems: 'center', gap: 6 }}>
