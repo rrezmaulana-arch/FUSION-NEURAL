@@ -119,7 +119,7 @@ export default function DevicesSection() {
             {/* Ambient glow */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] rounded-full"
-                style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 60%)', filter: 'blur(40px)' }} />
+                style={{ background: 'radial-gradient(circle, rgba(147,51,234,0.15) 0%, transparent 60%)', filter: 'blur(40px)' }} />
             </div>
 
             {/* Parallax Image Container */}
@@ -132,7 +132,7 @@ export default function DevicesSection() {
                 src={deviceImg} 
                 alt="Omnichannel Devices"
                 className="w-full h-auto object-contain drop-shadow-2xl max-w-[120%] lg:max-w-[130%]"
-                style={{ opacity: 0 }}
+                style={{ opacity: 0, filter: 'hue-rotate(100deg)' }}
               />
             </motion.div>
           </div>

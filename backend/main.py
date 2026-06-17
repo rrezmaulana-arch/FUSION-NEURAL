@@ -347,7 +347,7 @@ PROVIDERS: dict[str, dict] = {
     "cerebras": {
         "key":   os.getenv("CEREBRAS_API_KEY", ""),
         "base":  "https://api.cerebras.ai/v1",
-        "model": "llama3.1-70b",
+        "model": "gpt-oss-120b",
     },
     "openrouter": {
         "key":   os.getenv("OPENROUTER_API_KEY", ""),
@@ -493,7 +493,16 @@ async def redis_get(key: str) -> Optional[str]:
                 f"{UPSTASH_URL}/GET/{key}",
                 headers={"Authorization": f"Bearer {UPSTASH_TOKEN}"},
             )
-            return r.json().get("result")
+            result = r.json().get("result")
+            # Unwrap double-encoded data from old redis_set format
+            if result and isinstance(result, str) and result.startswith('{"value":'):
+                try:
+                    wrapper = json.loads(result)
+                    if isinstance(wrapper, dict) and "value" in wrapper:
+                        result = wrapper["value"]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return result
     except Exception as e:
         print(f"[redis_get] Error: {e}")
         return None
@@ -507,8 +516,9 @@ async def redis_set(key: str, value: str, ttl: int = 86400):
         async with httpx.AsyncClient(timeout=5.0) as client:
             await client.post(
                 f"{UPSTASH_URL}/SET/{key}",
-                headers={"Authorization": f"Bearer {UPSTASH_TOKEN}", "Content-Type": "application/json"},
-                json={"value": value, "ex": ttl},
+                headers={"Authorization": f"Bearer {UPSTASH_TOKEN}", "Content-Type": "text/plain"},
+                content=value,
+                params={"EX": ttl},
             )
     except Exception as e:
         print(f"[redis_set] Error: {e}")

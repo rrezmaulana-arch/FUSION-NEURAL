@@ -103,7 +103,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ userRole }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/trigger-agent", {
+      const response = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

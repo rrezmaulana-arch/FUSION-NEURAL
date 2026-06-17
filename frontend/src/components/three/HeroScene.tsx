@@ -19,50 +19,31 @@ function NeuralCore() {
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    if (outerRef.current) {
-      outerRef.current.rotation.y = t * 0.12;
-      outerRef.current.rotation.x = Math.sin(t * 0.25) * 0.04;
-    }
     if (innerRef.current) {
-      innerRef.current.rotation.y = -t * 0.5;
-      innerRef.current.rotation.z = t * 0.3;
-      const s = 1 + Math.sin(t * 2) * 0.07;
+      innerRef.current.rotation.y = -t * 0.15;
+      innerRef.current.rotation.z = t * 0.1;
+      const s = 1 + Math.sin(t * 1.5) * 0.05;
       innerRef.current.scale.setScalar(s);
     }
     if (ring1Ref.current) {
-      ring1Ref.current.rotation.z = t * 0.18;
+      ring1Ref.current.rotation.z = t * 0.08;
     }
     if (ring2Ref.current) {
-      ring2Ref.current.rotation.x = t * 0.22;
-      ring2Ref.current.rotation.z = -t * 0.1;
+      ring2Ref.current.rotation.x = t * 0.1;
+      ring2Ref.current.rotation.z = -t * 0.05;
     }
     if (coreRef.current) {
-      const s = 1 + Math.sin(t * 3) * 0.12;
+      const s = 1 + Math.sin(t * 2) * 0.08;
       coreRef.current.scale.setScalar(s);
     }
   });
 
   return (
-    <Float speed={1.8} rotationIntensity={0.2} floatIntensity={0.7}>
-      <group>
-        {/* Outer glass-like shell using MeshDistortMaterial */}
-        <mesh ref={outerRef}>
-          <sphereGeometry args={[1.6, 64, 64]} />
-          <MeshDistortMaterial
-            color="#760EFF"
-            transparent
-            opacity={0.1}
-            distort={0.15}
-            speed={2}
-            roughness={0.1}
-            metalness={0.8}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-
+    <Float speed={1.2} rotationIntensity={0.15} floatIntensity={0.5}>
+      <group position={[0, 0.2, 0]}>
         {/* Outer shell wireframe */}
         <mesh>
-          <sphereGeometry args={[1.62, 32, 32]} />
+          <sphereGeometry args={[1.62, 64, 64]} />
           <meshBasicMaterial
             color="#760EFF"
             wireframe
@@ -73,7 +54,7 @@ function NeuralCore() {
 
         {/* Inner neural net icosahedron */}
         <mesh ref={innerRef}>
-          <icosahedronGeometry args={[0.9, 2]} />
+          <icosahedronGeometry args={[0.9, 5]} />
           <meshStandardMaterial
             color="#760EFF"
             emissive="#760EFF"
@@ -201,19 +182,19 @@ function AmbientParticles() {
 export default function HeroScene() {
   return (
     <Canvas
-      camera={{ position: [0, 0, 5.5], fov: 50 }}
+      camera={{ position: [0, -0.4, 6.8], fov: 50 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
       style={{ background: 'transparent', width: '100%', height: '100%' }}
     >
       <Suspense fallback={null}>
         {/* Lighting */}
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 5, 5]} intensity={1.0} color="#ffffff" />
-        <pointLight position={[-4, 3, 3]} intensity={3} color="#760EFF" distance={10} />
-        <pointLight position={[4, -3, -3]} intensity={2} color="#A855F7" distance={10} />
-        <pointLight position={[0, 0, 5]} intensity={1} color="#ffffff" />
-        <pointLight position={[0, -4, 0]} intensity={0.5} color="#760EFF" />
+        <ambientLight intensity={0.6} color="#ffffff" />
+        <directionalLight position={[5, 5, 5]} intensity={1.2} color="#ffffff" />
+        <pointLight position={[-4, 3, 3]} intensity={2} color="#d8b4fe" distance={10} />
+        <pointLight position={[4, -3, -3]} intensity={1.5} color="#A855F7" distance={10} />
+        <pointLight position={[0, 0, 5]} intensity={1.5} color="#ffffff" />
+        <pointLight position={[0, -4, 0]} intensity={0.5} color="#d8b4fe" />
 
         <NeuralCore />
         <AmbientParticles />
@@ -222,7 +203,7 @@ export default function HeroScene() {
           enableZoom={false}
           enablePan={false}
           autoRotate
-          autoRotateSpeed={0.5}
+          autoRotateSpeed={0.2}
           minPolarAngle={Math.PI / 3}
           maxPolarAngle={Math.PI / 1.6}
         />

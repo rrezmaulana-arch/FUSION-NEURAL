@@ -213,7 +213,7 @@ export default function OwnerDashboardPage() {
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(val) => `${val/1000000}M`} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                  formatter={(value: any, name: string) => [`Rp ${value.toLocaleString('id-ID')}`, name === 'sales1' ? 'Penjualan' : 'Prediksi AI']}
+                  formatter={(value: any, name: any) => [`Rp ${value.toLocaleString('id-ID')}`, name === 'sales1' ? 'Penjualan' : 'Prediksi AI']}
                 />
                 <Area type="monotone" dataKey="sales2" stroke="#a855f7" strokeWidth={2} strokeDasharray="5 5" fillOpacity={1} fill="url(#colorSales2)" name="sales2" />
                 <Area type="monotone" dataKey="sales1" stroke="#38bdf8" strokeWidth={3} fillOpacity={1} fill="url(#colorSales1)" name="sales1" />

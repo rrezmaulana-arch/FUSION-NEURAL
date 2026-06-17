@@ -109,9 +109,15 @@ export function updateCharacter(
           ch.frame = (ch.frame + 1) % 2;
         }
       } else {
-        // Jika tidak ada tugas (inactive), agent akan "diam" (sit still at desk)
+        // Inactive agent: leave desk and start wandering
         ch.frame = 0;
         ch.frameTimer = 0;
+        ch.seatTimer = 0;
+        ch.state = CharacterState.IDLE;
+        ch.wanderTimer = 0; // wander immediately
+        ch.wanderCount = 0;
+        ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX);
+        console.log(`[pixel] Agent ${ch.id} → IDLE (wanderLimit=${ch.wanderLimit})`);
       }
       break;
     }
@@ -209,11 +215,13 @@ export function updateCharacter(
               ch.frameTimer = 0;
               ch.wanderCount++;
               moved = true;
+              console.log(`[pixel] Agent ${ch.id} → WALK to (${target.col},${target.row}) path=${path.length} steps`);
               break;
             }
           }
           // Anti-stuck: if truly isolated, teleport to a random walkable tile
           if (!moved) {
+            console.log(`[pixel] Agent ${ch.id} STUCK — teleporting`);
             const spawn = walkableTiles[Math.floor(Math.random() * walkableTiles.length)];
             ch.tileCol = spawn.col;
             ch.tileRow = spawn.row;
