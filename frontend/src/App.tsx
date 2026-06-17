@@ -17,6 +17,14 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const OrderPage = lazy(() => import('./pages/OrderPage'));
 
+// UMKM pages
+const UMKMDashboard = lazy(() => import('./pages/umkm/UMKMDashboard'));
+const UMKMChatPage = lazy(() => import('./pages/umkm/UMKMChatPage'));
+const UMKMStokPage = lazy(() => import('./pages/umkm/UMKMStokPage'));
+const UMKMKeuanganPage = lazy(() => import('./pages/umkm/UMKMKeuanganPage'));
+const UMKMSettingsPage = lazy(() => import('./pages/umkm/UMKMSettingsPage'));
+const UMKMOnboarding = lazy(() => import('./pages/umkm/UMKMOnboarding'));
+
 // Simple loading screen for Suspense fallback
 const PageLoader = () => (
   <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
@@ -34,14 +42,21 @@ export default function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/pemesanan" element={<OrderPage />} />
-              <Route 
-                path="/dashboard/*" 
+              <Route
+                path="/dashboard/*"
                 element={
                   <ProtectedRoute>
                     <DashboardPage />
                   </ProtectedRoute>
-                } 
+                }
               />
+              {/* UMKM Routes */}
+              <Route path="/umkm" element={<ProtectedRoute><UMKMDashboard /></ProtectedRoute>} />
+              <Route path="/umkm/chat" element={<ProtectedRoute><UMKMChatPage /></ProtectedRoute>} />
+              <Route path="/umkm/stok" element={<ProtectedRoute><UMKMStokPage /></ProtectedRoute>} />
+              <Route path="/umkm/keuangan" element={<ProtectedRoute><UMKMKeuanganPage /></ProtectedRoute>} />
+              <Route path="/umkm/settings" element={<ProtectedRoute><UMKMSettingsPage /></ProtectedRoute>} />
+              <Route path="/umkm/onboarding" element={<ProtectedRoute><UMKMOnboarding /></ProtectedRoute>} />
             </Routes>
           </Suspense>
         </Router>
