@@ -57,6 +57,10 @@ from integrations import router as integrations_router  # type: ignore
 from routers.websocket_signals import router as ws_router, broadcaster  # type: ignore
 from services.auth import verify_token as verify_firebase_token  # type: ignore
 from logging_config import setup_logging, get_logger  # noqa: E402
+from services.email_service import (  # noqa: E402
+    send_email, task_completed_email, approval_needed_email,
+    budget_alert_email, stock_low_email,
+)
 
 # ── Load environment variables ────────────────────────────────────────────────
 dotenv_path = os.path.join(os.path.dirname(_BACKEND_DIR), ".env")
@@ -697,6 +701,10 @@ async def execute_agent_actions(agent_response: str, agent_name: str, ticket_id:
                             
                             await asyncio.to_thread(_save_camp_sync)
                             actions_taken.append(f"Email campaign '{campaign_name}' (Draft) berhasil disiapkan dan dikirim ke Strategic Audit Hub.")
+
+                            # Email manager for approval
+                            subject, html = approval_needed_email(f"Review Campaign: {campaign_name}", "Marketing")
+                            asyncio.create_task(send_email("manager@fusionneural.app", subject, html))
         except json.JSONDecodeError:
             pass
             
@@ -1640,6 +1648,10 @@ async def stock_watchdog():
             print(f"[Stock Watchdog] Restock task created: {product_name} (qty: {reorder_qty}, stok: {quantity}, safety: {safety_stock})")
             await log_to_signals("Admin", f"📦 Stok {product_name} kritis ({quantity} unit). Task restock {reorder_qty} unit otomatis dibuat.", "WORKING")
 
+            # Email alert
+            subject, html = stock_low_email(product_name, quantity, safety_stock)
+            asyncio.create_task(send_email("admin@fusionneural.app", subject, html))
+
     except Exception as e:
         print(f"[Stock Watchdog] Error: {e}")
 
@@ -1795,6 +1807,10 @@ async def budget_alert_check():
             await broadcaster.send_agent_signal("Finance", "ALERT",
                 f"Budget menipis! Sisa Rp {current_budget:,.0f} (threshold: Rp {threshold:,.0f})")
             await log_to_signals("Finance", f"⚠️ Budget menipis! Sisa Rp {current_budget:,.0f}", "ALERT")
+
+            # Email alert
+            subject, html = budget_alert_email(current_budget, threshold)
+            asyncio.create_task(send_email("owner@fusionneural.app", subject, html))
 
             # Buat task urgent
             import uuid
@@ -3154,6 +3170,93 @@ async def create_midtrans_token(req: dict):
 app.include_router(integrations_router, prefix="/api")
 # ── WebSocket Router (Solusi #4 — Real-Time Signals tanpa polling Firestore) ──
 app.include_router(ws_router)
+
+# ═══════════════════════════════════════════════════════════════════
+# USER INVITATION (Owner/Manager invites team members)
+# ═══════════════════════════════════════════════════════════════════
+
+class InviteRequest(BaseModel):
+    email: str
+    role: str = "viewer"
+    companyId: str = ""
+
+@app.post("/api/users/invite", dependencies=[Depends(verify_api_key)])
+async def invite_user(req: InviteRequest):
+    """Invite a new user. Creates Firebase Auth user + Firestore profile."""
+    if not db:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        # Generate temporary password
+        import secrets
+        temp_password = secrets.token_urlsafe(12)
+
+        # Create Firebase Auth user via REST API
+        firebase_api_key = os.getenv("VITE_FIREBASE_API_KEY", "")
+        if not firebase_api_key:
+            raise HTTPException(500, "Firebase API key not configured")
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={firebase_api_key}",
+                json={
+                    "email": req.email,
+                    "password": temp_password,
+                    "displayName": req.email.split("@")[0],
+                },
+            )
+
+        if resp.status_code != 200:
+            error_msg = resp.json().get("error", {}).get("message", "Unknown error")
+            if error_msg == "EMAIL_EXISTS":
+                raise HTTPException(400, "Email sudah terdaftar")
+            raise HTTPException(400, f"Firebase error: {error_msg}")
+
+        user_data = resp.json()
+        uid = user_data["localId"]
+
+        # Create user profile in Firestore
+        company_id = req.companyId or f"company_{uid}"
+        await asyncio.to_thread(lambda: db.collection("users").document(uid).set({
+            "uid": uid,
+            "email": req.email,
+            "displayName": req.email.split("@")[0],
+            "role": req.role,
+            "companyId": company_id,
+            "status": "active",
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "invitedBy": "owner",
+        }))
+
+        # Send invitation email with temporary password
+        from services.email_service import send_email, welcome_email
+        subject, html = welcome_email(req.email.split("@")[0], req.role)
+        html += f"""
+        <div style="background:#1e293b;padding:16px;border-radius:8px;margin:16px 0;">
+            <p style="margin:0;color:#f1f5f9;font-weight:600;">Login Credentials:</p>
+            <p style="margin:8px 0 0;color:#cbd5e1;">Email: {req.email}</p>
+            <p style="margin:4px 0 0;color:#cbd5e1;">Password sementara: <strong>{temp_password}</strong></p>
+            <p style="margin:8px 0 0;color:#f59e0b;font-size:12px;">Segera ganti password setelah login pertama.</p>
+        </div>
+        """
+        asyncio.create_task(send_email(req.email, subject, html))
+
+        return {
+            "status": "invited",
+            "uid": uid,
+            "email": req.email,
+            "role": req.role,
+            "tempPassword": temp_password,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Invitation failed: {str(e)[:200]}")
+# ── Billing Router (Subscription & Invoicing) ───────────────────────────────
+from routers.billing import router as billing_router  # type: ignore
+app.include_router(billing_router)
 
 # ── Wire integrations logger (harus setelah app.include_router(integrations_router)
 integrations.external_logger = log_to_sheets

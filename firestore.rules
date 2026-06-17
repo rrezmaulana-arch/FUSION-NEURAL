@@ -1,103 +1,221 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// FusionNeural — Firebase Security Rules v2.0
+// FusionNeural — Firebase Security Rules v3.0
 //
-// Arsitektur Auth:
-//   - Frontend (React): Firebase JWT token dari logged-in user
-//   - Backend (Python): Firebase email/password auth (backend-agent@fusionneural.app)
-//   - Semua write memerlukan request.auth != null → isAuthenticated()
+// Multi-tenant RBAC: roles from users/{uid} document, not email prefix.
+// Company isolation: all business data scoped by companyId.
 // ─────────────────────────────────────────────────────────────────────────────
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper ───────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
-    function isRole(rolePrefix) {
-      return isAuthenticated() && request.auth.token.email.matches('^' + rolePrefix + '@.*');
-    }
-    function isManager() {
-      return isRole('manager') || isRole('backend-agent');
+
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // ── AI Orchestrator & Agent Collections ──────────────────────────────────
-    // Backend Python (backend-agent@fusionneural.app) menulis ke sini.
-    match /neural_tasks/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /ai_tickets/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /pending_approvals/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /realtime_signals/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /run_transcripts/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /agent_health/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /system_config/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /agent_budgets/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /agent_schedules/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /system_prompts/{docId} {
-      allow read, write: if isAuthenticated();
+    function hasRole(role) {
+      if (!isAuthenticated()) return false;
+      let profile = getUserProfile();
+      return profile.role == role || profile.role == 'owner';
     }
 
-    // ── Business Data (read only for clients, backend can write) ─────────────
-    match /inventory/{docId} {
-      allow read: if isManager() || isRole('admin');
-      allow write: if isManager() || isRole('admin');
+    function isManagerOrOwner() {
+      return hasRole('manager') || hasRole('owner');
     }
-    match /orders/{docId} {
-      allow read: if isManager() || isRole('admin') || isRole('finance');
-      allow write: if isManager() || isRole('admin');
+
+    function getUserCompanyId() {
+      if (!isAuthenticated()) return null;
+      let profile = getUserProfile();
+      return profile.companyId;
     }
-    match /financial_reports/{docId} {
-      allow read: if isManager() || isRole('finance');
-      allow write: if isManager() || isRole('finance');
+
+    function belongsToCompany(resourceCompanyId) {
+      return isAuthenticated() && getUserCompanyId() == resourceCompanyId;
     }
-    match /finance_metrics/{docId} {
-      allow read: if isManager() || isRole('finance');
-      allow write: if isManager() || isRole('finance');
-    }
-    match /market_simulator/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /signals/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /activity_logs/{docId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if false;
-    }
-    match /neural_configs/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /marketing_assets/{docId} {
-      allow read, write: if isManager() || isRole('marketing');
+
+    function isBackendAgent() {
+      return isAuthenticated() && request.auth.token.email == 'backend-agent@fusionneural.app';
     }
 
     // ── User Profiles ─────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      // Users can read their own profile; managers/owners can read all in their company
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        isManagerOrOwner()
+      );
+      // Users can update their own profile; owners can update any
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        hasRole('owner')
+      );
+      allow delete: if false; // never delete user profiles
     }
 
-    // ── Fallback: block unauthenticated access, allow authenticated ───────────
+    // ── Company ───────────────────────────────────────────────────────────────
+    match /companies/{companyId} {
+      allow read: if isAuthenticated() && getUserCompanyId() == companyId;
+      allow write: if isAuthenticated() && hasRole('owner') && getUserCompanyId() == companyId;
+    }
+
+    // ── Subscriptions ─────────────────────────────────────────────────────────
+    match /subscriptions/{subId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || isManagerOrOwner();
+    }
+
+    // ── Invoices ──────────────────────────────────────────────────────────────
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow create: if isBackendAgent();
+      allow update: if isBackendAgent();
+      allow delete: if false;
+    }
+
+    // ── AI Orchestrator Collections (scoped by companyId) ──────────────────────
+    match /neural_tasks/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId));
+    }
+    match /ai_tickets/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId));
+    }
+    match /pending_approvals/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId));
+    }
+    match /realtime_signals/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId));
+    }
+    match /run_transcripts/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent();
+    }
+    match /agent_health/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent();
+    }
+    match /agent_budgets/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent();
+    }
+    match /agent_schedules/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || isManagerOrOwner();
+    }
+
+    // ── System Config (global, backend-only write) ────────────────────────────
+    match /system_config/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent() || isManagerOrOwner();
+    }
+    match /system_prompts/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent() || isManagerOrOwner();
+    }
+
+    // ── Business Data (role + company scoped) ─────────────────────────────────
+    match /inventory/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('admin') || isManagerOrOwner());
+      allow write: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('admin') || isManagerOrOwner());
+    }
+    match /orders/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('admin') || hasRole('finance') || isManagerOrOwner());
+      allow write: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('admin') || isManagerOrOwner());
+    }
+    match /financial_reports/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('finance') || isManagerOrOwner());
+      allow write: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('finance') || isManagerOrOwner());
+    }
+    match /finance_metrics/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('finance') || isManagerOrOwner());
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId) && hasRole('finance'));
+    }
+    match /finance_transactions/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('finance') || isManagerOrOwner());
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId) && hasRole('finance'));
+    }
+    match /suppliers/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('admin') || isManagerOrOwner());
+      allow write: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('admin') || isManagerOrOwner());
+    }
+    match /price_history/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent();
+    }
+    match /marketing_assets/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('marketing') || isManagerOrOwner());
+      allow write: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('marketing') || isManagerOrOwner());
+    }
+    match /marketing_campaigns/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('marketing') || isManagerOrOwner()));
+    }
+    match /marketing_posts/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent() || (isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('marketing') || isManagerOrOwner()));
+    }
+    match /marketing_analytics/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow write: if isBackendAgent();
+    }
+    match /leads_contacts/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('marketing') || isManagerOrOwner());
+      allow write: if isAuthenticated() && belongsToCompany(resource.data.companyId) && (hasRole('marketing') || isManagerOrOwner());
+    }
+
+    // ── Audit Logs (append-only) ──────────────────────────────────────────────
+    match /audit_logs/{docId} {
+      allow read: if isAuthenticated() && (isManagerOrOwner() || hasRole('finance'));
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+    match /activity_logs/{docId} {
+      allow read: if isAuthenticated() && belongsToCompany(resource.data.companyId);
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+    match /audit_ledger/{docId} {
+      allow read: if isAuthenticated() && isManagerOrOwner();
+      allow create: if isBackendAgent();
+      allow update, delete: if false;
+    }
+
+    // ── Active Chats ──────────────────────────────────────────────────────────
+    match /active_chats/{chatId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent() || isAuthenticated();
+    }
+
+    // ── Market Simulator ──────────────────────────────────────────────────────
+    match /market_simulator/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent() || isManagerOrOwner();
+    }
+
+    // ── Signals ───────────────────────────────────────────────────────────────
+    match /signals/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent();
+    }
+
+    // ── Neural Configs ────────────────────────────────────────────────────────
+    match /neural_configs/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isBackendAgent() || isManagerOrOwner();
+    }
+
+    // ── Default: DENY all unmatched paths ─────────────────────────────────────
     match /{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if false;
     }
   }
 }

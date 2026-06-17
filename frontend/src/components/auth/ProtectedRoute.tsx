@@ -1,21 +1,24 @@
 /**
  * Project: FUSION NEURAL
- * Created by: Miftah Afreza Maulana (rrez_.maulana)
- * Role: Product Engineer (UI/UX & Full-Stack)
- * Copyright (c) 2026. All rights reserved.
+ * components/auth/ProtectedRoute.tsx — Role-Based Route Guard
+ *
+ * Supports optional `allowedRoles` prop for role-based access control.
+ * Falls back to authentication-only check if no roles specified.
  */
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import type { UserRole } from '../../services/userService';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: UserRole[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
+  const { currentUser, loading, userRole } = useAuth();
 
-  // Jangan redirect selama Firebase auth masih loading
+  // Loading state
   if (loading) {
     return (
       <div style={{
@@ -41,8 +44,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
+  // Not authenticated
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Role-based access check
+  if (allowedRoles && allowedRoles.length > 0) {
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      // Redirect to user's correct dashboard
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <>{children}</>;

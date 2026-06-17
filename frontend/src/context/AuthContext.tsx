@@ -1,84 +1,120 @@
 /**
  * Project: FUSION NEURAL
- * Created by: Miftah Afreza Maulana (rrez_.maulana)
- * Role: Product Engineer (UI/UX & Full-Stack)
- * Copyright (c) 2026. All rights reserved.
+ * context/AuthContext.tsx — Authentication with Firestore-based RBAC
+ *
+ * Role is fetched from Firestore users/{uid} document, NOT from email prefix.
+ * companyId enables multi-tenant data isolation.
  */
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { getUserProfile, createUserProfile, updateLastLogin } from '../services/userService';
+import type { UserProfile, UserRole } from '../services/userService';
 
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  userRole: string | null;
+  userRole: UserRole | null;
+  companyId: string | null;
+  userProfile: UserProfile | null;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
-// Inisialisasi context
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-// Custom hook untuk memudahkan pemanggilan context di komponen lain
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  const fetchProfile = useCallback(async (user: User) => {
+    try {
+      let profile = await getUserProfile(user.uid);
+
+      if (!profile) {
+        // First login — create profile with default role
+        profile = await createUserProfile(
+          user.uid,
+          user.email || '',
+          user.displayName || user.email?.split('@')[0] || 'User',
+        );
+      } else {
+        // Update last login (non-blocking)
+        updateLastLogin(user.uid);
+      }
+
+      setUserProfile(profile);
+      setUserRole(profile.role);
+      setCompanyId(profile.companyId);
+    } catch (err) {
+      console.error('[Auth] Failed to fetch/create profile:', err);
+      // Fallback: derive role from email prefix (migration path)
+      const prefix = user.email?.split('@')[0] || 'viewer';
+      const fallbackRole = ['owner', 'manager', 'admin', 'finance', 'marketing'].includes(prefix)
+        ? (prefix as UserRole)
+        : 'viewer';
+      setUserRole(fallbackRole);
+      setCompanyId(`company_${user.uid}`);
+    }
+  }, []);
 
   useEffect(() => {
-    // Listener untuk memantau perubahan status login/logout dari Firebase
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
-      
-      // Menentukan role dari prefix email
-      if (user && user.email) {
-        const prefix = user.email.split('@')[0];
-        setUserRole(prefix);
+
+      if (user) {
+        await fetchProfile(user);
       } else {
         setUserRole(null);
+        setCompanyId(null);
+        setUserProfile(null);
       }
-      
+
       setLoading(false);
     }, (_error) => {
-      // Firebase auth error — tetap set loading false agar app tidak stuck
-      console.warn('[FusionNeural] Firebase Auth error, continuing as guest.', _error);
+      console.warn('[Auth] Firebase Auth error, continuing as guest.', _error);
       setLoading(false);
     });
 
-    // Fallback: jika Firebase tidak merespons dalam 5 detik, unblock app
-    const fallbackTimer = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
+    // Fallback: unblock app if Firebase doesn't respond in 5 seconds
+    const fallbackTimer = setTimeout(() => setLoading(false), 5000);
 
     return () => {
       unsubscribe();
       clearTimeout(fallbackTimer);
     };
-  }, []);
+  }, [fetchProfile]);
 
-  // FUNGSI LOGOUT YANG SUDAH DIUBAH
   const logout = async () => {
     try {
-      // 1. Jalankan proses logout Firebase
       await signOut(auth);
-      
-      // 2. Arahkan langsung ke Landing Page (ganti '/' jika path landing page Anda berbeda)
-      // Menggunakan window.location.href sangat aman di sini karena akan me-reset seluruh state aplikasi
-      // 2. Arahkan langsung ke Landing Page dan replace history agar tidak bisa back
-      window.location.replace('/'); 
+      window.location.replace('/');
     } catch (error) {
-      console.error("Gagal melakukan logout:", error);
+      console.error('[Auth] Logout failed:', error);
     }
   };
 
-  const value = {
+  const refreshProfile = useCallback(async () => {
+    if (currentUser) {
+      await fetchProfile(currentUser);
+    }
+  }, [currentUser, fetchProfile]);
+
+  const value: AuthContextType = {
     currentUser,
     loading,
     userRole,
-    logout
+    companyId,
+    userProfile,
+    logout,
+    refreshProfile,
   };
 
   return (
