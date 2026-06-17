@@ -56,10 +56,16 @@ from integrations import router as integrations_router  # type: ignore
 # ── Modul Baru: Routers & Services ───────────────────────────────────────────
 from routers.websocket_signals import router as ws_router, broadcaster  # type: ignore
 from services.auth import verify_token as verify_firebase_token  # type: ignore
+from logging_config import setup_logging, get_logger  # noqa: E402
 
 # ── Load environment variables ────────────────────────────────────────────────
 dotenv_path = os.path.join(os.path.dirname(_BACKEND_DIR), ".env")
 load_dotenv(dotenv_path)
+
+# ── Structured Logging ───────────────────────────────────────────────────────
+DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
+setup_logging(debug=DEBUG_MODE)
+logger = get_logger("fusionneural")
 
 # ── External API Keys (shared with integrations.py) ─────────────────────────
 INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
@@ -305,9 +311,8 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://loc
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+",
-    allow_methods=["*"], 
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
     allow_credentials=True,
 )
 
@@ -1835,7 +1840,7 @@ async def toggle_autonomous(req: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/products/{product_id}/price")
+@app.post("/api/products/{product_id}/price", dependencies=[Depends(verify_api_key)])
 async def update_product_price(product_id: str, req: dict):
     """Update harga produk — dipanggil oleh dynamic pricing engine."""
     if not db:
@@ -1886,7 +1891,7 @@ async def update_product_price(product_id: str, req: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/agent/budget")
+@app.get("/api/agent/budget", dependencies=[Depends(verify_api_key)])
 async def get_agent_budget():
     """Ambil sisa token budget harian semua agen dari agent_health."""
     if not db:
@@ -1939,7 +1944,7 @@ def get_exp_percent(tasks: int) -> float:
             return round((tasks - prev) / (threshold - prev) * 100, 1)
     return 100.0
 
-@app.get("/api/agent/progress")
+@app.get("/api/agent/progress", dependencies=[Depends(verify_api_key)])
 async def get_agent_progress():
     """Ambil RPG stats semua agen dari Firebase agent_health."""
     if not db:
@@ -1959,7 +1964,7 @@ async def get_agent_progress():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/agent/progress")
+@app.post("/api/agent/progress", dependencies=[Depends(verify_api_key)])
 async def update_agent_progress(req: dict):
     """Update EXP agen setelah task selesai. Dipanggil dari trigger_agent."""
     agent_id:   str = str(req.get("agent_id") or "")
@@ -2016,7 +2021,7 @@ async def update_agent_progress(req: dict):
 
 # ── MAIN: Trigger Agent ───────────────────────────────────────────────────────
 
-@app.post("/trigger-agent", response_model=AgentResponse)
+@app.post("/trigger-agent", response_model=AgentResponse, dependencies=[Depends(verify_api_key)])
 async def trigger_agent(req: AgentRequest):
     """
     Endpoint utama. Dipanggil oleh Vercel API routes.
@@ -2203,7 +2208,7 @@ class LogRequest(BaseModel):
     result:    str
     sessionId: str = ""
 
-@app.post("/log-activity")
+@app.post("/log-activity", dependencies=[Depends(verify_api_key)])
 async def log_activity(req: LogRequest):
     """
     Endpoint ringan: terima hasil agen → log ke Google Sheets.
@@ -2256,7 +2261,7 @@ async def log_to_signals(agent: str, message: str, status: str = "THINKING"):
         print(f"[signals] Firebase Error: {e}")
 
 # ── Business Logic Config Endpoints ───────────────────────────────────────────
-@app.get("/api/business-logic")
+@app.get("/api/business-logic", dependencies=[Depends(verify_api_key)])
 async def get_business_logic():
     try:
         with open("business_logic.json", "r") as f:
@@ -2303,7 +2308,7 @@ class SimulatorRequest(BaseModel):
     action: str = "marketing"
     context: str = ""
 
-@app.post("/simulator/{action}")
+@app.post("/simulator/{action}", dependencies=[Depends(verify_api_key)])
 async def simulator_trigger(action: str, req: SimulatorRequest = SimulatorRequest()):
     """
     Endpoint untuk autopilot trigger dari frontend via Vite proxy.
@@ -2480,7 +2485,7 @@ async def upload_media(file: UploadFile = File(...)):
 
 
 # ── Marketing Publish Endpoint ──────────────────────────────────────────────
-@app.post("/api/marketing/publish")
+@app.post("/api/marketing/publish", dependencies=[Depends(verify_api_key)])
 async def publish_marketing_post(req: dict):
     """Publish satu post dari marketing_posts ke platform yang sesuai."""
     post_id = req.get("postId")
@@ -2796,7 +2801,7 @@ class CampaignDraftRequest(BaseModel):
     agentId:      str = "Neural Marketing"
     notes:        str = ""
 
-@app.post("/api/campaign/draft")
+@app.post("/api/campaign/draft", dependencies=[Depends(verify_api_key)])
 async def create_campaign_draft(req: CampaignDraftRequest):
     """
     AI Marketing mengirim draft kampanye ke sini.
@@ -2857,7 +2862,7 @@ async def create_campaign_draft(req: CampaignDraftRequest):
     }
 
 
-@app.post("/api/campaign/approve-and-send")
+@app.post("/api/campaign/approve-and-send", dependencies=[Depends(verify_api_key)])
 async def approve_and_send_campaign(req: dict):
     """
     Dipanggil dari Strategic Audit Hub saat Manager menekan APPROVE.
@@ -2903,7 +2908,7 @@ async def approve_and_send_campaign(req: dict):
     }
 
 
-@app.get("/api/campaigns")
+@app.get("/api/campaigns", dependencies=[Depends(verify_api_key)])
 async def list_campaigns():
     """Ambil semua kampanye email dari Firestore (untuk UI EmailCampaignPage)."""
     if not db:
@@ -2919,7 +2924,7 @@ async def list_campaigns():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/leads")
+@app.get("/api/leads", dependencies=[Depends(verify_api_key)])
 async def list_leads():
     """Ambil semua leads/kontak dari koleksi leads_contacts."""
     if not db:
@@ -2934,7 +2939,7 @@ async def list_leads():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/leads/add")
+@app.post("/api/leads/add", dependencies=[Depends(verify_api_key)])
 async def add_lead(req: dict):
     """Tambahkan kontak/lead baru ke database."""
     if not db:
@@ -3007,7 +3012,7 @@ async def resend_webhook(request: Request):
         return {"status": "error", "detail": str(e)}
 
 
-@app.post("/api/campaign/ai-draft")
+@app.post("/api/campaign/ai-draft", dependencies=[Depends(verify_api_key)])
 async def ai_generate_campaign_draft(req: dict):
     """
     AI Marketing secara otonom membuat HTML email berdasarkan brief dari user.

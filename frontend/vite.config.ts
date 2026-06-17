@@ -299,6 +299,12 @@ export default defineConfig(({ mode }) => {
       }
     ],
     build: {
+      // Strip console.log and debugger in production builds
+      ...(mode === 'production' && {
+        esbuild: {
+          drop: ['console', 'debugger'],
+        },
+      }),
       rollupOptions: {
         output: {
           manualChunks(id) {

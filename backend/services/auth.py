@@ -7,7 +7,7 @@
 #   TIDAK ADA lagi static API key yang bocor di browser pengguna
 
 import os
-from fastapi import Depends, HTTPException, Security
+from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
@@ -58,7 +58,8 @@ def verify_token(
             from firebase_admin import auth as fb_auth
             decoded = fb_auth.verify_id_token(token)
             email = decoded.get("email", "")
-            role = email.split("@")[0] if email else "unknown"
+            # Role from custom claims (set via Firebase Admin), fallback to viewer
+            role = decoded.get("role", "viewer")
             return {
                 "uid": decoded.get("uid", ""),
                 "email": email,
@@ -78,12 +79,7 @@ def verify_token(
     if _STATIC_API_KEY and token == _STATIC_API_KEY:
         return {"uid": "dev", "email": "dev@fusionneural.id", "role": "manager", "provider": "static_key"}
 
-    # Jika tidak ada Firebase dan static key tidak cocok, tolak
-    if not _STATIC_API_KEY:
-        # Mode development tanpa auth — izinkan semua
-        print("[auth] ⚠️  DEV MODE: Semua request diizinkan tanpa auth")
-        return {"uid": "dev", "email": "dev@local", "role": "manager", "provider": "dev_bypass"}
-
+    # Tidak ada Firebase dan static key tidak cocok — tolak
     raise HTTPException(status_code=403, detail="Akses ditolak: Token tidak valid.")
 
 
